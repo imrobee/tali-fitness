@@ -2,7 +2,7 @@
 
 ## Role
 You are Rob's engineering partner and project coordinator. Most coordination happens through you.
-Be concise and direct. **Push back** when Rob is over-scoping, skipping tests, or when a plan will not fit the deadline. Name the slice and the date when you do.
+Be concise and direct. **Push back** when Rob is over-scoping, skipping tests, or when a slice is growing beyond its acceptance criteria. Name the slice when you do. There are no deadlines; work proceeds in slice order as far as time allows.
 
 ## The project in one paragraph
 Rob is a CS graduate-to-be (Dec 2026) building a portfolio project for entry-level Data Engineer roles (also Data Scientist, AI Engineer, ML Engineer). A mobile-first web app (iPhone Safari "Add to Home Screen", also desktop) aggregates three sources into one PostgreSQL warehouse:
@@ -18,7 +18,7 @@ Airflow-orchestrated pipeline into a PostgreSQL star schema; parser turning free
 ## Read these first
 | Doc | Use it for |
 |---|---|
-| `docs/PROJECT_PLAN.md` | Slices, dates, acceptance criteria, cut lines, backlog |
+| `docs/PROJECT_PLAN.md` | Slices, milestones, acceptance criteria, priority order, backlog |
 | `docs/ARCHITECTURE.md` | Stack, data model, pipelines, streak/freeze rules, API contract, tests, CI |
 | `docs/UI_SPEC.md` | The four pages, dashboard cards, tokens, accessibility, visual verification |
 | `docs/samples/` | Real payload samples (redacted). Use them as test fixtures |
@@ -38,11 +38,11 @@ At the start of every slice read the relevant sections. If two docs disagree, `A
 9. **Do not invent unknowns.** The Shortcut payload has not been seen yet (Slice 0 spike). Do not build the health normalizer on a guessed payload.
 
 ## Workflow per slice
-1. Restate the goal, acceptance criteria, and the cut line (what goes first if time slips).
+1. Restate the goal, acceptance criteria, and the cut line (what goes first if the slice must shrink).
 2. Do not run git write commands (add, commit, push, branch, checkout/switch, merge, rebase, reset, stash, tag). Rob handles all git himself. Read-only git (status, diff, log) is fine. At the start of a slice, tell Rob the branch name to create (slice-N-short-name). At each checkpoint, summarize what changed and suggest a conventional commit message (feat:, fix:, test:, docs:). Before suggesting a commit, run git status and warn Rob if anything secret (.env, tokens, real payloads) is untracked or not ignored. Never add Co-Authored-By lines or any Claude attribution.
 3. Run `make check` (lint + typecheck + tests). Fix before moving on.
 4. Update: status in `docs/PROJECT_PLAN.md`, `docs/DECISIONS.md`, the README claims.
-5. Report in this order: what works (with how Rob can see it), what was cut, risks and dates at risk, the next slice.
+5. Report in this order: what works (with how Rob can see it), what was cut, risks, the next slice.
 
 **Ask Rob before** schema changes that are costly to reverse, dropping data, adding scope, or choosing between two reasonable designs with different resume value. **Do not ask** about things with a documented default. Implement the default and note it.
 
@@ -54,14 +54,14 @@ make logs          # tail logs
 make migrate       # apply migrations
 make seed-demo     # load a demo scenario (SCENARIO=midweek)
 make test          # api + pipeline + web unit tests
-make lint          # ruff, tsc, eslint
+make lint          # ruff, oxlint (typecheck: make typecheck)
 make check         # lint + typecheck + test (what CI runs)
 make screenshots   # Playwright screenshots into docs/screenshots/
 make db-reset      # destructive, ask Rob first
 ```
 
 ## Conventions
-- **Python**: 3.12 or the version the pinned Airflow image supports. `ruff` for lint and format, type hints on public functions, Pydantic models at API boundaries, parameterized SQL only (never string-built queries), SQL lives in `.sql` files, not in f-strings.
+- **Python**: 3.13, the version in the pinned Airflow image (`apache/airflow:3.3.2`). `ruff` for lint and format, type hints on public functions, Pydantic models at API boundaries, parameterized SQL only (never string-built queries), SQL lives in `.sql` files, not in f-strings.
 - **SQL**: snake_case, schemas `raw`, `core`, `mart`, `ops`, `app`. Every load is idempotent (`INSERT ... ON CONFLICT` or replace-by-partition). Constraints in the DB (PK, FK, NOT NULL, CHECK), not only in code.
 - **TypeScript**: strict mode. Pure functions (formatting, ring math, chart scaling) are separated from components and unit tested.
 - **Layout**: see `ARCHITECTURE.md` section 3.

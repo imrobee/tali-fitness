@@ -27,9 +27,22 @@ SAMPLE_PATH = Path("docs/samples/strava_activity_detail_01.json")
 
 # Fields we need for the pipeline; the report shows where each one appears.
 FIELDS_TO_CHECK = [
-    "description", "sport_type", "type", "name", "start_date", "start_date_local",
-    "timezone", "utc_offset", "elapsed_time", "moving_time", "distance",
-    "average_heartrate", "calories", "device_name", "private", "visibility",
+    "description",
+    "sport_type",
+    "type",
+    "name",
+    "start_date",
+    "start_date_local",
+    "timezone",
+    "utc_offset",
+    "elapsed_time",
+    "moving_time",
+    "distance",
+    "average_heartrate",
+    "calories",
+    "device_name",
+    "private",
+    "visibility",
 ]
 
 # Allowlist for the committed sample: anything not listed (GPS, map, athlete,
@@ -110,8 +123,12 @@ def print_field_report(summary: dict, detail: dict) -> None:
 
 def print_rate_limits(headers: dict[str, str]) -> None:
     print("\nRate limit headers (15-min usage, daily usage):")
-    for name in ["X-RateLimit-Limit", "X-RateLimit-Usage",
-                 "X-ReadRateLimit-Limit", "X-ReadRateLimit-Usage"]:
+    for name in [
+        "X-RateLimit-Limit",
+        "X-RateLimit-Usage",
+        "X-ReadRateLimit-Limit",
+        "X-ReadRateLimit-Usage",
+    ]:
         # Header name case can vary, so match case-insensitively.
         value = next((v for k, v in headers.items() if k.lower() == name.lower()), None)
         print(f"  {name}: {value}")
@@ -131,25 +148,30 @@ def main() -> None:
         sys.exit("Put STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET in .env at the repo root.")
 
     # Step 1: authorize in the browser.
-    params = urllib.parse.urlencode({
-        "client_id": client_id,
-        "redirect_uri": REDIRECT_URI,
-        "response_type": "code",
-        "approval_prompt": "force",
-        "scope": SCOPE,
-    })
+    params = urllib.parse.urlencode(
+        {
+            "client_id": client_id,
+            "redirect_uri": REDIRECT_URI,
+            "response_type": "code",
+            "approval_prompt": "force",
+            "scope": SCOPE,
+        }
+    )
     print("1. Open this URL, approve (keep the private-activities box ticked):\n")
     print(f"   {AUTHORIZE_URL}?{params}\n")
     print("   The browser then fails to load localhost. That is expected.")
     code = extract_code(input("2. Paste the full URL from the address bar: "))
 
     # Step 2: exchange the one-time code for tokens (kept in memory only).
-    tokens = post_form(TOKEN_URL, {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "code": code,
-        "grant_type": "authorization_code",
-    })
+    tokens = post_form(
+        TOKEN_URL,
+        {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+        },
+    )
     access_token = tokens["access_token"]
     granted = tokens.get("scope", "(not returned)")
     print(f"\nToken OK. Granted scope: {granted}")

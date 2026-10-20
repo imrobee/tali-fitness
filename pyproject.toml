@@ -1,0 +1,14 @@
+# Shared ruff settings for all Python in the repo (api/, pipeline/, db/, scripts/).
+# Ruff runs from its official Docker image via `make lint`.
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# E/F: errors and pyflakes; I: import order; B: likely bugs; UP: modern syntax.
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+# Ruff runs from the repo root, so tell it which top-level packages are ours.
+known-first-party = ["app"]

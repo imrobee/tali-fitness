@@ -32,9 +32,9 @@ Pattern: **ELT**. Land raw data unchanged (`raw`), transform with SQL and a smal
 
 | Service | Image / build | Host port | Notes |
 |---|---|---|---|
-| `postgres` | `postgres:16` | `127.0.0.1:5432` | Two databases: `app` (warehouse) and `airflow` (Airflow metadata). Init script creates both |
-| `airflow` | Official Apache Airflow image, **current stable release pinned after reading the official docs** | `127.0.0.1:8080` | **LocalExecutor only** (no Celery, no Redis). Mounts `pipeline/dags` and `pipeline/include`. Prefer the lightest official way to run it in one container for dev. Target well under 2 GB RAM |
-| `api` | Build `./api` | `0.0.0.0:8000` | `uvicorn --reload` in dev. Reachable from the iPhone at `http://<mac-lan-ip>:8000` |
+| `postgres` | `postgres:16` | `127.0.0.1:5433` (container port 5432; the Mac's own Postgres holds 5432) | Two databases: `app` (warehouse, `POSTGRES_DB`) and `airflow` (metadata, `db/init/01_create_airflow_db.sql`) |
+| `airflow` | Build `./pipeline`, `FROM apache/airflow:3.3.2` (Python 3.13) | `127.0.0.1:8080` | `airflow standalone` in one container: **LocalExecutor only** (no Celery, no Redis), metadata in the `airflow` database. Mounts `pipeline/dags`, `pipeline/include`, `pipeline/tests`. Login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` (written to the simple auth manager's passwords file by `pipeline/start_airflow.sh`) |
+| `api` | Build `./api` (`python:3.13-slim`, matches the Airflow image) | `0.0.0.0:8000` | `uvicorn --reload` in dev. Mounts `db/` for Alembic. Reachable from the iPhone at `http://<mac-lan-ip>:8000` |
 | `web` | Build `./web` (Node) | `0.0.0.0:5173` | `vite --host`; dev proxy `/api` to `http://api:8000` (same origin, no CORS pain) |
 
 `.env.example` keys: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `WAREHOUSE_URL`, `API_KEY`, `APP_TIMEZONE=Asia/Manila`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `BACKFILL_DAYS=90`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD`, `APP_ENV=dev`, `NOW_OVERRIDE` (only honored when `APP_ENV` is `dev` or `test`; used for fixtures and screenshots).
@@ -52,6 +52,7 @@ DB access: SQLAlchemy Core with `text()` and parameters, using `WAREHOUSE_URL`, 
 │   ├── design-reference/   reference images (strava widget, mynetdiary, concept mock)
 │   └── screenshots/        output of `make screenshots`
 ├── db/
+│   ├── init/        one-time Postgres init (creates the `airflow` database)
 │   ├── migrations/  Alembic versions (schemas, tables, SQL functions/views)
 │   ├── sql/         transform SQL (one file per step; loaded by DAG tasks)
 │   └── seeds/       dim_activity_type.csv  exercise_muscle_map.csv
@@ -346,7 +347,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 | Web logic | Vitest + Testing Library | formatters, ring and chart math, card states from payloads |
 | Visual | Playwright | screenshots per scenario at 393x852 and 1280x800 (see `UI_SPEC.md`) |
 
-CI (GitHub Actions): ruff, pytest with a Postgres service container, DAG import test, web `tsc`, `vitest`, production build. Playwright screenshots run locally via `make screenshots` (upload as CI artifacts only if time allows).
+CI (GitHub Actions) runs `make check`, the same containers as local: ruff (official image), oxlint, `tsc` plus the production build, pytest against the Compose Postgres service, the DAG import test inside the Airflow image, and `vitest`. Playwright screenshots run locally via `make screenshots` (upload as CI artifacts optional).
 
 ## 14. Open decisions
 

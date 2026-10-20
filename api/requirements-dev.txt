@@ -1,0 +1,3 @@
+# Test-only dependencies (installed in the dev image; reasons in docs/DECISIONS.md).
+pytest==9.1.1
+httpx==0.28.1

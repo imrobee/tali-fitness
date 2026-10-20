@@ -1,0 +1,2 @@
+# Test-only dependencies for the Airflow image (reasons in docs/DECISIONS.md).
+pytest==9.1.1

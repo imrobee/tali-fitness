@@ -1,0 +1,80 @@
+# Local development stack (ARCHITECTURE.md section 2). Start with `make up`.
+# Values like ${POSTGRES_USER} come from .env.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: app # the warehouse; db/init creates the "airflow" database too
+    ports:
+      # Mac port 5433 (5432 is taken by a local Postgres); containers still use 5432.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d app"]
+      interval: 5s
+      retries: 20
+
+  api:
+    build: ./api
+    env_file: .env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "0.0.0.0:8000:8000" # all interfaces, so the iPhone can reach it on the LAN
+    volumes:
+      - ./api:/app
+      - ./db:/db # Alembic migrations run from here
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      retries: 10
+
+  airflow:
+    build: ./pipeline
+    env_file: .env
+    command: ["bash", "/opt/airflow/start_airflow.sh"]
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: ${AIRFLOW_ADMIN_USER}:admin
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/simple_auth_manager_passwords.json
+      PYTHONDONTWRITEBYTECODE: "1" # no __pycache__ in the bind-mounted dags/ folder
+    ports:
+      - "127.0.0.1:8080:8080" # Airflow UI, this Mac only
+    volumes:
+      - ./pipeline/dags:/opt/airflow/dags
+      - ./pipeline/include:/opt/airflow/include
+      - ./pipeline/tests:/opt/airflow/tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v2/monitor/health')"]
+      interval: 15s
+      start_period: 120s
+      retries: 10
+
+  web:
+    build: ./web
+    ports:
+      - "0.0.0.0:5173:5173" # all interfaces, so the iPhone can reach it on the LAN
+    volumes:
+      - ./web:/app
+      - /app/node_modules # keep the image's node_modules; don't use the host's
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      retries: 10
+
+volumes:
+  pgdata:

@@ -17,16 +17,14 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 | Orchestration | Airflow DAGs with retries, idempotent tasks, run logging |
 | Stakeholder communication | README, DECISIONS log, weekly summary view |
 
-## 2. Deadline and milestones (today is Mon 2026-10-19)
+## 2. Milestones (no deadlines; built in order, as far as time allows)
 
-| Milestone | Date | Definition |
-|---|---|---|
-| **M1: workable** | **Sat 2026-10-31** | `make up` starts the stack. Strava activities and Shortcut calories/protein land in Postgres. Hevy sessions are parsed to sets. SQL streak with the freeze rule works. Dashboard shows: greeting, day chooser, streak card, recovery card with freeze indicator, logged exercises card, calorie budget card, protein card. Bottom nav with 4 pages (Activities and Nutrition may be minimal; Me has at least the targets form). 5 DQ checks run in the `data_quality` DAG. CI green. |
-| **M2: portfolio-ready** | **Fri 2026-11-13** | Everything in M1 plus: weekly calorie card, full Activities / Nutrition / Me pages, `/pipeline/health` and the pipeline health panel, all 15 DQ checks (pass and fail test each) visible, full screenshot set, Core leftovers (calendar, trends), chosen Next features, hosting decision, README with diagram and screenshots. |
+| Milestone | Definition |
+|---|---|
+| **M1: workable** | `make up` starts the stack. Strava activities and Shortcut calories/protein land in Postgres. Hevy sessions are parsed to sets. SQL streak with the freeze rule works. Dashboard shows: greeting, day chooser, streak card, recovery card with freeze indicator, logged exercises card, calorie budget card, protein card. Bottom nav with 4 pages (Activities and Nutrition may be minimal; Me has at least the targets form). 5 DQ checks run in the `data_quality` DAG. CI green. |
+| **M2: portfolio-ready** | Everything in M1 plus: weekly calorie card, full Activities / Nutrition / Me pages, `/pipeline/health` and the pipeline health panel, all 15 DQ checks (pass and fail test each) visible, full screenshot set, Core leftovers (calendar, trends), chosen Next features, hosting decision, README with diagram and screenshots. |
 
-**Unconfirmed assumption: about 20 hours/week of capacity.** M1 is 12 days away. If real capacity is under about 15 h/week, M1 slips to about Wed Nov 4 and Slice 7 shrinks. Rob: confirm your weekly hours at the start of Slice 1.
-
-### Cut lines (cut in this order if time slips; never cut the "never cut" list)
+### Priority order (lowest priority first; trim from the top if scope must shrink; never cut the "never cut" list)
 1. Slice 7b "Next" features (weight trend, PRs, weekly summary, muscle volume, small forms)
 2. Slice 7a trends (monthly first, then weekly)
 3. Calendar view (week/month)
@@ -34,8 +32,6 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 5. Activities page set-by-set detail (fall back to raw description text)
 
 **Never cut:** tests, idempotency, data-quality checks, quarantine, CI, README with diagram.
-
-Early-warning checkpoints: Slice 4 not done by **Mon Oct 27** means Slice 6 pages Activities/Nutrition/Me become stubs for M1. Slice 5 not done by **Wed Oct 29** means tell Rob immediately and drop the weekly chart and Activities detail from M1.
 
 ## 3. Scope by priority
 
@@ -65,7 +61,6 @@ Early-warning checkpoints: Slice 4 not done by **Mon Oct 27** means Slice 6 page
 | Slice 0 | Create a Strava API application (callback domain `localhost`), note client ID and secret, put them in `.env` (never commit). |
 | Slice 0 | Build the iOS Shortcut that outputs dietary energy and dietary protein per logged food item, and Body Mass (kg) per weigh-in. Send one real output (redact if needed) to `docs/samples/`. |
 | Slice 0 | Send 3-5 more Hevy-in-Strava descriptions, including a bodyweight set, a cardio/time set, and a superset if you have them. One sample is already in `docs/samples/hevy_description_01.txt`. |
-| Slice 1 | Confirm weekly hours (see section 2). |
 | Slice 3 | Find your Mac's LAN IP, allow incoming connections for Docker Desktop in the macOS firewall prompt, run the Shortcut against `http://<mac-lan-ip>:8000`. |
 | Slice 8 | Approve the hosting choice. |
 
@@ -73,7 +68,7 @@ Early-warning checkpoints: Slice 4 not done by **Mon Oct 27** means Slice 6 page
 
 Each slice: goal, deliverables, acceptance criteria (all testable). Tests listed are part of the slice.
 
-### Slice 0: Spikes and samples (Mon Oct 19 to Thu Oct 22, in parallel with Slice 1) `[ ]`
+### Slice 0: Spikes and samples (in parallel with Slice 1) `[~]`
 Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch per slice). Spike scripts: `scripts/spikes/`.
 **Goal:** replace the two biggest unknowns with real data before designing around them.
 - Strava OAuth works once, locally. `GET /athlete/activities` and `GET /activities/{id}` return a Hevy-logged activity. Confirm the `description`, `sport_type`, `start_date_local`, `timezone`, and `elapsed_time` fields exist in the detail response (the list endpoint may omit `description`).
@@ -82,39 +77,39 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 - Save redacted JSON samples in `docs/samples/`. Update the payload contract in `ARCHITECTURE.md` section 6.2 and record the decision in DECISIONS.
 **Acceptance:** samples committed; open questions in `ARCHITECTURE.md` section 14 for Slice 0 are answered or escalated to Rob.
 
-### Slice 1: Skeleton, CI (Tue Oct 20 to Thu Oct 22; starts after Rob confirms the spike scripts work) `[ ]`
-**Airflow timebox:** get it running with the lightest official setup; no tuning or extras.
+### Slice 1: Skeleton, CI (starts after Rob confirms the spike scripts work) `[~]`
+**Airflow:** get it running with the lightest official setup; no tuning or extras.
 **Deliverables:** Compose with `postgres`, `api` (FastAPI, `GET /api/v1/health`), `airflow` (LocalExecutor), `web` (Vite hello page); Alembic baseline creating schemas; Makefile (see `CLAUDE.md`); `.env.example`; README quickstart; GitHub Actions (ruff, pytest with Postgres service, DAG import test, web typecheck/build/vitest); `docs/DECISIONS.md`.
 **Acceptance:** fresh clone then `cp .env.example .env && make up` gives healthy services; `make check` green locally and in CI; Airflow UI reachable on localhost; API reachable from the iPhone at `http://<mac-lan-ip>:8000/api/v1/health`.
 
-### Slice 2: Strava to raw (Airflow) (Thu Oct 22 to Sat Oct 24) `[ ]`
+### Slice 2: Strava to raw (Airflow) `[ ]`
 **Deliverables:** `scripts/strava_auth.py` (one-time OAuth); token refresh with storage in `ops.oauth_tokens`; DAG `strava_sync` (hourly, `catchup=False`, `max_active_runs=1`, retries with backoff); incremental watermark with a 7-day lookback; `raw.strava_activities` upsert by `strava_id`; `ops.pipeline_runs` row per run; rate-limit handling (read current limits from Strava docs).
 **Acceptance:** run twice, row count unchanged and no duplicates; kill the run midway then rerun, still correct; an edited Strava description is picked up inside the lookback window; a unit test shows `start_date_local` with a trailing `Z` is stored as naive local time and gets the right `local_date`; tests use recorded fixtures (no live API in CI); DAG import test passes.
 
-### Slice 3: Health ingest endpoint (Sat Oct 24 to Sun Oct 25) `[ ]`
+### Slice 3: Health ingest endpoint `[ ]`
 **Deliverables:** `POST /api/v1/ingest/health` with `X-API-Key`; Pydantic validation; `raw.health_batches` + `raw.health_samples`; rejects go to `ops.quarantine`; response `{batch_id, received, accepted, rejected, duplicate}`; `core.apply_health_batch(batch_id)` called in the ingest transaction (replaces only the `(local_date, type)` pairs present in the batch); `ops.pipeline_runs` row per ingest; `scripts/send_sample_shortcut_payload.sh`. No health DAG (`ARCHITECTURE.md` 6.2).
 **Acceptance:** same payload sent twice leaves `core.fact_dietary_sample` unchanged; an edited payload (food entry changed, or one of several entries removed) updates that day and type correctly; a batch missing a type for a day leaves that day's existing rows of that type untouched; a failure mid-batch rolls back raw and core; invalid unit/value is quarantined not dropped; wrong or missing API key returns 401; the real Shortcut on Rob's iPhone posts to the Mac over HTTP and rows appear.
 
-### Slice 4: Core model and Hevy parser (Sun Oct 25 to Tue Oct 27) `[ ]`
+### Slice 4: Core model and Hevy parser `[ ]`
 **Deliverables:** `core.dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`; seed CSVs (activity types, exercise-to-muscle map); pure parser `parse_hevy(description) -> ParsedWorkout` with kg normalization; quarantine of unparseable lines with raw text and reason; re-parse is idempotent (replace sets per activity in one transaction); `dim_exercise` uses `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)`.
 **Acceptance (golden):** `docs/samples/hevy_description_01.txt` parses to **9 exercises, 22 sets, total volume 3490.90 kg** (rounded to 2 dp; the two lbs exercises are converted at 0.45359237 kg/lb; original value and unit are kept); a Strava activity without the Hevy marker is `not_hevy`, not an error; every unknown line becomes a quarantine row and the activity is `partial`, never silently dropped; at least 10 parser unit tests including blank lines, trailing spaces, lbs, and a garbage line; parsing the golden sample twice leaves the `dim_exercise` row count unchanged (covers exercises with NULL equipment).
 
-### Slice 5: Marts, streak with freeze, data quality, pipeline health (Tue Oct 27 to Thu Oct 29) `[ ]`
+### Slice 5: Marts, streak with freeze, data quality, pipeline health `[ ]`
 **Deliverables:** `app.target_history` (budget/goal in effect per date), `app.recovery_day`; `mart.fn_day_status(p_today)`, `mart.fn_streak(p_today)`, `mart.v_daily_nutrition`; DAG `data_quality` (hourly) running the 5 M1 checks (`strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`) and writing `ops.dq_results`.
 **Acceptance:** every scenario in `ARCHITECTURE.md` section 8.4 passes as a SQL integration test against real Postgres; healing yesterday restores the streak; each of the 5 checks has a pass test and a fail test; killing the Strava token produces a failed run in `ops.pipeline_runs` and a `strava_freshness` warning in `ops.dq_results`.
 
-### Slice 6a: API + web shell + dashboard v0 (Thu Oct 29 to Sat Oct 31) `[ ]`  **= M1**
+### Slice 6a: API + web shell + dashboard v0 `[ ]`  **= M1**
 **Deliverables:** `GET /api/v1/dashboard`, `GET/PUT /api/v1/me`, `POST/DELETE /api/v1/recovery`; React app with bottom navigation (4 pages, Activities/Nutrition can be minimal), API-key gate; minimal Me page with the targets form (calorie budget, protein goal, saved effective today); dashboard cards from greeting through protein per `UI_SPEC.md`; visual verification loop with screenshots for 3 scenarios (`midweek`, `at_risk`, `edge_empty`) at iPhone size (393x852) only.
 **Acceptance:** `UI_SPEC.md` section 12 checklist items for those cards pass; Rob opens it on his iPhone via the Mac's LAN IP and sees real data.
 
-### Slice 6b: Complete pages and remaining dashboard card (Nov 1 to Nov 5) `[ ]`
+### Slice 6b: Complete pages and remaining dashboard card `[ ]`
 Weekly calorie budget card; Activities page v1 (day-grouped list; lifting sessions expand to exercises and sets; runs show distance, pace, duration; unparsed descriptions shown as raw text with a quarantine tag); Nutrition page v1; Me page (pipeline health panel, DQ status); `GET /api/v1/pipeline/health` (moved from Slice 5); the remaining 10 DQ checks, each with a pass and a fail test; the full screenshot set (all scenarios, both viewports).
 
-### Slice 7: Core leftovers, then Next features (Nov 5 to Nov 10) `[ ]`
+### Slice 7: Core leftovers, then Next features `[ ]`
 - **7a Core leftovers:** calendar (week/month toggle on Activities, tap a day to filter), weekly/monthly trends (training on Activities, calories/protein on Nutrition), using window functions (`LAG`, rolling averages).
 - **7b Next (pick in this order while time lasts):** weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, `ARCHITECTURE.md` section 14 #8); personal records by estimated 1RM (Epley `w * (1 + reps/30)`, `RANK`/`MAX OVER`); weekly summary vs previous week; weekly volume per muscle group; small manual-entry forms.
 
-### Slice 8: Hosting decision, deploy, README (Nov 10 to Nov 14) `[ ]`
+### Slice 8: Hosting decision, deploy, README `[ ]`
 Research free hosting options (current pricing and limits, from official pages); present options with trade-offs; Rob approves; deploy only after approval. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
 
 ## 6. Resume claims tracker (claim only when Status is "built")
@@ -136,8 +131,7 @@ Research free hosting options (current pricing and limits, from official pages);
 | Airflow memory and learning curve on a laptop | LocalExecutor only; no Celery/Redis; keep tasks thin (SQL + small Python) |
 | Hevy text has formats not in the sample (bodyweight, time, supersets) | Strict parser plus quarantine; collect samples in Slice 0; extend the parser by test |
 | Single freeze surprises Rob on trips | Documented limitation; pause feature is in Backlog |
-| Scope creep | Cut lines in section 2; Backlog below |
-| Capacity | Confirm hours in Slice 1; re-plan at M1 checkpoints |
+| Scope creep | Priority order in section 2; Backlog below |
 
 ## 8. Backlog (not in scope; do not build without Rob's approval)
 

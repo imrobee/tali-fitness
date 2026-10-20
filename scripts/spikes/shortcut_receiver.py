@@ -47,7 +47,8 @@ def summarize(payload: object) -> None:
         print(f"  {sample_type}: units {units}")
         # Show raw values and timestamps exactly as sent, to see their formats.
         for s in of_type[:3]:
-            print(f"    value={s.get('value')!r} start={s.get('start')!r} source={s.get('source')!r}")
+            value, start, source = s.get("value"), s.get("start"), s.get("source")
+            print(f"    value={value!r} start={start!r} source={source!r}")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -68,7 +69,8 @@ class Handler(BaseHTTPRequestHandler):
         OUT_DIR.mkdir(exist_ok=True)
         path.write_bytes(body)  # unchanged, so we see exactly what the Shortcut sent
 
-        print(f"\nPOST {self.path}  {length} bytes  Content-Type: {self.headers.get('Content-Type')}")
+        content_type = self.headers.get("Content-Type")
+        print(f"\nPOST {self.path}  {length} bytes  Content-Type: {content_type}")
         print(f"  saved {path}")
         try:
             summarize(json.loads(body))
