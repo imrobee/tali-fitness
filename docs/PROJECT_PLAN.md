@@ -77,7 +77,7 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 - Save redacted JSON samples in `docs/samples/`. Update the payload contract in `ARCHITECTURE.md` section 6.2 and record the decision in DECISIONS.
 **Acceptance:** samples committed; open questions in `ARCHITECTURE.md` section 14 for Slice 0 are answered or escalated to Rob.
 
-### Slice 1: Skeleton, CI (starts after Rob confirms the spike scripts work) `[~]`
+### Slice 1: Skeleton, CI `[x]`
 **Airflow:** get it running with the lightest official setup; no tuning or extras.
 **Deliverables:** Compose with `postgres`, `api` (FastAPI, `GET /api/v1/health`), `airflow` (LocalExecutor), `web` (Vite hello page); Alembic baseline creating schemas; Makefile (see `CLAUDE.md`); `.env.example`; README quickstart; GitHub Actions (ruff, pytest with Postgres service, DAG import test, web typecheck/build/vitest); `docs/DECISIONS.md`.
 **Acceptance:** fresh clone then `cp .env.example .env && make up` gives healthy services; `make check` green locally and in CI; Airflow UI reachable on localhost; API reachable from the iPhone at `http://<mac-lan-ip>:8000/api/v1/health`.
@@ -119,7 +119,7 @@ Research free hosting options (current pricing and limits, from official pages);
 | Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | not built |
 | Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | not built |
 | Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | not built |
-| Data-quality checks and CI | `ops.dq_results` populated; CI badge | not built |
+| Data-quality checks and CI | `ops.dq_results` populated; CI badge | CI built (Slice 1, `make check` on every push); DQ checks not built |
 | SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend views | not built |
 
 ## 7. Risks
