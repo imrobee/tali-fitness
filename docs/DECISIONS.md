@@ -85,3 +85,24 @@ Why: `CREATE DATABASE` cannot take a bound parameter, and a constant avoids buil
 | oxlint | 1.87.0 | Web lint (template) |
 | vitest | 5.0.3 | Unit tests for pure web functions |
 | @types/node, @types/react, @types/react-dom | 24.19.1, 19.3.0, 19.3.0 | Type definitions (template) |
+
+## Slice 2: Strava to raw
+
+**D19. Run bookkeeping: `start_run` opens the `ops.pipeline_runs` row, each task records its own failure, `close_run` (ALL_DONE) fails anything still `running`.**
+Why: Airflow 3 tasks cannot read other tasks' states, so a final `record_run` task could not tell what failed. Rejected: one `record_run` task inspecting upstream states.
+
+**D20. `fetch_activities` and `load_raw` are one task, writing each activity and the watermark in one transaction.**
+Why: 90 days of JSON must not pass through XCom, and per-activity commits make a killed run keep its progress (tested). Rejected: separate fetch and load tasks handing payloads over XCom.
+
+**D21. Detail fetches go to activities not yet loaded first, then already-loaded ones, capped at 50 per run.**
+Why: with oldest-first only, a backfill with more than 50 activities inside the 7-day lookback would re-fetch the same ones every run and never finish (a test proves the reordering matters). Rejected: plain oldest-first.
+
+**D22. The Strava client uses the Python standard library (`urllib`), like the Slice 0 spike.**
+Why: four HTTP calls do not justify a new dependency, and the code is the same as the spike Rob already ran. Rejected: `requests`/`httpx`.
+
+**D23. One-time authorization is `make strava-auth`, running `include/strava/auth.py` in the Airflow container.**
+Why: it reuses the client and `save_tokens`, and the container already has the Strava keys and database access. Rejected: a separate host script (`scripts/strava_auth.py`) needing its own Python setup.
+
+**D24. Strava location data is dropped before landing: `map`, `start_latlng`, `end_latlng`, `segment_efforts`.** (Rob, 2026-10-20.)
+Why: GPS routes show where runs start (often home); Strava has no option to leave them out, and `activity:read_all` even returns data inside privacy zones. Nothing downstream uses them, so replaying the parser from `raw` is unaffected. Migration 0003 scrubbed the 24 rows loaded earlier; a full search of the stored JSON found no coordinates afterward.
+Rejected: keeping raw fully unchanged and masking only before hosting (the data would sit in local backups until then); switching to `activity:read` plus Strava privacy zones (loses "Only You" activities and still sends most of the route). The one exception to "raw is stored exactly as received".

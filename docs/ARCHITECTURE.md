@@ -26,7 +26,7 @@ flowchart LR
   API -->|reads marts| PG
 ```
 
-Pattern: **ELT**. Land raw data unchanged (`raw`), transform with SQL and a small Python parser into a star schema (`core`), expose business logic as views/functions (`mart`), serve JSON from FastAPI. All business rules (qualifying day, freeze, streak, calorie status) live **in SQL**, so the logic is testable against a real database and is the interview story. The front end only renders.
+Pattern: **ELT**. Land raw data unchanged (`raw`; one exception: Strava location fields are dropped, DECISIONS D24), transform with SQL and a small Python parser into a star schema (`core`), expose business logic as views/functions (`mart`), serve JSON from FastAPI. All business rules (qualifying day, freeze, streak, calorie status) live **in SQL**, so the logic is testable against a real database and is the interview story. The front end only renders.
 
 ## 2. Services (Docker Compose, local only)
 
@@ -59,10 +59,10 @@ DB access: SQLAlchemy Core with `text()` and parameters, using `WAREHOUSE_URL`, 
 ├── api/             FastAPI app (app/), tests/
 ├── pipeline/        dags/  include/ (clients, parsers, loaders)  tests/
 ├── web/             React + Vite + TypeScript (src/, tests/, e2e/)
-└── scripts/         strava_auth.py  seed_demo.py  send_sample_shortcut_payload.sh
+└── scripts/         seed_demo.py  send_sample_shortcut_payload.sh  spikes/
 ```
 
-The Hevy parser lives in `pipeline/include/parsers/hevy.py` and is a **pure function** (text in, dataclass out). The API does not import from `pipeline`.
+Pipeline code lives in `pipeline/include/` (for example `strava/client.py`, `strava/sync.py`) and is imported by thin DAG files; its SQL lives in `db/sql/`. The Hevy parser lives in `pipeline/include/parsers/hevy.py` and is a **pure function** (text in, dataclass out). The API does not import from `pipeline`.
 
 ## 4. Time and "day" (decided once, used everywhere)
 
@@ -81,7 +81,7 @@ Schemas: `raw` (landing, never edited), `core` (star schema), `mart` (views and 
 ### 5.1 `raw`
 | Table | Grain / key | Columns (key ones) |
 |---|---|---|
-| `raw.strava_activities` | one row per Strava activity; PK `strava_id` | `payload jsonb`, `fetched_at` |
+| `raw.strava_activities` | one row per Strava activity; PK `strava_id` | `payload jsonb` (the detail response minus `map`, `start_latlng`, `end_latlng`, `segment_efforts`), `fetched_at` |
 | `raw.health_batches` | one row per accepted Shortcut POST; PK `batch_id uuid` | `received_at`, `window_start`, `window_end` (dates), `payload_sha256`, `payload jsonb`, `applied_at` (set by `core.apply_health_batch` in the ingest transaction) |
 | `raw.health_samples` | one row per sample; PK `(batch_id, idx)` | `type`, `value`, `unit`, `start_ts timestamptz`, `local_date`, `source` |
 
@@ -105,7 +105,7 @@ Seeds: `dim_activity_type` maps Strava `sport_type` to `app_type` (Run, TrailRun
 | `app.recovery_day` | PK `day date`; `note text`; `created_at` |
 
 ### 5.4 `ops`
-`ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `success|failed|partial`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code`, `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`check_name`, `severity`, `status`, `observed_value`, `threshold`, `checked_at`, `run_id`).
+`ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `running|success|partial|failed`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code`, `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`check_name`, `severity`, `status`, `observed_value`, `threshold`, `checked_at`, `run_id`).
 
 ### 5.5 `mart`
 Views/functions: `fn_day_status(p_today date)` (section 8), `fn_streak(p_today date)`, `v_daily_nutrition` (kcal and protein per local date joined to the target in effect), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
@@ -115,9 +115,11 @@ Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` a
 ## 6. Ingestion
 
 ### 6.1 Strava to raw (Airflow DAG `strava_sync`)
-- Schedule hourly, `catchup=False`, `max_active_runs=1`, retries with exponential backoff, `execution_timeout`.
-- Tasks: `refresh_token` (token stored in `ops.oauth_tokens`; **do not pass tokens through XCom**) -> `fetch_activities` -> `load_raw` -> `transform_core` -> `parse_hevy` -> `record_run` (`trigger_rule=all_done`, so failures are logged too).
-- Incremental: `after = watermark - 7 days` (lookback catches edited descriptions). The list endpoint returns summaries; **fetch the detail endpoint** for ids that are new or inside the lookback window, because the description may only be in the detail response (verify in Slice 0). Cap detail fetches per run to respect rate limits (Strava docs, checked 2026-10-20: read limit 100 requests per 15 minutes and 1,000 per day; headers `X-ReadRateLimit-Limit` / `X-ReadRateLimit-Usage`; over the limit returns 429; 15-minute windows reset at :00/:15/:30/:45, daily at midnight UTC). First run backfills `BACKFILL_DAYS` over several runs.
+- Schedule `@hourly`, `catchup=False`, `max_active_runs=1`, 3 retries starting at 2 minutes with `retry_exponential_backoff=2.0` (in Airflow 3.3 a multiplier, not a flag) capped at 30 minutes, `execution_timeout` 20 minutes.
+- Tasks (Slice 2): `start_run` (opens an `ops.pipeline_runs` row, status `running`) -> `refresh_token` (token stored in `ops.oauth_tokens`; **never passed through XCom**) -> `sync_activities` (list, fetch details, upsert raw, advance the watermark) -> `close_run` (`trigger_rule=all_done`: marks a run still `running` as `failed`). Each task writes its own error into the run row, because Airflow 3 tasks cannot read other tasks' states. `fetch_activities` and `load_raw` are one task so 90 days of JSON never passes through XCom. Slice 4 adds `transform_core` and `parse_hevy` after `sync_activities`.
+- One-time authorization: `make strava-auth` (`pipeline/include/strava/auth.py`) stores the first tokens; the DAG refreshes them when less than an hour is left, saving the new refresh token every time.
+- Incremental: `after = watermark - 7 days` (lookback catches edited descriptions; edits older than that are not seen). The watermark is the newest loaded `start_date`. The list endpoint has no `description` (confirmed in Slice 0), so the **detail endpoint** is fetched for every listed id: activities not yet in `raw` first, then already-loaded ones, each oldest first, so a capped run always makes progress. Each activity and the watermark are written in **one transaction per activity**, so a killed run keeps its progress. At most 50 detail fetches per run (status `partial` when more remain) to respect rate limits (Strava docs, checked 2026-10-20: read limit 100 requests per 15 minutes and 1,000 per day; headers `X-ReadRateLimit-Limit` / `X-ReadRateLimit-Usage`; over the limit returns 429; 15-minute windows reset at :00/:15/:30/:45, daily at midnight UTC). First run backfills `BACKFILL_DAYS` over several runs.
+- Privacy: location fields (`map`, `start_latlng`, `end_latlng`, `segment_efforts`) are removed before landing; Strava has no way to omit them, and `activity:read_all` even includes privacy-zone data. Migration 0003 scrubbed rows loaded earlier.
 - Idempotent: raw upsert by `strava_id`; `core.fact_activity` upsert by `strava_id`; `fact_set` for an activity is **deleted and re-inserted in one transaction** on each parse.
 - Strava deletions are not reconciled in v1 (Backlog).
 - Never call the live Strava API in tests. Use recorded JSON from `docs/samples/` behind a small client interface.

@@ -82,8 +82,8 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Deliverables:** Compose with `postgres`, `api` (FastAPI, `GET /api/v1/health`), `airflow` (LocalExecutor), `web` (Vite hello page); Alembic baseline creating schemas; Makefile (see `CLAUDE.md`); `.env.example`; README quickstart; GitHub Actions (ruff, pytest with Postgres service, DAG import test, web typecheck/build/vitest); `docs/DECISIONS.md`.
 **Acceptance:** fresh clone then `cp .env.example .env && make up` gives healthy services; `make check` green locally and in CI; Airflow UI reachable on localhost; API reachable from the iPhone at `http://<mac-lan-ip>:8000/api/v1/health`.
 
-### Slice 2: Strava to raw (Airflow) `[ ]`
-**Deliverables:** `scripts/strava_auth.py` (one-time OAuth); token refresh with storage in `ops.oauth_tokens`; DAG `strava_sync` (hourly, `catchup=False`, `max_active_runs=1`, retries with backoff); incremental watermark with a 7-day lookback; `raw.strava_activities` upsert by `strava_id`; `ops.pipeline_runs` row per run; rate-limit handling (read current limits from Strava docs).
+### Slice 2: Strava to raw (Airflow) `[~]`
+**Deliverables:** `make strava-auth` (one-time OAuth); token refresh with storage in `ops.oauth_tokens`; DAG `strava_sync` (hourly, `catchup=False`, `max_active_runs=1`, retries with backoff); incremental watermark with a 7-day lookback; `raw.strava_activities` upsert by `strava_id`; `ops.pipeline_runs` row per run; rate-limit handling (read current limits from Strava docs).
 **Acceptance:** run twice, row count unchanged and no duplicates; kill the run midway then rerun, still correct; an edited Strava description is picked up inside the lookback window; a unit test shows `start_date_local` with a trailing `Z` is stored as naive local time and gets the right `local_date`; tests use recorded fixtures (no live API in CI); DAG import test passes.
 
 ### Slice 3: Health ingest endpoint `[ ]`
@@ -110,7 +110,7 @@ Weekly calorie budget card; Activities page v1 (day-grouped list; lifting sessio
 - **7b Next (pick in this order while time lasts):** weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, `ARCHITECTURE.md` section 14 #8); personal records by estimated 1RM (Epley `w * (1 + reps/30)`, `RANK`/`MAX OVER`); weekly summary vs previous week; weekly volume per muscle group; small manual-entry forms.
 
 ### Slice 8: Hosting decision, deploy, README `[ ]`
-Research free hosting options (current pricing and limits, from official pages); present options with trade-offs; Rob approves; deploy only after approval. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
+Research free hosting options (current pricing and limits, from official pages); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
 
 ## 6. Resume claims tracker (claim only when Status is "built")
 
