@@ -12,6 +12,7 @@ Needs only **Docker Desktop** and **make**.
 cp .env.example .env      # then fill in the Strava keys
 make up                   # build and start postgres, api, airflow, web
 make migrate              # create the warehouse schemas
+make strava-auth          # once: authorize Strava (follow the prompts)
 make check                # lint, typecheck, and all tests (same as CI)
 ```
 

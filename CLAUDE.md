@@ -52,6 +52,7 @@ make up            # docker compose up -d --build
 make down          # docker compose down
 make logs          # tail logs
 make migrate       # apply migrations
+make strava-auth   # one-time Strava authorization (interactive)
 make seed-demo     # load a demo scenario (SCENARIO=midweek)
 make test          # api + pipeline + web unit tests
 make lint          # ruff, oxlint (typecheck: make typecheck)

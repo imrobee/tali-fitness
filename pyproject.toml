@@ -11,4 +11,4 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.ruff.lint.isort]
 # Ruff runs from the repo root, so tell it which top-level packages are ours.
-known-first-party = ["app"]
+known-first-party = ["app", "include"]

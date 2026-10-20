@@ -6,7 +6,7 @@ COMPOSE := docker compose
 RUN := $(COMPOSE) run --rm --build
 RUFF := docker run --rm -v "$(CURDIR)":/io -w /io ghcr.io/astral-sh/ruff:0.16.10
 
-.PHONY: up down logs migrate seed-demo test test-api test-pipeline test-web lint typecheck check screenshots db-reset
+.PHONY: up down logs migrate strava-auth seed-demo test test-api test-pipeline test-web lint typecheck check screenshots db-reset
 
 up:
 	$(COMPOSE) up -d --build
@@ -20,6 +20,10 @@ logs:
 migrate:
 	$(RUN) api alembic -c /db/alembic.ini upgrade head
 
+# One-time: authorize Strava and store the tokens in ops.oauth_tokens (interactive).
+strava-auth:
+	$(RUN) airflow python -m include.strava.auth
+
 seed-demo:
 	@echo "seed-demo arrives in Slice 6a."; exit 1
 
@@ -28,8 +32,9 @@ test: test-api test-pipeline test-web
 test-api:
 	$(RUN) api pytest
 
+# Starts Postgres too: the sync tests use a throwaway database on it.
 test-pipeline:
-	$(RUN) --no-deps airflow python -m pytest -p no:cacheprovider /opt/airflow/tests
+	$(RUN) airflow python -m pytest -p no:cacheprovider /opt/airflow/tests
 
 test-web:
 	$(RUN) --no-deps web npm test

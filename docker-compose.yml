@@ -47,12 +47,15 @@ services:
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: ${AIRFLOW_ADMIN_USER}:admin
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/simple_auth_manager_passwords.json
       PYTHONDONTWRITEBYTECODE: "1" # no __pycache__ in the bind-mounted dags/ folder
+      PYTHONPATH: /opt/airflow # lets DAGs and tests `import include...`
     ports:
       - "127.0.0.1:8080:8080" # Airflow UI, this Mac only
     volumes:
       - ./pipeline/dags:/opt/airflow/dags
       - ./pipeline/include:/opt/airflow/include
       - ./pipeline/tests:/opt/airflow/tests
+      - ./db:/opt/airflow/db:ro # SQL files (db/sql) and migrations for the tests
+      - ./docs/samples:/opt/airflow/samples:ro # recorded API samples used as test fixtures
     depends_on:
       postgres:
         condition: service_healthy
