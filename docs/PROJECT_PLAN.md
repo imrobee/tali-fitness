@@ -61,7 +61,7 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 | Slice 0 | Create a Strava API application (callback domain `localhost`), note client ID and secret, put them in `.env` (never commit). |
 | Slice 0 | Build the iOS Shortcut that outputs dietary energy and dietary protein per logged food item, and Body Mass (kg; MyNetDiary keeps one per day). Send one real output (redact if needed) to `docs/samples/`. |
 | Slice 0 | Done: `docs/samples/hevy_description_02.txt` covers bodyweight, distance/time, and timed sets plus exercise notes. Hevy has no supersets or warm-up/drop/failure sets in its Strava text. |
-| Slice 3 | Find your Mac's LAN IP, allow incoming connections for Docker Desktop in the macOS firewall prompt, run the Shortcut against `http://<mac-lan-ip>:8000`. |
+| Slice 3 | Set a real `API_KEY` in `.env`; in the Shortcut, change the URL to `http://<mac-lan-ip>:8000/api/v1/ingest/health` and add the header `X-API-Key`; close MyNetDiary and check rows appear. |
 | Slice 8 | Approve the hosting choice. |
 
 ## 5. Slices
@@ -77,16 +77,16 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 - Save redacted JSON samples in `docs/samples/`. Update the payload contract in `ARCHITECTURE.md` section 6.2 and record the decision in DECISIONS.
 **Acceptance:** samples committed; open questions in `ARCHITECTURE.md` section 14 for Slice 0 are answered or escalated to Rob.
 
-### Slice 1: Skeleton, CI (starts after Rob confirms the spike scripts work) `[~]`
+### Slice 1: Skeleton, CI `[x]`
 **Airflow:** get it running with the lightest official setup; no tuning or extras.
 **Deliverables:** Compose with `postgres`, `api` (FastAPI, `GET /api/v1/health`), `airflow` (LocalExecutor), `web` (Vite hello page); Alembic baseline creating schemas; Makefile (see `CLAUDE.md`); `.env.example`; README quickstart; GitHub Actions (ruff, pytest with Postgres service, DAG import test, web typecheck/build/vitest); `docs/DECISIONS.md`.
 **Acceptance:** fresh clone then `cp .env.example .env && make up` gives healthy services; `make check` green locally and in CI; Airflow UI reachable on localhost; API reachable from the iPhone at `http://<mac-lan-ip>:8000/api/v1/health`.
 
-### Slice 2: Strava to raw (Airflow) `[~]`
+### Slice 2: Strava to raw (Airflow) `[x]`
 **Deliverables:** `make strava-auth` (one-time OAuth); token refresh with storage in `ops.oauth_tokens`; DAG `strava_sync` (hourly, `catchup=False`, `max_active_runs=1`, retries with backoff); incremental watermark with a 7-day lookback; `raw.strava_activities` upsert by `strava_id`; `ops.pipeline_runs` row per run; rate-limit handling (read current limits from Strava docs).
 **Acceptance:** run twice, row count unchanged and no duplicates; kill the run midway then rerun, still correct; an edited Strava description is picked up inside the lookback window; a unit test shows `start_date_local` with a trailing `Z` is stored as naive local time and gets the right `local_date`; tests use recorded fixtures (no live API in CI); DAG import test passes.
 
-### Slice 3: Health ingest endpoint `[ ]`
+### Slice 3: Health ingest endpoint `[~]`
 **Deliverables:** `POST /api/v1/ingest/health` with `X-API-Key`; Pydantic validation; `raw.health_batches` + `raw.health_samples`; rejects go to `ops.quarantine`; response `{batch_id, received, accepted, rejected, duplicate}`; `core.apply_health_batch(batch_id)` called in the ingest transaction (replaces only the `(local_date, type)` pairs present in the batch); `ops.pipeline_runs` row per ingest; `scripts/send_sample_shortcut_payload.sh`. No health DAG (`ARCHITECTURE.md` 6.2).
 **Acceptance:** same payload sent twice leaves `core.fact_dietary_sample` unchanged; an edited payload (food entry changed, or one of several entries removed) updates that day and type correctly; a batch missing a type for a day leaves that day's existing rows of that type untouched; a failure mid-batch rolls back raw and core; invalid unit/value is quarantined not dropped; wrong or missing API key returns 401; the real Shortcut on Rob's iPhone posts to the Mac over HTTP and rows appear.
 
@@ -116,10 +116,10 @@ Research free hosting options (current pricing and limits, from official pages);
 
 | Claim | Evidence required | Status |
 |---|---|---|
-| Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | not built |
+| Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | partial: `strava_sync` DAG runs hourly into `raw` (Slice 2); star schema in Slice 4 |
 | Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | not built |
-| Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | not built |
-| Data-quality checks and CI | `ops.dq_results` populated; CI badge | not built |
+| Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | partial: Strava built and tested (Slice 2); health in Slice 3 |
+| Data-quality checks and CI | `ops.dq_results` populated; CI badge | CI built (Slice 1, `make check` on every push); DQ checks not built |
 | SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend views | not built |
 
 ## 7. Risks
