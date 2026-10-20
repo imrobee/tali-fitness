@@ -92,7 +92,7 @@ Schemas: `raw` (landing, never edited), `core` (star schema), `mart` (views and 
 | `core.dim_activity_type` | dim | PK `activity_type_key`; unique `strava_sport_type` | `app_type` in (`run`,`walk`,`cycle`,`swim`,`strength`,`yoga`,`hiit`,`other`), `label` |
 | `core.dim_exercise` | dim | PK `exercise_key`; `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)` (a plain unique treats NULL equipment as distinct, so `ON CONFLICT` would insert a duplicate on every re-parse) | `exercise_name` ("Incline Bench Press"), `equipment` ("Dumbbell", nullable), `muscle_group` (default `Unmapped`) |
 | `core.fact_activity` | fact | one row per Strava activity; PK `activity_key`; unique `strava_id` | `date_key`, `activity_type_key`, `title`, `started_at timestamptz`, `started_local timestamp`, `ended_at`, `tz`, `duration_s` (Strava `elapsed_time`), `moving_s`, `distance_m`, `avg_hr`, `calories_burned`, `description_raw`, `parse_status` in (`ok`,`partial`,`not_hevy`,`not_applicable`) |
-| `core.fact_set` | fact | one row per set; PK `set_key`; unique `(activity_key, exercise_order, set_number)` | `activity_key` (FK, cascade), `date_key`, `exercise_key`, `exercise_order`, `set_number`, `weight_kg numeric`, `reps`, `orig_weight`, `orig_unit` in (`kg`,`lb`), `volume_kg` (generated: `weight_kg * reps`) |
+| `core.fact_set` | fact | one row per set; PK `set_key`; unique `(activity_key, exercise_order, set_number)` | `activity_key` (FK, cascade), `date_key`, `exercise_key`, `exercise_order` (position in the workout; the same exercise can appear twice), `set_number`, `set_kind` in (`weight_reps`,`reps`,`distance_duration`,`duration`), nullable `weight_kg numeric`, `reps int`, `distance_m numeric`, `duration_s int`, `orig_weight`, `orig_unit` in (`kg`,`lb`), `exercise_note text` (nullable; same value on every set of that exercise entry), `volume_kg` (generated: `weight_kg * reps` for `weight_reps`, else `0`). One `CHECK` per kind: `weight_reps` needs `weight_kg` and `reps`; `reps` needs `reps`; `distance_duration` needs `distance_m` and `duration_s`; `duration` needs `duration_s`; every column a kind does not use must be NULL |
 | `core.fact_dietary_sample` | fact | one row per health sample after batch replacement; PK `sample_key` | `batch_id`, `date_key`, `local_date`, `sample_type` in (`energy`,`protein`), `value` (kcal or g), `start_ts`, `source` |
 
 Seeds: `dim_activity_type` maps Strava `sport_type` to `app_type` (Run, TrailRun, VirtualRun to `run`; Walk, Hike to `walk`; Ride and variants to `cycle`; Swim to `swim`; WeightTraining to `strength`; Yoga, Pilates to `yoga`; HIIT, Crossfit to `hiit`; everything else to `other`). `exercise_muscle_map.csv` starts with the nine exercises in the sample (Incline Bench Press to Chest, Lat Pulldown to Back, Goblet Squat to Quads, Lying Leg Curl to Hamstrings, Standing Calf Raise to Calves, Preacher Curl to Biceps, Triceps Rope Pushdown to Triceps, Lateral Raise to Shoulders, Cable Core Pallof Press to Core). Unknown exercises load as `Unmapped` and trigger a DQ warning. Primary muscle group only in v1.
@@ -124,13 +124,13 @@ Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` a
 
 ### 6.2 Apple Health to raw (FastAPI `POST /api/v1/ingest/health`)
 
-**ASSUMPTION (confirm in Slice 0 with the real Shortcut output):**
+**Confirmed in Slice 0** from real Shortcut output (`docs/samples/health_payload_01.json`; `_02.json` is the same day after one entry was edited and one deleted). Values are numbers; `start` is ISO 8601 with an offset; `source` is always present (`MyNetDiary`); sample order is not stable between runs. Shape:
 ```json
 {
   "window": {"from": "2026-10-18", "to": "2026-10-19"},
   "device_tz": "Asia/Manila",
   "samples": [
-    {"type": "dietary_energy",  "value": 540, "unit": "kcal", "start": "2026-10-19T12:41:00+08:00", "source": "optional"},
+    {"type": "dietary_energy",  "value": 540, "unit": "kcal", "start": "2026-10-19T12:41:00+08:00", "source": "MyNetDiary"},
     {"type": "dietary_protein", "value": 32,  "unit": "g",    "start": "2026-10-19T12:41:00+08:00"},
     {"type": "body_mass",       "value": 72.4, "unit": "kg",  "start": "2026-10-19T06:58:00+08:00"}
   ]
@@ -144,7 +144,7 @@ Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` a
 - Empty `samples` returns 422 `empty_batch` (an empty run means the Shortcut failed; rejecting it makes the failure visible). Same `payload_sha256` as the latest batch with the same window returns 200 with `duplicate: true` and inserts nothing.
 - Response: `{"batch_id": "...", "received": 12, "accepted": 11, "rejected": 1, "duplicate": false}`.
 - Per-item pairing of calories to protein is **not needed**: the app only uses per-day sums, so the two types are aggregated independently.
-- **Body mass** (`body_mass`, kg): one sample per weigh-in, sent in the same batch. It lands in `raw.health_samples` only; it is **not** loaded into `core.fact_dietary_sample` (dietary only) and never affects `has_calories` or the streak. The core table for weight is designed with the weight-trend feature (PROJECT_PLAN Slice 7b) and uses the same per-(date, type) replace. Daily weight rule: section 14, #8.
+- **Body mass** (`body_mass`, kg): sent in the same batch. MyNetDiary keeps **one weight per day** in Apple Health: a new weigh-in replaces that day's earlier sample (confirmed 2026-10-20). Rob enters pounds, so values arrive as exact lb conversions (`74.84274105` kg = 165 lb): store the full value, round to 0.1 kg only for display. It lands in `raw.health_samples` only; it is **not** loaded into `core.fact_dietary_sample` (dietary only) and never affects `has_calories` or the streak. The core table for weight is designed with the weight-trend feature (PROJECT_PLAN Slice 7b) and uses the same per-(date, type) replace. Daily weight rule: section 14, #8.
 
 ### 6.3 Data quality (Airflow DAG `data_quality`)
 - Hourly, `catchup=False`, `max_active_runs=1`. Runs every enabled check in section 9, writes `ops.dq_results`, and writes an `ops.pipeline_runs` row with `source = 'dq'`. It is the only place checks run, so Strava and health data are checked on the same schedule.
@@ -153,14 +153,27 @@ Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` a
 
 Input: Strava `description` text. Marker line `Logged with hevyapp.com` identifies a Hevy description; without it, `parse_status = not_hevy` (not an error).
 
-Line grammar (tolerant of blank lines, trailing spaces, and extra whitespace):
-- **Exercise header:** a non-empty line that is not a set line. Split `Name (Equipment)` into `exercise_name` and `equipment`; no parentheses means `equipment = null`.
-- **Set line:** `Set <n>: <weight> <unit> x <reps>` with unit `kg` or `lb`/`lbs` (case-insensitive) and decimals allowed (for example `22.5 kg x 8`).
-- Normalize to kg with `1 lb = 0.45359237 kg`. Keep `orig_weight` and `orig_unit`.
-- Any line that matches neither (bodyweight sets, time sets, distance sets, supersets, RPE notes, anything new) goes to `ops.quarantine` with `line_no`, `raw_content`, and `reason_code = unparsed_line`; the activity becomes `partial`. **Never drop silently. Never guess.** Extend the grammar test-first when Rob provides more samples.
+Line grammar (tolerant of blank lines, trailing spaces, extra whitespace, and a missing final newline). Formats confirmed from real Strava text in `docs/samples/hevy_description_01.txt` and `_02.txt`:
+- **Exercise header:** a non-empty line that is not a set line or a note line. Split `Name (Equipment)` into `exercise_name` and `equipment`; no parentheses means `equipment = null`. The same exercise may appear more than once in a workout; each appearance is its own entry (`exercise_order`).
+- **Exercise note:** a line wrapped in double quotes directly under an exercise header, before its first set (for example `"Training for tour de france"`). Optional. Stored without the quotes in `exercise_note`. A quoted line anywhere else is `unparsed_line`. Hevy has no workout-level note in the Strava text.
+- **Set lines** (`<n>` restarts at 1 for each exercise entry):
+
+| `set_kind` | Pattern | Example |
+|---|---|---|
+| `weight_reps` | `Set <n>: <weight> <unit> x <reps>`, unit `kg` or `lb`/`lbs` (case-insensitive), decimals allowed | `Set 1: 22.5 kg x 8` |
+| `reps` | `Set <n>: <reps> reps` (bodyweight) | `Set 1: 10 reps` |
+| `distance_duration` | `Set <n>: <km>km - <duration>` | `Set 1: 21km - 1h 0min` |
+| `duration` | `Set <n>: <duration>` (timed hold) | `Set 1: 1min 30s` |
+
+- **Duration:** up to three parts in this order, separated by spaces, at least one present: `<h>h`, `<m>min`, `<s>s`. Zero parts are kept as written (`1h 0min`). Seen: `31s`, `1min 30s`, `10min`, `1h 0min`.
+- Normalize weight to kg with `1 lb = 0.45359237 kg` (keep `orig_weight` and `orig_unit`), distance to metres, duration to seconds.
+- Hevy's Strava text has **no** supersets or warm-up, drop, or failure sets (confirmed by Rob).
+- Any line that matches none of the above (miles, decimal distances, RPE, anything new) goes to `ops.quarantine` with `line_no`, `raw_content`, and `reason_code = unparsed_line`; the activity becomes `partial`. **Never drop silently. Never guess.** Extend the grammar test-first when a new format appears.
 - A header with zero sets is quarantined (`empty_exercise`).
 
-**Golden test** (`docs/samples/hevy_description_01.txt`): 9 exercises, 22 sets, total `volume_kg` = 3490.9 (rounded to 2 dp; exact 3490.8973504). Per exercise volumes: Incline Bench Press 580, Lat Pulldown 592, Goblet Squat 360, Lying Leg Curl 288, Standing Calf Raise 653.173 (40 lb), Preacher Curl 217.724 (20 lb), Triceps Rope Pushdown 360, Lateral Raise 220, Cable Core Pallof Press 220.
+**Golden test** (`docs/samples/hevy_description_01.txt`): 9 exercises, 22 sets, total `volume_kg` = 3490.9 (rounded to 2 dp; exact 3490.8973504). Per exercise volumes: Incline Bench Press 580, Lat Pulldown 592, Goblet Squat 360, Lying Leg Curl 288, Standing Calf Raise 653.173 (40 lb), Preacher Curl 217.724 (20 lb), Triceps Rope Pushdown 360, Lateral Raise 220, Cable Core Pallof Press 220. All 22 sets are `weight_reps`.
+
+**Golden test 2** (`docs/samples/hevy_description_02.txt`): 6 exercise entries (Pull Up, Push Up, Cycling, Plank, Plank, Cycling; Plank and Cycling appear twice), 12 sets, 2 exercise notes, `parse_status = ok`. By kind: 4 `reps` sets totalling 55 reps; 4 `distance_duration` sets totalling 52 km (52,000 m) and 8,400 s; 4 `duration` sets totalling 242 s. Total duration 8,642 s; total `volume_kg` = 0.
 
 ## 8. Qualifying day, freeze, and streak (all in SQL)
 
@@ -258,14 +271,14 @@ Also test: sample at 23:59 local counts for that date; target history (budget ch
 | `activity_unique` | duplicate `strava_id` in `core.fact_activity` | none | any |
 | `activity_not_null` | `started_at`, `date_key`, `duration_s` not null | none | any |
 | `activity_duration_range` | `0 < duration_s <= 86400` | any outlier | none |
-| `set_range` | `0 < weight_kg <= 500`, `1 <= reps <= 100` | any outlier | none |
+| `set_range` | where present: `0 < weight_kg <= 500`, `1 <= reps <= 200`, `0 < distance_m <= 300000`, `0 < duration_s <= 21600` | any outlier | none |
 | `calorie_daily_range` | daily energy total `<= 10000` | any outlier | none |
 | `fk_integrity` | facts reference existing dims | none | any orphan |
 | `row_reconcile` | `raw.strava_activities` count equals `core.fact_activity` count | none | mismatch |
 | `hevy_parse_coverage` | share of Hevy activities with `parse_status = ok`, last 30 days | < 95% | < 80% |
 | `quarantine_open` | open quarantine rows | > 0 | > 25 |
 | `unmapped_exercises` | exercises with `muscle_group = 'Unmapped'` | > 0 | none |
-| `possible_duplicate_activity` | two activities on one day with overlapping time (Apple Watch plus Hevy) | any | none |
+| `possible_duplicate_activity` | two activities on one day with overlapping time (a guard; lifting is never recorded on the Apple Watch) | any | none |
 | `target_present` | at least one `app.target_history` row | missing | none |
 | `days_with_activity_no_calories` | last 14 days (information only) | n/a | n/a |
 
@@ -286,7 +299,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 | GET | `/health` | liveness, no auth |
 | GET | `/dashboard?date=YYYY-MM-DD` | composed payload for the dashboard (below) |
 | GET | `/activities?from=&to=` | day-grouped summaries, newest first; default last 30 days |
-| GET | `/activities/{id}` | detail: exercises, sets (kg, original unit), parse status, raw text if not `ok` |
+| GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok` |
 | GET | `/nutrition?date=` | calorie card, protein card, week chart for the date |
 | GET | `/me` | nickname, timezone, current targets, earliest data date |
 | PUT | `/me` | nickname; targets (inserts `target_history` effective today) |
@@ -356,10 +369,10 @@ CI (GitHub Actions) runs `make check`, the same containers as local: ruff (offic
 | 1 | Shortcut payload shape; can it send a date window? | Replace per (date, type) for pairs present in the batch, applied synchronously (6.2); decided by Rob 2026-10-20. Exact fields still confirmed by the spike | Slice 0 |
 | 2 | Does Strava's list endpoint include `description`? | Detail only: Strava reference shows it on `DetailedActivity`, not `SummaryActivity`. Confirm live in the spike | Slice 0 |
 | 3 | Duration definition | `elapsed_time` for display, `moving_time` for run pace | Slice 2 |
-| 4 | Apple Watch + Hevy create two activities for one session | Keep both; DQ warns on overlap; no auto-merge | Slice 4 |
-| 5 | Which Hevy line formats beyond kg/lb sets exist | Quarantine unknowns | Slice 0 samples |
-| 6 | Weight-trend data source | iOS Shortcut sends Apple Health Body Mass in kg, one sample per weigh-in (6.2) | Decided by Rob, 2026-10-20 |
+| 4 | Apple Watch + Hevy create two activities for one session | Resolved: Rob never records lifting on the Apple Watch. Keep `possible_duplicate_activity` as a cheap guard; no auto-merge | Rob, 2026-10-20 |
+| 5 | Which Hevy line formats beyond kg/lb sets exist | Resolved: `reps`, `distance_duration`, `duration` sets and per-exercise notes (section 7); no supersets or warm-up/drop/failure sets. Stored with `set_kind` in `fact_set` (option A, Rob 2026-10-20). Unknowns still quarantine | Slice 0 samples |
+| 6 | Weight-trend data source | iOS Shortcut sends Apple Health Body Mass in kg; MyNetDiary keeps one weight per day (6.2) | Decided by Rob, 2026-10-20 |
 | 7 | Hosting | Research in Slice 8 | Slice 8 |
-| 8 | Several weigh-ins on one local date | The last reading of the day (latest `start` on that `local_date`) is that day's weight | Slice 7b (weight trend) |
+| 8 | Several weigh-ins on one local date | The last reading of the day (latest `start` on that `local_date`) is that day's weight. MyNetDiary already keeps one per day; the rule is a guard in case another app writes weights | Slice 7b (weight trend) |
 | 9 | Strava `start_date_local` has a trailing `Z` | Treat as naive local time (section 4); decided by Rob 2026-10-20 | Slice 2 |
 | 10 | Where DQ checks run | `data_quality` DAG, hourly (6.3); decided by Rob 2026-10-20 | Slice 5 |

@@ -131,7 +131,8 @@ Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing
 ### 6.1 Activities
 - Title "Activities". **Day-grouped list, newest first**, default last 30 days with a "Load older" button. Day header: "Mon, Oct 19" plus a "Today" or "Yesterday" chip. When arriving with `?date=`, scroll to that day and highlight it.
 - Activity item (card): icon circle, title, time range, duration, and a type summary: run = `5.2 km · 5:41 /km · 29 min`; strength = `9 exercises · 22 sets · 3,491 kg`.
-- **Tap an item to expand** (here items are interactive): lifting shows exercises and sets, e.g. `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`. Equipment appears as a muted suffix. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
+- Strength summary omits the volume when it is 0 (bodyweight, cardio, and timed sets only): `6 exercises · 12 sets`.
+- **Tap an item to expand** (here items are interactive): lifting shows exercises and sets by kind: `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`; bodyweight `Set 1  10 reps`; distance `Set 1  21 km · 1 h`; timed hold `Set 1  1 min 30 s`. Equipment appears as a muted suffix. An exercise note appears as one muted line under the exercise name. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
 - Empty, loading (skeleton), and error states. Week/month calendar and trends arrive in Slice 7.
 
 ### 6.2 Nutrition

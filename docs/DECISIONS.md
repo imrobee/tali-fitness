@@ -10,7 +10,8 @@ Why: samples carry no ids (confirmed by the spike), so an edited food entry can 
 Rejected: hash de-duplication (cannot see edits); whole-window replace (wipes a type that failed to load); a 10-minute `health_transform` DAG.
 Known limitation: deleting the *last* entry of a type on a day does not propagate.
 
-**D2. Body mass comes from the Shortcut (Apple Health "Weight", kg, one sample per weigh-in); the day's weight is the last reading of that day.**
+**D2. Body mass comes from the Shortcut (Apple Health "Weight", kg); the day's weight is the last reading of that day.**
+MyNetDiary keeps one weight per day (a new weigh-in replaces the earlier one; confirmed in Health 2026-10-20), so the last-reading rule is a guard for other apps. Values are exact pound conversions: store in full, round only for display.
 Why: no new data source or manual form needed. Rejected: manual weight entry.
 
 **D3. Strava `start_date_local` is naive local time despite its trailing `Z`.**
@@ -30,6 +31,13 @@ Why: health data no longer passes through Airflow, so checks need their own sche
 
 **D8. `calorie_status = not_set` (calories logged, no budget) is a filled neutral-gray marker and bar.** (Rob's call.)
 Open risk: same shape as `within`, so it relies on the gray/green luminance difference in grayscale (UI_SPEC section 8).
+
+**D17. One `fact_set` table with a `set_kind` column (`weight_reps`, `reps`, `distance_duration`, `duration`), nullable measure columns, and one `CHECK` per kind.** (Rob chose option A, 2026-10-20.)
+Why: Hevy's Strava text has four set formats (samples 01 and 02); one table keeps "every set of a workout" in one place, and the database enforces which columns each kind fills. Volume counts only `weight_reps`.
+Rejected: keeping weight and reps only (every cycling and plank set would be quarantined forever); a separate table per kind (four tables to join for one workout).
+
+**D18. Exercise notes are stored in `fact_set.exercise_note`, repeated on each set of that exercise entry.**
+Why: notes are optional, short, and only ever shown with their sets; no extra table to explain. Rejected: a separate exercise-entry table (cleaner normalization, more joins for no current use).
 
 ## Slice 1: skeleton and CI
 

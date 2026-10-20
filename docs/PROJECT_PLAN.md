@@ -59,8 +59,8 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 |---|---|
 | Before Slice 0 | Install Docker Desktop. Create a private GitHub repo (CI needs it). |
 | Slice 0 | Create a Strava API application (callback domain `localhost`), note client ID and secret, put them in `.env` (never commit). |
-| Slice 0 | Build the iOS Shortcut that outputs dietary energy and dietary protein per logged food item, and Body Mass (kg) per weigh-in. Send one real output (redact if needed) to `docs/samples/`. |
-| Slice 0 | Send 3-5 more Hevy-in-Strava descriptions, including a bodyweight set, a cardio/time set, and a superset if you have them. One sample is already in `docs/samples/hevy_description_01.txt`. |
+| Slice 0 | Build the iOS Shortcut that outputs dietary energy and dietary protein per logged food item, and Body Mass (kg; MyNetDiary keeps one per day). Send one real output (redact if needed) to `docs/samples/`. |
+| Slice 0 | Done: `docs/samples/hevy_description_02.txt` covers bodyweight, distance/time, and timed sets plus exercise notes. Hevy has no supersets or warm-up/drop/failure sets in its Strava text. |
 | Slice 3 | Find your Mac's LAN IP, allow incoming connections for Docker Desktop in the macOS firewall prompt, run the Shortcut against `http://<mac-lan-ip>:8000`. |
 | Slice 8 | Approve the hosting choice. |
 
@@ -68,12 +68,12 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 
 Each slice: goal, deliverables, acceptance criteria (all testable). Tests listed are part of the slice.
 
-### Slice 0: Spikes and samples (in parallel with Slice 1) `[~]`
+### Slice 0: Spikes and samples (in parallel with Slice 1) `[x]`
 Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch per slice). Spike scripts: `scripts/spikes/`.
 **Goal:** replace the two biggest unknowns with real data before designing around them.
 - Strava OAuth works once, locally. `GET /athlete/activities` and `GET /activities/{id}` return a Hevy-logged activity. Confirm the `description`, `sport_type`, `start_date_local`, `timezone`, and `elapsed_time` fields exist in the detail response (the list endpoint may omit `description`).
 - Shortcut output captured: the exact fields, units, timestamps, and whether it can filter by date range and send a window.
-- Include Body Mass in the Shortcut (kg, one sample per weigh-in) alongside dietary energy and protein.
+- Include Body Mass in the Shortcut (kg) alongside dietary energy and protein. Done: MyNetDiary keeps one weight per day.
 - Save redacted JSON samples in `docs/samples/`. Update the payload contract in `ARCHITECTURE.md` section 6.2 and record the decision in DECISIONS.
 **Acceptance:** samples committed; open questions in `ARCHITECTURE.md` section 14 for Slice 0 are answered or escalated to Rob.
 
@@ -91,8 +91,8 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Acceptance:** same payload sent twice leaves `core.fact_dietary_sample` unchanged; an edited payload (food entry changed, or one of several entries removed) updates that day and type correctly; a batch missing a type for a day leaves that day's existing rows of that type untouched; a failure mid-batch rolls back raw and core; invalid unit/value is quarantined not dropped; wrong or missing API key returns 401; the real Shortcut on Rob's iPhone posts to the Mac over HTTP and rows appear.
 
 ### Slice 4: Core model and Hevy parser `[ ]`
-**Deliverables:** `core.dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`; seed CSVs (activity types, exercise-to-muscle map); pure parser `parse_hevy(description) -> ParsedWorkout` with kg normalization; quarantine of unparseable lines with raw text and reason; re-parse is idempotent (replace sets per activity in one transaction); `dim_exercise` uses `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)`.
-**Acceptance (golden):** `docs/samples/hevy_description_01.txt` parses to **9 exercises, 22 sets, total volume 3490.90 kg** (rounded to 2 dp; the two lbs exercises are converted at 0.45359237 kg/lb; original value and unit are kept); a Strava activity without the Hevy marker is `not_hevy`, not an error; every unknown line becomes a quarantine row and the activity is `partial`, never silently dropped; at least 10 parser unit tests including blank lines, trailing spaces, lbs, and a garbage line; parsing the golden sample twice leaves the `dim_exercise` row count unchanged (covers exercises with NULL equipment).
+**Deliverables:** `core.dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`; seed CSVs (activity types, exercise-to-muscle map); pure parser `parse_hevy(description) -> ParsedWorkout` handling the four set kinds and exercise notes (`ARCHITECTURE.md` section 7) with kg, metre, and second normalization; `fact_set.set_kind` with one `CHECK` per kind; quarantine of unparseable lines with raw text and reason; re-parse is idempotent (replace sets per activity in one transaction); `dim_exercise` uses `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)`.
+**Acceptance (golden):** `docs/samples/hevy_description_01.txt` parses to **9 exercises, 22 sets, total volume 3490.90 kg** (rounded to 2 dp; the two lbs exercises are converted at 0.45359237 kg/lb; original value and unit are kept); `docs/samples/hevy_description_02.txt` parses to **6 exercise entries, 12 sets, 2 notes, 55 reps, 52 km, 8,642 s, volume 0** with `parse_status = ok`; a row violating its kind's `CHECK` is rejected by the database; a Strava activity without the Hevy marker is `not_hevy`, not an error; every unknown line becomes a quarantine row and the activity is `partial`, never silently dropped; at least 10 parser unit tests including blank lines, trailing spaces, lbs, and a garbage line; parsing the golden sample twice leaves the `dim_exercise` row count unchanged (covers exercises with NULL equipment).
 
 ### Slice 5: Marts, streak with freeze, data quality, pipeline health `[ ]`
 **Deliverables:** `app.target_history` (budget/goal in effect per date), `app.recovery_day`; `mart.fn_day_status(p_today)`, `mart.fn_streak(p_today)`, `mart.v_daily_nutrition`; DAG `data_quality` (hourly) running the 5 M1 checks (`strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`) and writing `ops.dq_results`.
@@ -117,7 +117,7 @@ Research free hosting options (current pricing and limits, from official pages);
 | Claim | Evidence required | Status |
 |---|---|---|
 | Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | not built |
-| Parser turning free-text workouts into set-level records | Golden test (22 sets, 3490.90 kg) in CI; parse-coverage metric | not built |
+| Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | not built |
 | Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | not built |
 | Data-quality checks and CI | `ops.dq_results` populated; CI badge | not built |
 | SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend views | not built |

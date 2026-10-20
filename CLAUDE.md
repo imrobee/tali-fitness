@@ -35,7 +35,7 @@ At the start of every slice read the relevant sections. If two docs disagree, `A
 6. **No destructive commands without asking**: dropping volumes/databases, `docker system prune`, force-push, history rewrites. Migrations are forward-only and tested on a fresh DB.
 7. **Verify against official docs before pinning versions or using an API** (Airflow, Strava, FastAPI, Vite). Do not rely on memory. If the docs and these specs disagree, stop and tell Rob.
 8. **Time zones.** Default `Asia/Manila`. A record's local date is computed once at ingestion from the record's own local time and stored. Never derive a day from UTC. See `ARCHITECTURE.md` section 4.
-9. **Do not invent unknowns.** The Shortcut payload has not been seen yet (Slice 0 spike). Do not build the health normalizer on a guessed payload.
+9. **Do not invent unknowns.** Build on the real samples in `docs/samples/` (Shortcut payload, Strava detail, Hevy text). When a new format appears, get a real sample first.
 
 ## Workflow per slice
 1. Restate the goal, acceptance criteria, and the cut line (what goes first if the slice must shrink).
