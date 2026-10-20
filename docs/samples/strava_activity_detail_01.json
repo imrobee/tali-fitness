@@ -1,0 +1,23 @@
+{
+  "description": "Logged with hevyapp.com\n\nIncline Bench Press (Dumbbell)\nSet 1: 20 kg x 8 \nSet 2: 20 kg x 8 \nSet 3: 20 kg x 8 \nSet 4: 25 kg x 4 \n\nLat Pulldown (Cable)\nSet 1: 16 kg x 12 \nSet 2: 20 kg x 10 \nSet 3: 20 kg x 10 \n\nGoblet Squat\nSet 1: 20 kg x 10 \nSet 2: 20 kg x 8 \n\nLying Leg Curl (Machine)\nSet 1: 12 kg x 12 \nSet 2: 12 kg x 12 \n\nStanding Calf Raise (Dumbbell)\nSet 1: 40 lbs x 12 \nSet 2: 40 lbs x 12 \nSet 3: 40 lbs x 12 \n\nPreacher Curl (Dumbbell)\nSet 1: 20 lbs x 12 \nSet 2: 20 lbs x 12 \n\nTriceps Rope Pushdown\nSet 1: 15 kg x 12 \nSet 2: 15 kg x 12 \n\nLateral Raise (Cable)\nSet 1: 10 kg x 12 \nSet 2: 10 kg x 10 \n\nCable Core Pallof Press\nSet 1: 10 kg x 12 \nSet 2: 10 kg x 10 \n",
+  "sport_type": "WeightTraining",
+  "type": "WeightTraining",
+  "name": "Full Body",
+  "start_date": "2026-10-19T08:39:24Z",
+  "start_date_local": "2026-10-19T16:39:24Z",
+  "timezone": "(GMT+08:00) Asia/Manila",
+  "utc_offset": 28800.0,
+  "elapsed_time": 4069,
+  "moving_time": 4061,
+  "distance": 0.0,
+  "average_heartrate": 135.7,
+  "calories": 271.0,
+  "device_name": "Hevy",
+  "private": false,
+  "visibility": "everyone",
+  "max_heartrate": 156.0,
+  "has_heartrate": true,
+  "manual": false,
+  "trainer": true,
+  "id": 1000000001
+}
