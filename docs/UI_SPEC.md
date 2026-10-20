@@ -87,6 +87,7 @@ Title "Your streak" top-left. Layout: flame+count block, then the 7-day row. No 
 | `not_logged` | hollow circle (>= 1.5px stroke) | neutral gray |
 | `within` | filled circle | green |
 | `over` | **filled square** | orange |
+| `not_set` | filled circle | neutral gray (`--neutral`); calories logged but no budget in effect |
 
 Marker 8-10px. **Shape carries the meaning, not color.** Hidden on `recovery` and `future` days unless calories were logged. Weekday letters sit below the marker; if crowded, move letters above the circles. Circles >= 32px; if 7 circles plus the flame block do not fit, put the flame+count in the title row and let circles span the width. At 200% zoom stack the flame block above the row.
 
@@ -123,7 +124,7 @@ Same slot and roughly the same height in every state. Title and body left, butto
 Left "Protein" (bold) and "21g, 109g left" (gray); right the percentage (`16%`, nearest whole number). Thin (~8px) full-width rounded bar: elevated-surface track, **green** fill, capped at 100%. The percentage may exceed 100% in text. **Never turns orange.** The percentage is **outside** the bar. No goal set: "Set a protein goal" link to Me.
 
 ### 5.8 Weekly calorie budget card
-Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing `selectedDate`. **Dashed horizontal line at the budget** with a small label at its right end (step line if budgets differ across the week). Bar color from `status`: `within` green; `over` **orange and rising above the dashed line**; `not_logged` and `future` get **no bar**. Y max = `max(1.25 x budget, tallest bar x 1.1)`. Bars ~22px wide with rounded tops. Two-line x labels (`Mo` over `19`); the selected day's label uses the accent color with a 2px underline. Tapping a bar sets `selectedDate`. Today's bar is live.
+Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing `selectedDate`. **Dashed horizontal line at the budget** with a small label at its right end (step line if budgets differ across the week). Bar color from `status`: `within` green; `over` **orange and rising above the dashed line**; `not_set` **neutral gray** (`--neutral`; no budget line segment for that day); `not_logged` and `future` get **no bar**. Y max = `max(1.25 x budget, tallest bar x 1.1)`. Bars ~22px wide with rounded tops. Two-line x labels (`Mo` over `19`); the selected day's label uses the accent color with a 2px underline. Tapping a bar sets `selectedDate`. Today's bar is live.
 
 ## 6. Other pages (v1)
 
@@ -154,6 +155,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 | `--over-budget` | over ring, bars, marker | orange ~#E39A3B |
 | `--flame` | flame and unit label | orange ~#E8622A |
 | `--accent` | selected day, active tab | blue |
+| `--neutral` | `not_logged` hollow marker, `not_set` marker and bar | neutral gray |
 
 `--over-budget` is one token shared by ring, bars, and marker. **No red anywhere.** Light mode is a token swap, only if time allows.
 
@@ -161,7 +163,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 
 - Semantic HTML: `<main>`, `<nav aria-label="Primary">`, one `h1` per page, logical heading order, visible `:focus-visible`, touch targets >= 44px.
 - **Contrast:** markers, bars, ring >= 3:1 non-text contrast; text >= 4.5:1. Check with a contrast tool. Verify markers and bars in grayscale and under a color-vision-deficiency simulation; they must stay distinguishable by **shape and bar position**.
-- Each streak circle plus marker is **one** element: `"<Weekday>, <Month> <day>: <state>. <activity or none>. Calories: <not logged | within budget | over budget>."` Example: `"Tuesday, October 13: qualifying day. Workout. Calories within budget."`
+- Each streak circle plus marker is **one** element: `"<Weekday>, <Month> <day>: <state>. <activity or none>. Calories: <not logged | within budget | over budget | logged, no budget set>."` Example: `"Tuesday, October 13: qualifying day. Workout. Calories within budget."`
 - Streak summary: `"Streak: 12 days. Today: workout logged."` plus at-risk status.
 - Ring: `"Calories: 654 eaten of 1,853, 1,199 left."` or `"... 320 over budget."` Protein: `"Protein: 21 of 130 grams, 16 percent."` Chart: summary (`"Weekly calories: 4 days within budget, 1 over, budget 1,853."`) plus per-bar labels.
 - Freeze indicator and every status are text plus icon.
@@ -189,6 +191,7 @@ Skeleton cards while loading (no layout jump). Per-card error with a "Retry" but
 
 - API runs with `APP_ENV=test` and `NOW_OVERRIDE` so greeting and "today" are deterministic. `scripts/seed_demo.py --scenario <name>` loads data (including the Hevy sample as a Saturday session).
 - `make screenshots` renders each scenario at **393x852** (iPhone) and **1280x800** (desktop), dark scheme, to `docs/screenshots/`. Compare with sections 3, 5, and 12; fix; repeat.
+- **Staging:** M1 (Slice 6a) renders only `midweek`, `at_risk`, and `edge_empty` at 393x852. The full set below, at both sizes, is due by M2 (Slice 6b).
 
 Scenarios:
 1. **midweek**: now Sat 2026-10-17 14:00. Mon Q (run), Tue Q over budget (strength), Wed recovery, Thu Q, Fri Q, Sat pending with 654 of 1,853 kcal and 21/130 g protein, Sun future. Greeting "Good afternoon, Rob". Saturday has 3 activities.
@@ -206,7 +209,7 @@ Scenarios:
 
 - [ ] Order is exactly: greeting, day chooser, streak card, recovery card, logged exercises, calorie budget, protein, weekly chart. The greeting has no card.
 - [ ] Bottom nav has 4 tabs with the specified icons and labels; active state is clear; safe-area padding works on iPhone.
-- [ ] Streak card matches the Strava structure: flame + number + "Days"; date numbers inside circles; white circle + black icon for activity days; white outline for today; dark filled circles for missed; dim outline for future; one marker per day (hollow circle / filled green dot / filled orange square).
+- [ ] Streak card matches the Strava structure: flame + number + "Days"; date numbers inside circles; white circle + black icon for activity days; white outline for today; dark filled circles for missed; dim outline for future; one marker per day (hollow circle / filled green dot / filled orange square / filled gray dot for `not_set`).
 - [ ] Recovery card always visible with constant height, correct state, and the freeze indicator as icon plus text.
 - [ ] Exercises card shows exactly 1 row at launch (most recent first) with a chevron when there are more; rows show icon, title, duration; rows are not clickable; the card opens Activities for the selected date.
 - [ ] Calorie, protein, and weekly cards open Nutrition; the bar tap sets `selectedDate`.

@@ -66,7 +66,7 @@ The Hevy parser lives in `pipeline/include/parsers/hevy.py` and is a **pure func
 ## 4. Time and "day" (decided once, used everywhere)
 
 - A **day** is a local calendar date, midnight to midnight. A record's `local_date` is computed **once at ingestion from the record's own local time** and stored. Nothing re-derives a day from UTC later.
-  - Strava: use `start_date_local` (wall-clock time at the activity) and the `timezone` field.
+  - Strava: use `start_date_local` (wall-clock time at the activity) and the `timezone` field. Strava formats `start_date_local` with a trailing `Z` even though it is local time: strip the `Z` and treat the value as **naive local time**; never parse it as UTC. The IANA name comes from `timezone` (format `"(GMT+08:00) Asia/Manila"`). Covered by a unit test.
   - Shortcut samples: use the ISO-8601 timestamp's own offset. A timestamp without an offset is interpreted in the batch's `device_tz`, else in the profile timezone.
 - `app.profile.timezone` (IANA name, default `Asia/Manila`) defines **"today"** and the week boundaries for display. It is editable later. Rob does not travel now; storing `local_date` per record keeps history correct if that changes, and changing the profile timezone only moves "today".
 - Week = Monday to Sunday (`dim_date.week_start`).
@@ -81,7 +81,7 @@ Schemas: `raw` (landing, never edited), `core` (star schema), `mart` (views and 
 | Table | Grain / key | Columns (key ones) |
 |---|---|---|
 | `raw.strava_activities` | one row per Strava activity; PK `strava_id` | `payload jsonb`, `fetched_at` |
-| `raw.health_batches` | one row per accepted Shortcut POST; PK `batch_id uuid` | `received_at`, `window_start`, `window_end` (dates), `payload_sha256`, `payload jsonb`, `applied_at` (null until transformed) |
+| `raw.health_batches` | one row per accepted Shortcut POST; PK `batch_id uuid` | `received_at`, `window_start`, `window_end` (dates), `payload_sha256`, `payload jsonb`, `applied_at` (set by `core.apply_health_batch` in the ingest transaction) |
 | `raw.health_samples` | one row per sample; PK `(batch_id, idx)` | `type`, `value`, `unit`, `start_ts timestamptz`, `local_date`, `source` |
 
 ### 5.2 `core` (star schema)
@@ -89,7 +89,7 @@ Schemas: `raw` (landing, never edited), `core` (star schema), `mart` (views and 
 |---|---|---|---|
 | `core.dim_date` | dim | one row per date, 2020-01-01 to 2035-12-31; PK `date_key` (`YYYYMMDD` int) | `date`, `iso_year`, `iso_week`, `week_start` (Monday), `month_start`, `dow`, `is_weekend` |
 | `core.dim_activity_type` | dim | PK `activity_type_key`; unique `strava_sport_type` | `app_type` in (`run`,`walk`,`cycle`,`swim`,`strength`,`yoga`,`hiit`,`other`), `label` |
-| `core.dim_exercise` | dim | PK `exercise_key`; unique `(exercise_name, equipment)` | `exercise_name` ("Incline Bench Press"), `equipment` ("Dumbbell", nullable), `muscle_group` (default `Unmapped`) |
+| `core.dim_exercise` | dim | PK `exercise_key`; `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)` (a plain unique treats NULL equipment as distinct, so `ON CONFLICT` would insert a duplicate on every re-parse) | `exercise_name` ("Incline Bench Press"), `equipment` ("Dumbbell", nullable), `muscle_group` (default `Unmapped`) |
 | `core.fact_activity` | fact | one row per Strava activity; PK `activity_key`; unique `strava_id` | `date_key`, `activity_type_key`, `title`, `started_at timestamptz`, `started_local timestamp`, `ended_at`, `tz`, `duration_s` (Strava `elapsed_time`), `moving_s`, `distance_m`, `avg_hr`, `calories_burned`, `description_raw`, `parse_status` in (`ok`,`partial`,`not_hevy`,`not_applicable`) |
 | `core.fact_set` | fact | one row per set; PK `set_key`; unique `(activity_key, exercise_order, set_number)` | `activity_key` (FK, cascade), `date_key`, `exercise_key`, `exercise_order`, `set_number`, `weight_kg numeric`, `reps`, `orig_weight`, `orig_unit` in (`kg`,`lb`), `volume_kg` (generated: `weight_kg * reps`) |
 | `core.fact_dietary_sample` | fact | one row per health sample after batch replacement; PK `sample_key` | `batch_id`, `date_key`, `local_date`, `sample_type` in (`energy`,`protein`), `value` (kcal or g), `start_ts`, `source` |
@@ -107,14 +107,16 @@ Seeds: `dim_activity_type` maps Strava `sport_type` to `app_type` (Run, TrailRun
 `ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `success|failed|partial`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code`, `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`check_name`, `severity`, `status`, `observed_value`, `threshold`, `checked_at`, `run_id`).
 
 ### 5.5 `mart`
-Views/functions: `fn_day_status(p_today date)` (section 8), `v_streak`, `v_daily_nutrition` (kcal and protein per local date joined to the target in effect), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
+Views/functions: `fn_day_status(p_today date)` (section 8), `fn_streak(p_today date)`, `v_daily_nutrition` (kcal and protein per local date joined to the target in effect), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
+
+Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` applies one health batch to `core` (section 6.2).
 
 ## 6. Ingestion
 
 ### 6.1 Strava to raw (Airflow DAG `strava_sync`)
 - Schedule hourly, `catchup=False`, `max_active_runs=1`, retries with exponential backoff, `execution_timeout`.
-- Tasks: `refresh_token` (token stored in `ops.oauth_tokens`; **do not pass tokens through XCom**) -> `fetch_activities` -> `load_raw` -> `transform_core` -> `parse_hevy` -> `dq_checks` -> `record_run` (`trigger_rule=all_done`, so failures are logged too).
-- Incremental: `after = watermark - 7 days` (lookback catches edited descriptions). The list endpoint returns summaries; **fetch the detail endpoint** for ids that are new or inside the lookback window, because the description may only be in the detail response (verify in Slice 0). Cap detail fetches per run to respect rate limits (read current limits and the `Retry-After` behavior from Strava docs). First run backfills `BACKFILL_DAYS` over several runs.
+- Tasks: `refresh_token` (token stored in `ops.oauth_tokens`; **do not pass tokens through XCom**) -> `fetch_activities` -> `load_raw` -> `transform_core` -> `parse_hevy` -> `record_run` (`trigger_rule=all_done`, so failures are logged too).
+- Incremental: `after = watermark - 7 days` (lookback catches edited descriptions). The list endpoint returns summaries; **fetch the detail endpoint** for ids that are new or inside the lookback window, because the description may only be in the detail response (verify in Slice 0). Cap detail fetches per run to respect rate limits (Strava docs, checked 2026-10-20: read limit 100 requests per 15 minutes and 1,000 per day; headers `X-ReadRateLimit-Limit` / `X-ReadRateLimit-Usage`; over the limit returns 429; 15-minute windows reset at :00/:15/:30/:45, daily at midnight UTC). First run backfills `BACKFILL_DAYS` over several runs.
 - Idempotent: raw upsert by `strava_id`; `core.fact_activity` upsert by `strava_id`; `fact_set` for an activity is **deleted and re-inserted in one transaction** on each parse.
 - Strava deletions are not reconciled in v1 (Backlog).
 - Never call the live Strava API in tests. Use recorded JSON from `docs/samples/` behind a small client interface.
@@ -128,17 +130,23 @@ Views/functions: `fn_day_status(p_today date)` (section 8), `v_streak`, `v_daily
   "device_tz": "Asia/Manila",
   "samples": [
     {"type": "dietary_energy",  "value": 540, "unit": "kcal", "start": "2026-10-19T12:41:00+08:00", "source": "optional"},
-    {"type": "dietary_protein", "value": 32,  "unit": "g",    "start": "2026-10-19T12:41:00+08:00"}
+    {"type": "dietary_protein", "value": 32,  "unit": "g",    "start": "2026-10-19T12:41:00+08:00"},
+    {"type": "body_mass",       "value": 72.4, "unit": "kg",  "start": "2026-10-19T06:58:00+08:00"}
   ]
 }
 ```
-- **Design: window replace.** The Shortcut sends *all* samples for a date window (today and yesterday). Applying a batch **replaces every day in its window** in `core.fact_dietary_sample`. That makes edits and deletions in Apple Health propagate, and re-sending the same payload leaves the data unchanged (idempotent). Rationale: hash-only de-duplication cannot handle an edited food entry.
+- **Design: replace per (date, type).** The Shortcut sends *all* samples for a date window (today and yesterday). Applying a batch replaces, in `core.fact_dietary_sample`, only the `(local_date, sample_type)` pairs that have **at least one sample in the batch**; pairs with no samples are left untouched. That makes edits and deletions in Apple Health propagate, protects a day when one type comes back empty (for example Health data unreadable while the iPhone is locked), and re-sending the same payload leaves the data unchanged (idempotent). Rationale: hash-only de-duplication cannot handle an edited food entry; whole-window replace can wipe a type that failed to load.
+- **Known limitation:** deleting the *last* entry of a type on a day does not propagate (the pair has no samples, so it is not replaced). Record in DECISIONS.
+- **Applied synchronously.** The ingest endpoint, in **one transaction**: inserts `raw.health_batches` and `raw.health_samples`, writes rejects to `ops.quarantine`, calls `core.apply_health_batch(batch_id)` (deletes the batch's `(local_date, sample_type)` pairs from `core.fact_dietary_sample`, inserts the batch's accepted dietary samples, sets `applied_at`), and writes an `ops.pipeline_runs` row with `source = 'health'`. Any error rolls back the whole batch. No Airflow DAG and no lag for health data.
 - Fallback if the Shortcut cannot send a window: de-duplicate on `sha256(type|start|end|value|unit|source)`. State the limitation (no edit/delete propagation) in DECISIONS.
-- Validation (Pydantic + DB `CHECK`): `type` in the two allowed values; energy `0 < value <= 5000` kcal (convert kJ to kcal at 0.239006 kcal per kJ); protein `0 <= value <= 500` g; `start` ISO-8601 (naive means `device_tz`); every sample's `local_date` must fall inside the window; window spans at most 7 days and does not end after tomorrow. Invalid samples go to `ops.quarantine` (reason codes `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`) and the rest of the batch is still accepted.
-- Empty `samples` returns 422 `empty_batch` (protects against a failed Shortcut wiping a day). Same `payload_sha256` as the latest batch with the same window returns 200 with `duplicate: true` and inserts nothing.
+- Validation (Pydantic + DB `CHECK`): `type` in the three allowed values (`dietary_energy`, `dietary_protein`, `body_mass`); energy `0 < value <= 5000` kcal (convert kJ to kcal at 0.239006 kcal per kJ); protein `0 <= value <= 500` g; body mass `30 <= value <= 250` kg (sanity range; any unit other than `kg` is `bad_unit`); `start` ISO-8601 (naive means `device_tz`); every sample's `local_date` must fall inside the window; window spans at most 7 days and does not end after tomorrow. Invalid samples go to `ops.quarantine` (reason codes `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`) and the rest of the batch is still accepted.
+- Empty `samples` returns 422 `empty_batch` (an empty run means the Shortcut failed; rejecting it makes the failure visible). Same `payload_sha256` as the latest batch with the same window returns 200 with `duplicate: true` and inserts nothing.
 - Response: `{"batch_id": "...", "received": 12, "accepted": 11, "rejected": 1, "duplicate": false}`.
-- DAG `health_transform` (every 10 minutes, cheap): for each unapplied batch in `received_at` order, delete `fact_dietary_sample` rows whose `local_date` is in the batch window, insert that batch's accepted samples, set `applied_at`. Lag of up to about 10 minutes is accepted; a stretch option is to trigger the DAG through Airflow's REST API after ingest.
 - Per-item pairing of calories to protein is **not needed**: the app only uses per-day sums, so the two types are aggregated independently.
+- **Body mass** (`body_mass`, kg): one sample per weigh-in, sent in the same batch. It lands in `raw.health_samples` only; it is **not** loaded into `core.fact_dietary_sample` (dietary only) and never affects `has_calories` or the streak. The core table for weight is designed with the weight-trend feature (PROJECT_PLAN Slice 7b) and uses the same per-(date, type) replace. Daily weight rule: section 14, #8.
+
+### 6.3 Data quality (Airflow DAG `data_quality`)
+- Hourly, `catchup=False`, `max_active_runs=1`. Runs every enabled check in section 9, writes `ops.dq_results`, and writes an `ops.pipeline_runs` row with `source = 'dq'`. It is the only place checks run, so Strava and health data are checked on the same schedule.
 
 ## 7. Hevy parser
 
@@ -160,7 +168,7 @@ Line grammar (tolerant of blank lines, trailing spaces, and extra whitespace):
 - `has_calories(d)`: at least one `energy` sample on `d`.
 - `qualifying(d) = has_activity(d) AND has_calories(d)`. Workout length and over/under budget are irrelevant.
 - `recovery_logged(d)`: row in `app.recovery_day`.
-- `calorie_status(d)`: `not_logged` (no energy sample), `within` (`kcal <= budget in effect on d`), `over`. If no budget exists yet, treat as `within`-unknown: show `not_set` and do not mark over.
+- `calorie_status(d)`, first match wins: `not_logged` (no energy sample), `not_set` (calories logged but no budget in effect on `d`; never marked over), `within` (`kcal <= budget in effect on d`), `over`.
 
 ### 8.2 The freeze rule (plain English)
 Rob has **one freeze**. Logging a recovery day uses it. The freeze **resets on the next day that has both a workout and logged calories**. Consequence: a recovery day is valid only if the **previous calendar day qualified** (or it is the first day of data). Two non-qualifying days in a row therefore break the streak.
@@ -260,11 +268,13 @@ Also test: sample at 23:59 local counts for that date; target history (budget ch
 | `target_present` | at least one `app.target_history` row | missing | none |
 | `days_with_activity_no_calories` | last 14 days (information only) | n/a | n/a |
 
-Checks are plain SQL files returning `(observed_value, status)`. No external DQ framework in v1.
+Checks are plain SQL files returning `(observed_value, status)`. No external DQ framework in v1. They run in the `data_quality` DAG (6.3).
+
+**Staging:** M1 ships 5 checks: `strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`. All 15 are due by M2. **Every check has a pass test and a fail test** against real Postgres.
 
 ## 10. Pipeline observability
 
-Every DAG run writes `ops.pipeline_runs`. `GET /api/v1/pipeline/health` returns, per source (`strava`, `health`): `last_success_at`, `status` (`ok` within the warn threshold, `delayed` between warn and fail, `failed` beyond fail or last run failed), `failures_7d`; plus `quarantine` (open count, counts by reason, the 20 most recent items with a raw snippet) and `dq` (passed, warnings, failed, list). The Me page renders this (see `UI_SPEC.md`).
+Every DAG run and every health ingest writes `ops.pipeline_runs`. `GET /api/v1/pipeline/health` returns, per source (`strava`, `health`): `last_success_at`, `status` (`ok` within the warn threshold, `delayed` between warn and fail, `failed` beyond fail or last run failed), `failures_7d`; plus `quarantine` (open count, counts by reason, the 20 most recent items with a raw snippet) and `dq` (passed, warnings, failed, list). The Me page renders this (see `UI_SPEC.md`).
 
 ## 11. API contract (v1)
 
@@ -313,6 +323,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
   }
 }
 ```
+`calorie_status` (streak week), `calories.status`, and `week_chart.bars[].status` take the values in section 8.1: `not_logged`, `not_set`, `within`, `over` (bars also `future`). With `not_set`, `budget`, `remaining`, and `over` are `null`.
 `recovery.state` is one of `available`, `logged`, `no_freeze`, `blocked`, `counted`, `locked` (definitions in `UI_SPEC.md`). `exercises` are ordered **most recent first** by `started_at`. `week[].primary_activity_type` is the type of the **longest-duration** activity that day (it drives the circle icon). `week_chart` covers the Monday-Sunday week containing `selected_date`; the streak `week` is always the current week.
 
 ## 12. Security
@@ -326,10 +337,12 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 
 | Layer | Tool | What |
 |---|---|---|
-| Parser, validators, formatters | pytest | golden Hevy test, edge-case lines, kJ/kcal, range checks |
-| SQL rules | pytest + real Postgres | scenarios in 8.4 with helpers like `insert_day(date, activity=True, calories=500, recovery=False)`; idempotent loads (run twice) |
-| API | pytest + FastAPI `TestClient`, `NOW_OVERRIDE` | auth, error codes, dashboard payload per scenario, recovery rules, targets history |
-| DAGs | pytest | `DagBag` has zero import errors; task functions with a stubbed Strava client |
+| Parser, validators, formatters | pytest | golden Hevy test, edge-case lines, kJ/kcal, range checks (incl. body mass), Strava `start_date_local` with trailing `Z` parsed as naive local |
+| SQL rules | pytest + real Postgres | scenarios in 8.4 with helpers like `insert_day(date, activity=True, calories=500, recovery=False)`; idempotent loads (run twice); re-parse leaves `dim_exercise` unchanged (incl. NULL equipment) |
+| Health apply | pytest + real Postgres | `core.apply_health_batch`: same batch twice is unchanged; edited entry replaces its pair; a type missing for a day leaves that pair untouched; failure mid-batch rolls back raw and core |
+| Data quality | pytest + real Postgres | one pass test and one fail test per check |
+| API | pytest + FastAPI `TestClient`, `NOW_OVERRIDE` | auth, error codes, dashboard payload per scenario (incl. `not_set`), recovery rules, targets history |
+| DAGs | pytest | `DagBag` has zero import errors (`strava_sync`, `data_quality`); task functions with a stubbed Strava client |
 | Web logic | Vitest + Testing Library | formatters, ring and chart math, card states from payloads |
 | Visual | Playwright | screenshots per scenario at 393x852 and 1280x800 (see `UI_SPEC.md`) |
 
@@ -339,10 +352,13 @@ CI (GitHub Actions): ruff, pytest with a Postgres service container, DAG import 
 
 | # | Question | Default | Resolve in |
 |---|---|---|---|
-| 1 | Shortcut payload shape; can it send a date window? | Window-replace (6.2) | Slice 0 |
-| 2 | Does Strava's list endpoint include `description`? | Assume detail only | Slice 0 |
+| 1 | Shortcut payload shape; can it send a date window? | Replace per (date, type) for pairs present in the batch, applied synchronously (6.2); decided by Rob 2026-10-20. Exact fields still confirmed by the spike | Slice 0 |
+| 2 | Does Strava's list endpoint include `description`? | Detail only: Strava reference shows it on `DetailedActivity`, not `SummaryActivity`. Confirm live in the spike | Slice 0 |
 | 3 | Duration definition | `elapsed_time` for display, `moving_time` for run pace | Slice 2 |
 | 4 | Apple Watch + Hevy create two activities for one session | Keep both; DQ warns on overlap; no auto-merge | Slice 4 |
 | 5 | Which Hevy line formats beyond kg/lb sets exist | Quarantine unknowns | Slice 0 samples |
-| 6 | Weight-trend data source | Backlog | Rob |
+| 6 | Weight-trend data source | iOS Shortcut sends Apple Health Body Mass in kg, one sample per weigh-in (6.2) | Decided by Rob, 2026-10-20 |
 | 7 | Hosting | Research in Slice 8 | Slice 8 |
+| 8 | Several weigh-ins on one local date | The last reading of the day (latest `start` on that `local_date`) is that day's weight | Slice 7b (weight trend) |
+| 9 | Strava `start_date_local` has a trailing `Z` | Treat as naive local time (section 4); decided by Rob 2026-10-20 | Slice 2 |
+| 10 | Where DQ checks run | `data_quality` DAG, hourly (6.3); decided by Rob 2026-10-20 | Slice 5 |

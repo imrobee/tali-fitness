@@ -39,7 +39,7 @@ At the start of every slice read the relevant sections. If two docs disagree, `A
 
 ## Workflow per slice
 1. Restate the goal, acceptance criteria, and the cut line (what goes first if time slips).
-2. Work on a branch `slice-N-short-name`, in small commits (conventional style: `feat:`, `fix:`, `test:`, `docs:`).
+2. Do not run git write commands (add, commit, push, branch, checkout/switch, merge, rebase, reset, stash, tag). Rob handles all git himself. Read-only git (status, diff, log) is fine. At the start of a slice, tell Rob the branch name to create (slice-N-short-name). At each checkpoint, summarize what changed and suggest a conventional commit message (feat:, fix:, test:, docs:). Before suggesting a commit, run git status and warn Rob if anything secret (.env, tokens, real payloads) is untracked or not ignored. Never add Co-Authored-By lines or any Claude attribution.
 3. Run `make check` (lint + typecheck + tests). Fix before moving on.
 4. Update: status in `docs/PROJECT_PLAN.md`, `docs/DECISIONS.md`, the README claims.
 5. Report in this order: what works (with how Rob can see it), what was cut, risks and dates at risk, the next slice.
