@@ -1,0 +1,13 @@
+/* Minimal dark base for the Slice 1 placeholder page.
+   Design tokens (UI_SPEC.md section 7) replace this in Slice 6a. */
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, system-ui, sans-serif;
+  background: #000;
+  color: #fff;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+}

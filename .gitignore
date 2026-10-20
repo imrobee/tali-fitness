@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Raw spike output (personal data; never commit)
+spike_out/
+
+# Node (web/ has its own .gitignore too)
+node_modules/
+*.tsbuildinfo

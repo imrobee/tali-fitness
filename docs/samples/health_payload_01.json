@@ -1,0 +1,86 @@
+{
+  "window": {
+    "from": "2026-10-19",
+    "to": "2026-10-20"
+  },
+  "device_tz": "Asia/Manila",
+  "samples": [
+    {
+      "value": 576,
+      "source": "MyNetDiary",
+      "type": "dietary_energy",
+      "unit": "kcal",
+      "start": "2026-10-20T11:00:00+08:00"
+    },
+    {
+      "value": 600,
+      "source": "MyNetDiary",
+      "type": "dietary_energy",
+      "unit": "kcal",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 107,
+      "source": "MyNetDiary",
+      "type": "dietary_energy",
+      "unit": "kcal",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 172,
+      "source": "MyNetDiary",
+      "type": "dietary_energy",
+      "unit": "kcal",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 120,
+      "source": "MyNetDiary",
+      "type": "dietary_energy",
+      "unit": "kcal",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 20.8,
+      "source": "MyNetDiary",
+      "type": "dietary_protein",
+      "unit": "g",
+      "start": "2026-10-20T11:00:00+08:00"
+    },
+    {
+      "value": 13,
+      "source": "MyNetDiary",
+      "type": "dietary_protein",
+      "unit": "g",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 24,
+      "source": "MyNetDiary",
+      "type": "dietary_protein",
+      "unit": "g",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 4.8,
+      "source": "MyNetDiary",
+      "type": "dietary_protein",
+      "unit": "g",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 1,
+      "source": "MyNetDiary",
+      "type": "dietary_protein",
+      "unit": "g",
+      "start": "2026-10-20T15:00:00+08:00"
+    },
+    {
+      "value": 72.5747792,
+      "source": "MyNetDiary",
+      "type": "body_mass",
+      "unit": "kg",
+      "start": "2026-10-20T18:37:36+08:00"
+    }
+  ]
+}
