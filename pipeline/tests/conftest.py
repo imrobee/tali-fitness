@@ -50,7 +50,8 @@ def engine(migrated_engine: Engine) -> Engine:
             text(
                 "TRUNCATE raw.strava_activities, ops.oauth_tokens, ops.watermarks, "
                 "ops.pipeline_runs, ops.quarantine, core.dim_exercise, "
-                "core.dim_activity_type, core.exercise_muscle_map CASCADE"
+                "core.dim_activity_type, core.exercise_muscle_map, raw.health_batches, "
+                "app.recovery_day, app.target_history, ops.dq_results CASCADE"
             )
         )
     return migrated_engine

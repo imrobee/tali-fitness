@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 42 API + 74 pipeline + 2 web, all in CI |
+| Tests | 42 API + 126 pipeline + 2 web, all in CI |
 
 ## Architecture and design
 
@@ -66,6 +66,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Constraints live in the database**: `UNIQUE NULLS NOT DISTINCT` for exercises without equipment, and one CHECK per set kind (weight, reps, distance, time). Each was proven by breaking it on purpose.
 - **Never guess, never drop.** Unknown lines go to quarantine with their line number; re-parsing replaces them instead of duplicating them.
 - **One rule in one place.** Only the parser decides "is this Hevy text?"; SQL only copies data, so the two can't disagree.
+
+## Slice 5: business rules and data quality
+
+- **The streak and freeze rule live in SQL, as functions taking `p_today`.** `LAG` answers "did the previous day qualify?" (the single freeze), and a running `SUM` of missed days splits days into chains (gaps-and-islands). Tests control the clock instead of depending on the real date.
+- **17 scenarios written as notation** (`Q R R Q Q T`) run as tests against real Postgres, including healing yesterday with a workout or with the freeze. Removing the "previous day qualified" condition fails them.
+- **Targets are history, not a setting.** A budget change inserts a row effective from that day, so a past day is always judged by the budget it had.
+- **Data-quality checks are plain SQL with their thresholds inside**, run hourly by their own DAG, each with a pass test and a fail test. A failing check is a stored finding, not a crashed pipeline. Trade-off: no framework like Great Expectations, in exchange for checks anyone can read.
+- **Freshness counts "the Shortcut reached us", not "new data arrived"**, so a quiet day with duplicate pushes isn't mistaken for a broken pipeline.
 
 ## Bugs found, and how (good "tell me about a time" stories)
 

@@ -145,3 +145,17 @@ Why: editing a CSV takes effect on the next run without a migration, and an unex
 Why: the golden total is exact (3490.8973504 kg), with no float rounding. Rejected: floats.
 
 **D36. Cycling maps to a new `Cardio` muscle group.** Why: it appears in Hevy sessions (sample 02) and is not a muscle. Rejected: leaving it `Unmapped` (a permanent DQ warning).
+
+## Slice 5: marts, streak, data quality
+
+**D37. Daily nutrition is a function over a date range (`mart.fn_daily_nutrition(p_from, p_to)`), not a view.**
+Why: days with no calories must still appear as `not_logged`, which needs a date range to build the days from (`core.dim_date`). Rejected: a view over sampled days only (missing days would be guessed in the API).
+
+**D38. The streak is two SQL functions: `fn_day_status` labels each day, `fn_streak` counts the chain containing today.**
+Why: the single-freeze rule only needs "did the previous day qualify?" (`LAG`), and chains are gaps-and-islands (a running `SUM` of missed days). All 17 scenarios from ARCHITECTURE 8.4 run as tests; removing the "previous day qualified" condition fails them. Rejected: computing the streak in Python (the rule would not be testable in the database or reusable by any client).
+
+**D39. A failing data-quality check is a stored finding, not a failed DAG run; thresholds live in each check's SQL.**
+Why: "Strava is stale" must stay visible in `ops.dq_results` without hiding real pipeline errors among red DAG runs, and one file holds both the rule and its limits. Rejected: failing the DAG on any warning; a Python threshold table separate from the SQL.
+
+**D40. `data_quality` runs at minute 30, after `strava_sync` (minute 0).**
+Why: `row_reconcile` compares raw and core, which are only equal after the sync's transform has run. Rejected: running both on the hour.

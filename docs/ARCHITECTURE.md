@@ -105,10 +105,10 @@ Seeds are CSV files in `db/seeds/`, upserted by `transform_core` on every run (e
 | `app.recovery_day` | PK `day date`; `note text`; `created_at` |
 
 ### 5.4 `ops`
-`ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `running|success|partial|failed`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code` in (`invalid_sample`, `unknown_type`, `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`, `unparsed_line`, `empty_exercise`), `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`check_name`, `severity`, `status`, `observed_value`, `threshold`, `checked_at`, `run_id`).
+`ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `running|success|partial|failed`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code` in (`invalid_sample`, `unknown_type`, `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`, `unparsed_line`, `empty_exercise`), `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`id`, `run_id`, `check_name`, `status` in `pass|warn|fail`, `observed_value`, `threshold` (text), `checked_at`). No separate severity: `status` carries it.
 
 ### 5.5 `mart`
-Views/functions: `fn_day_status(p_today date)` (section 8), `fn_streak(p_today date)`, `v_daily_nutrition` (kcal and protein per local date joined to the target in effect), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
+Views/functions: `fn_day_status(p_today date)` (section 8; one row per day with `state`, `island_id`, `freezes_left`), `fn_streak(p_today date)` (`streak`, `at_risk`, `freezes_left`), `fn_daily_nutrition(p_from date, p_to date)` (kcal and protein per local date with the target in effect and `calorie_status`; a function with a date range so days without samples still appear as `not_logged`), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
 
 Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` applies one health batch to `core` (section 6.2).
 
@@ -271,7 +271,7 @@ Also test: sample at 23:59 local counts for that date; target history (budget ch
 | Check | Rule | Warn | Fail |
 |---|---|---|---|
 | `strava_freshness` | age of last successful Strava sync | > 6 h | > 24 h |
-| `health_freshness` | age of last health batch | > 48 h | > 96 h |
+| `health_freshness` | age of the last successful health ingest in `ops.pipeline_runs` (duplicate pushes count: they prove the Shortcut is alive) | > 48 h | > 96 h |
 | `activity_unique` | duplicate `strava_id` in `core.fact_activity` | none | any |
 | `activity_not_null` | `started_at`, `date_key`, `duration_s` not null | none | any |
 | `activity_duration_range` | `0 < duration_s <= 86400` | any outlier | none |
@@ -286,7 +286,7 @@ Also test: sample at 23:59 local counts for that date; target history (budget ch
 | `target_present` | at least one `app.target_history` row | missing | none |
 | `days_with_activity_no_calories` | last 14 days (information only) | n/a | n/a |
 
-Checks are plain SQL files returning `(observed_value, status)`. No external DQ framework in v1. They run in the `data_quality` DAG (6.3).
+Checks are plain SQL files in `db/sql/dq/` returning `(observed_value, status, threshold)`, given `:now`; thresholds live in the SQL next to the rule. No external DQ framework in v1. A failing check is a finding stored in `ops.dq_results`, not a failed DAG run. Freshness counts `success` (and `partial` for Strava) runs only. They run in the `data_quality` DAG (6.3).
 
 **Staging:** M1 ships 5 checks: `strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`. All 15 are due by M2. **Every check has a pass test and a fail test** against real Postgres.
 
