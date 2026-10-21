@@ -14,7 +14,7 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this fil
 | 5 Marts, streak, DQ | `[x]` done | `GET /pipeline/health` moved to 6b. 5 of 15 DQ checks (rest in 6b). `fn_daily_nutrition` is a function, not a view (D37). `ops.dq_results` has no severity column (D39). `data_quality` at minute 30 (D40). |
 | 6a API + web + dashboard (**M1**) | `[x]` done (PR #6; iPhone check passed 2026-10-21) | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
 | 6b Pages + rest (**M2 UI**) | `[~]` built and green; waiting on Rob's iPhone check | All 15 DQ checks (D69, D70); `/pipeline/health` and the Me panel (D71); `/activities` and the Activities page with set detail (D73, D74); weekly calorie card on Dashboard and Nutrition (D75); Nutrition reuses `/dashboard`, no `/nutrition` endpoint (D72); 14 screenshots, 3 scenarios at iPhone and desktop plus Activities, Nutrition and Me (D76); 200% zoom fixed (D77). Nothing from the cut line was cut. |
-| 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. |
+| 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. Sync now moved from the Backlog to 7c (D78). |
 | 8 Hosting + README | `[ ]` not started | Includes evaluating Strava webhooks. GPS privacy already done (D24). |
 
 Plan-level changes: all deadlines and time gates removed (D45); Rob runs every git command (D46); interview notes live in `docs/INTERVIEW_NOTES.md` (D57). See `docs/HANDOFF.md` for the exact next step.
@@ -43,10 +43,11 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 
 ### Priority order (lowest priority first; trim from the top if scope must shrink; never cut the "never cut" list)
 1. Slice 7b "Next" features (weight trend, PRs, weekly summary, muscle volume, small forms)
-2. Slice 7a trends (monthly first, then weekly)
-3. Calendar view (week/month)
-4. Weekly calorie card polish and the dashed overflow arc
-5. Activities page set-by-set detail (fall back to raw description text)
+2. Slice 7c Sync now
+3. Slice 7a trends (monthly first, then weekly)
+4. Calendar view (week/month)
+5. Weekly calorie card polish and the dashed overflow arc
+6. Activities page set-by-set detail (fall back to raw description text)
 
 **Never cut:** tests, idempotency, data-quality checks, quarantine, CI, README with diagram.
 
@@ -132,6 +133,9 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 ### Slice 7: Core leftovers, then Next features `[ ]`
 - **7a Core leftovers:** calendar (week/month toggle on Activities, tap a day to filter), weekly/monthly trends (training on Activities, calories/protein on Nutrition), using window functions (`LAG`, rolling averages).
 - **7b Next (pick in this order while time lasts):** weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, `ARCHITECTURE.md` section 14 #8); personal records by estimated 1RM (Epley `w * (1 + reps/30)`, `RANK`/`MAX OVER`); weekly summary vs previous week; weekly volume per muscle group; small manual-entry forms.
+- **7c Sync now (D78):** a **Sync now** button on the Me page's Data and sync panel calls `POST /api/v1/sync/strava` (API key, 2-minute cooldown, `409` while a run is active). The API triggers `strava_sync` through Airflow's REST API (`max_active_runs=1` prevents doubles); Airflow stays the only code that calls Strava. The UI shows "Syncing..." and refetches when the run finishes. Optional: refresh-if-stale on app open (last successful sync older than N minutes). A **Sync Health** button opens `shortcuts://run-shortcut?name=Health%20Push` (verify on the iPhone first).
+  **Acceptance:** API tests for the trigger, the cooldown, and an Airflow error (Airflow's API mocked at the HTTP boundary); one live run triggered from the button lands a new activity; the Airflow credentials live only in `.env`.
+  **Cut line:** refresh-if-stale on app open first, then the Sync Health button.
 
 ### Slice 8: Hosting decision, deploy, README `[ ]`
 Research free hosting options (current pricing and limits, from official pages); include **Strava webhooks** (push on create/update/delete instead of hourly polling; needs a public HTTPS callback URL, so only possible once hosted); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
@@ -165,7 +169,6 @@ Research free hosting options (current pricing and limits, from official pages);
 - Light mode; per-role DB users; reconcile Strava deletions.
 - Cheaper Strava polling (decided to wait, 2026-10-20: about 145 of 1,000 daily read calls today). (a) Skip night hours: cron `0 6-23 * * *` with the DAG time zone set to Asia/Manila (Airflow defaults to UTC). (b) Hourly runs fetch only new activities; one morning run re-checks the 7-day lookback for edited descriptions. (b) matters more: today every run re-fetches the whole week, so cost grows with activity count and could reach the daily limit in a very busy week.
 - Shareable **Health Push** Shortcut: an iCloud link (or a signed `.shortcut` file via macOS `shortcuts sign`) in the README instead of rebuilding by hand. Use the Shortcut's import questions so each person enters their own server URL and API key at install; the shared copy must never contain Rob's key. Includes the day-granular date filter fix (ARCHITECTURE.md 6.2).
-- "Sync now" / refresh-if-stale on app open: when the dashboard loads and the last successful Strava sync is older than N minutes, the API triggers `strava_sync` through Airflow's REST API (`max_active_runs=1` prevents doubles) and the UI shows "Syncing..." then refetches. Airflow stays the only code that calls Strava. Also a manual **Sync now** button (`POST /api/v1/sync/strava`, API key, 2-minute cooldown). For Apple Health the server cannot reach the phone, so a **Sync Health** button opens `shortcuts://run-shortcut?name=Health%20Push` to run the Shortcut from Safari (verify on the iPhone first).
 
 ## 9. README skeleton (Slice 8)
 

@@ -50,6 +50,9 @@
 }
 
 .toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: var(--touch);
   padding: 0;
   border: 0;
@@ -58,6 +61,23 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* The same chevron as the dashboard's exercises card: 20px, turning over when open. */
+.chevron {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 200ms var(--ease-out);
+  }
 }
 
 .panel {

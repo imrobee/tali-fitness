@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useActivity } from "../api/hooks";
 import type { ActivitySummary } from "../api/types";
 import { activitySummary, setMeasure, timeRange } from "../lib/activities";
-import { ActivityIcon } from "../icons";
+import { ActivityIcon, ChevronDownIcon } from "../icons";
 import { Bar } from "./Card";
 import styles from "./ActivityItem.module.css";
 
@@ -51,9 +51,7 @@ export function ActivityItem({ activity }: Props) {
         onClick={() => setOpen((value) => !value)}
       >
         {head}
-        <span className={styles.chevron} aria-hidden="true">
-          {open ? "▴" : "▾"}
-        </span>
+        <ChevronDownIcon className={`${styles.chevron} ${open ? styles.open : ""}`} />
       </button>
       {open && (
         <div id={panelId} className={styles.body}>
@@ -98,7 +96,9 @@ function SetDetail({ id }: { id: number }) {
       ))}
       {detail.description_raw && (
         <details className={styles.raw}>
-          <summary>Raw description</summary>
+          <summary>
+            Raw description <ChevronDownIcon className={styles.chevron} />
+          </summary>
           <pre>{detail.description_raw}</pre>
         </details>
       )}

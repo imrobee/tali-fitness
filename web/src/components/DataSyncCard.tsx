@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PipelineHealth, SourceHealth } from "../api/types";
 import { clockTime, reasonLabel, type SourceStatus, sourceName, statusLabel, timeAgo } from "../lib/pipeline";
+import { ChevronDownIcon } from "../icons";
 import { Card } from "./Card";
 import styles from "./DataSyncCard.module.css";
 
@@ -110,7 +111,7 @@ function Expandable({
         onClick={() => setOpen((value) => !value)}
       >
         {label}
-        <span aria-hidden="true">{open ? " ▴" : " ▾"}</span>
+        <ChevronDownIcon className={`${styles.chevron} ${open ? styles.open : ""}`} />
       </button>
       {open && (
         <div id={id} className={styles.panel}>

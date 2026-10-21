@@ -7,7 +7,7 @@
 
 .head {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -29,13 +29,16 @@
   background: var(--card-hover);
 }
 
+/* The icon sets its own size: without one it inherits the 14px text and looks lost. */
 .icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--card);
+  color: var(--text);
+  font-size: 24px;
 }
 
 .text {
@@ -54,15 +57,29 @@
   font-size: var(--fs-body);
 }
 
+/* The same chevron as the dashboard's exercises card: 20px, turning over when open. */
 .chevron {
+  flex: none;
   color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.open,
+.raw[open] .chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 200ms var(--ease-out);
+  }
 }
 
 .body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 12px 12px 64px;
+  padding: 4px 12px 12px 68px; /* lines up with the title: 12 + 44 + 12 */
 }
 
 .exercise {
@@ -111,12 +128,19 @@
   font-weight: 600;
 }
 
+/* Our chevron replaces the browser's small default triangle. */
 .raw summary {
   min-height: var(--touch);
   display: flex;
   align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
   cursor: pointer;
+  list-style: none;
+}
+
+.raw summary::-webkit-details-marker {
+  display: none;
 }
 
 .raw pre {

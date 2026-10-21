@@ -239,6 +239,9 @@ Why: UI_SPEC 11 asks for an expanded lifting session and a healthy and a stale/f
 **D77. At 200% zoom the streak week wraps (4 + 3) instead of shrinking its circles.**
 Why: UI_SPEC 5.3 keeps circles at 32px or more; seven of them do not fit in ~200px. Rejected: horizontal scrolling inside the card (hides days).
 
+**D78. "Sync now" moves from the Backlog to Slice 7c (decided by Rob 2026-10-21).**
+The API triggers the `strava_sync` DAG through Airflow's REST API; Airflow stays the only code that calls Strava. Why: hourly polling leaves up to an hour before a new workout appears, and webhooks need a public URL (Slice 8), while this works locally. Rejected: calling Strava from the API directly (two code paths writing raw data); waiting for webhooks.
+
 ## Plan, process, and cross-cutting
 
 **D45. No deadlines or time gates.** (Rob, 2026-10-20.)
