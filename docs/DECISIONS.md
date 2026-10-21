@@ -123,3 +123,9 @@ Why: `core.fact_dietary_sample` references it. Rejected: a `date_key` without a 
 
 **D29. The ingest endpoint reads the raw body itself (async) and runs the database work in a worker thread.**
 Why: the exact bytes are needed for the sha256 duplicate check and for storing the payload as received; blocking database calls must not stall FastAPI's event loop. Rejected: a Pydantic body parameter (FastAPI would parse the body first, losing the original bytes).
+
+**D30. The duplicate check fingerprints a canonical form of the batch (samples sorted, keys ordered), not the raw bytes.**
+Why: the Shortcut returns the same samples in a different order on each run, so two identical pushes (13:36 and 13:37 on 2026-10-21) were both stored as new batches. The data stayed correct (each batch replaces its pairs), but `raw` grew by a batch per push. The raw bytes are still stored unchanged in `payload`. Rejected: hashing raw bytes.
+
+**D31. The Shortcut's date filters use `FilterAfter` (start of the day before yesterday), not `WindowFrom`.**
+Why: Shortcuts compares dates in "Start Date is after" by calendar day, so "after yesterday 12:00 AM" silently dropped all of yesterday (found live 2026-10-21; it worked on day one only because the window then started a day earlier). `window.from` still sends yesterday. While debugging, 33 older samples were correctly quarantined as `outside_window`; they were marked resolved with a note, not deleted. Rejected: "is in the last N days" (rolling hours, not calendar days, so its edges are unclear).

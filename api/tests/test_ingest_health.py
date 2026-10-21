@@ -145,6 +145,18 @@ def test_same_payload_twice_is_a_duplicate_and_changes_nothing(client, engine):
     assert count(engine, "runs") == 2
 
 
+def test_same_samples_in_a_different_order_are_still_a_duplicate(client, engine):
+    # The Shortcut returns samples in a new order on each run (live, 2026-10-21).
+    payload = load_sample("health_payload_01.json")
+    post(client, payload)
+    payload["samples"] = list(reversed(payload["samples"]))
+
+    response = post(client, payload)
+
+    assert response.json()["duplicate"] is True
+    assert count(engine, "batches") == 1
+
+
 def test_edited_and_deleted_entries_update_the_day(client, engine):
     post(client, load_sample("health_payload_01.json"))
     response = post(client, load_sample("health_payload_02.json"))

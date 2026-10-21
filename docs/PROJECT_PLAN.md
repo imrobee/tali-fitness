@@ -110,7 +110,7 @@ Weekly calorie budget card; Activities page v1 (day-grouped list; lifting sessio
 - **7b Next (pick in this order while time lasts):** weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, `ARCHITECTURE.md` section 14 #8); personal records by estimated 1RM (Epley `w * (1 + reps/30)`, `RANK`/`MAX OVER`); weekly summary vs previous week; weekly volume per muscle group; small manual-entry forms.
 
 ### Slice 8: Hosting decision, deploy, README `[ ]`
-Research free hosting options (current pricing and limits, from official pages); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
+Research free hosting options (current pricing and limits, from official pages); include **Strava webhooks** (push on create/update/delete instead of hourly polling; needs a public HTTPS callback URL, so only possible once hosted); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
 
 ## 6. Resume claims tracker (claim only when Status is "built")
 
@@ -139,6 +139,9 @@ Research free hosting options (current pricing and limits, from official pages);
 - Training-load view; `GET /streak` for Scriptable; CSV export.
 - dbt for transforms; Great Expectations.
 - Light mode; per-role DB users; reconcile Strava deletions.
+- Cheaper Strava polling (decided to wait, 2026-10-20: about 145 of 1,000 daily read calls today). (a) Skip night hours: cron `0 6-23 * * *` with the DAG time zone set to Asia/Manila (Airflow defaults to UTC). (b) Hourly runs fetch only new activities; one morning run re-checks the 7-day lookback for edited descriptions. (b) matters more: today every run re-fetches the whole week, so cost grows with activity count and could reach the daily limit in a very busy week.
+- Shareable **Health Push** Shortcut: an iCloud link (or a signed `.shortcut` file via macOS `shortcuts sign`) in the README instead of rebuilding by hand. Use the Shortcut's import questions so each person enters their own server URL and API key at install; the shared copy must never contain Rob's key. Includes the day-granular date filter fix (ARCHITECTURE.md 6.2).
+- "Sync now" / refresh-if-stale on app open: when the dashboard loads and the last successful Strava sync is older than N minutes, the API triggers `strava_sync` through Airflow's REST API (`max_active_runs=1` prevents doubles) and the UI shows "Syncing..." then refetches. Airflow stays the only code that calls Strava. Also a manual **Sync now** button (`POST /api/v1/sync/strava`, API key, 2-minute cooldown). For Apple Health the server cannot reach the phone, so a **Sync Health** button opens `shortcuts://run-shortcut?name=Health%20Push` to run the Shortcut from Safari (verify on the iPhone first).
 
 ## 9. README skeleton (Slice 8)
 

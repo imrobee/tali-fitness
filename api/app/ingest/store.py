@@ -26,6 +26,21 @@ class IngestResult:
     duplicate: bool
 
 
+def payload_fingerprint(batch: HealthBatchIn) -> str:
+    """sha256 of the batch's content, ignoring sample order and key order.
+
+    The Shortcut returns the same samples in a different order on each run (seen in
+    Slice 0 and live on 2026-10-21), so hashing the raw bytes would treat every re-send
+    as new. Sorting first makes identical content always give the identical fingerprint.
+    """
+    canonical = {
+        "window": {"from": batch.window.start.isoformat(), "to": batch.window.end.isoformat()},
+        "device_tz": batch.device_tz,
+        "samples": sorted(json.dumps(sample, sort_keys=True) for sample in batch.samples),
+    }
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
+
+
 def apply_batch(conn: Connection, batch_id: UUID) -> None:
     """Replace this batch's (day, type) pairs in core.fact_dietary_sample."""
     conn.execute(load_sql("health/apply_batch.sql"), {"batch_id": batch_id})
@@ -54,7 +69,7 @@ def store_batch(
     rejected: list[Rejected],
     started_at: datetime,
 ) -> IngestResult:
-    payload_sha256 = hashlib.sha256(body).hexdigest()
+    payload_sha256 = payload_fingerprint(batch)
     received = len(accepted) + len(rejected)
     window = {"window_start": batch.window.start, "window_end": batch.window.end}
 
