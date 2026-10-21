@@ -15,6 +15,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+# ...but the web app's pure functions live in web/src/lib and must be committed.
+!web/src/lib/
 lib64/
 parts/
 sdist/
@@ -225,3 +227,6 @@ spike_out/
 # Node (web/ has its own .gitignore too)
 node_modules/
 *.tsbuildinfo
+
+# Working files of the design-taste skill (inspector screenshots, dealt direction)
+.taste-skill/

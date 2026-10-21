@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this file at the end of every slice.
 
-## Status at a glance (handoff, 2026-10-21)
+## Status at a glance (2026-10-21)
 
 | Slice | Status | What was cut or changed (reasons in `DECISIONS.md`) |
 |---|---|---|
@@ -12,7 +12,7 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this fil
 | 3 Health ingest | `[x]` done | Applied synchronously; no `health_transform` DAG (D1). `core.dim_date` built here, not Slice 4 (D28). Duplicates logged as runs; canonical fingerprint (D27, D30). Extra reason codes, 201/200/413 responses (D26). |
 | 4 Core + Hevy parser | `[x]` done | Option A `set_kind` (D17). Re-parse by raw version and `PARSER_VERSION` (D33). Seeds reloaded each run (D34). New `Cardio` group (D36). |
 | 5 Marts, streak, DQ | `[x]` done | `GET /pipeline/health` moved to 6b. 5 of 15 DQ checks (rest in 6b). `fn_daily_nutrition` is a function, not a view (D37). `ops.dq_results` has no severity column (D39). `data_quality` at minute 30 (D40). |
-| 6a API + web + dashboard (**M1**) | `[~]` API done, web not started | Done: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Not started: React shell, key gate, dashboard cards, Me targets form, demo database and screenshots, iPhone check. |
+| 6a API + web + dashboard (**M1**) | `[~]` built and green; waiting on Rob's iPhone check | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
 | 6b Pages + rest | `[ ]` not started | Now also holds `/pipeline/health`, the other 10 DQ checks, and the full screenshot set. |
 | 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. |
 | 8 Hosting + README | `[ ]` not started | Includes evaluating Strava webhooks. GPS privacy already done (D24). |
@@ -82,7 +82,7 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 | Slice 3 | Done: real `API_KEY` set; Shortcut posts to `http://<mac-lan-ip>:8000/api/v1/ingest/health` with `X-API-Key`; duplicate re-send confirmed live. |
 | Slice 5 | **Open:** switch on the `data_quality` DAG in the Airflow UI (it starts paused). |
 | Slice 1 | **Open:** confirm CI logs show real test counts (run `gh auth login`, or paste the "passed" lines from the Actions log). |
-| Slice 6a | **Open:** commit the API checkpoint if not yet done; later, open the app on the iPhone. |
+| Slice 6a | **Open:** commit the web half; open the app on the iPhone over the Mac's LAN IP and save nickname and targets on the Me page (the acceptance step). |
 | Slice 8 | Approve the hosting choice. |
 
 ## 5. Slices
@@ -119,7 +119,7 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Deliverables:** `app.target_history` (budget/goal in effect per date), `app.recovery_day`; `mart.fn_day_status(p_today)`, `mart.fn_streak(p_today)`, `mart.fn_daily_nutrition(p_from, p_to)`; DAG `data_quality` (hourly) running the 5 M1 checks (`strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`) and writing `ops.dq_results`.
 **Acceptance:** every scenario in `ARCHITECTURE.md` section 8.4 passes as a SQL integration test against real Postgres; healing yesterday restores the streak; each of the 5 checks has a pass test and a fail test; killing the Strava token produces a failed run in `ops.pipeline_runs` and a `strava_freshness` warning in `ops.dq_results`.
 
-### Slice 6a: API + web shell + dashboard v0 `[~]` (API done; web not started)  **= M1**
+### Slice 6a: API + web shell + dashboard v0 `[~]` (built; waiting on the iPhone check)  **= M1**
 **Deliverables:** `GET /api/v1/dashboard`, `GET/PUT /api/v1/me`, `POST/DELETE /api/v1/recovery`; React app with bottom navigation (4 pages, Activities/Nutrition can be minimal), API-key gate; minimal Me page with the targets form (calorie budget, protein goal, saved effective today); dashboard cards from greeting through protein per `UI_SPEC.md`; visual verification loop with screenshots for 3 scenarios (`midweek`, `at_risk`, `edge_empty`) at iPhone size (393x852) only.
 **Acceptance:** `UI_SPEC.md` section 12 checklist items for those cards pass; Rob opens it on his iPhone via the Mac's LAN IP and sees real data.
 

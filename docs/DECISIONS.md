@@ -86,6 +86,11 @@ Why: `CREATE DATABASE` cannot take a bound parameter, and a constant avoids buil
 | oxlint | 1.87.0 | Web lint (template) |
 | vitest | 5.0.3 | Unit tests for pure web functions |
 | @types/node, @types/react, @types/react-dom | 24.19.1, 19.3.0, 19.3.0 | Type definitions (template) |
+| react-router | 8.4.0 | Four pages and the shared `?date=` in the URL (Slice 6a) |
+| @tanstack/react-query | 5.104.1 | Fetching and caching API data; refetch on return to the app (Slice 6a) |
+| @testing-library/react, @testing-library/dom | 16.3.3, 10.4.2 | Render cards in tests and query them by role and name (Slice 6a) |
+| jsdom | 30.1.2 | A browser DOM for those component tests under Vitest (Slice 6a) |
+| @playwright/test (+ image `mcr.microsoft.com/playwright:v1.63.0-noble`) | 1.63.0 | Screenshots of the demo scenarios (Slice 6a) |
 
 ## Slice 2: Strava to raw
 
@@ -174,6 +179,36 @@ Why: UI_SPEC 6.3 makes the time zone read-only for now, and both say Asia/Manila
 
 **D44. Validation errors from query parameters and bodies use the standard error shape (`invalid_payload`).**
 Why: the web app handles one error format everywhere. Rejected: FastAPI's default `{"detail": [...]}`.
+
+**D59. Icons are Tabler icons copied in as small inline SVG components (`web/src/icons.tsx`), found with the better-icons tool.**
+Why: one consistent outline set with the run, barbell, apple and snowflake shapes the spec needs, no icon package, and the active tab's filled variant is under our control. Rejected: `react-icons` (planned in the handoff; a large dependency for about 20 icons).
+
+**D60. Component tests use Testing Library's `render` and `screen` only; no `user-event` or `jest-dom`.**
+Why: the cards are checked by role, name and text, which needs neither, and each package added must be explained (CLAUDE.md #1). Rejected: the full Testing Library kit.
+
+**D61. Visual style: "true-black flat", from the design-taste skill's app-screen draw, kept inside UI_SPEC.**
+True black page (`#000`, OLED iPhone), iOS card greys one lightness step apart, elevation by lightness only (no shadows, no borders), the system font, colour only on data (ring, bars, markers, flame). The skill's inspector passes with 0 failures; its one warning (empty sides at 1440px wide) comes from UI_SPEC's 520px column. Why: it matches the Strava and MyNetDiary references and keeps every colour meaningful. Rejected: a warm near-black ground (clashed with the iOS card greys).
+
+**D62. `--flame` is `#fc4c02` (Strava's orange), not UI_SPEC's starting value `~#e8622a`; `--accent` is `#409cff`.**
+Why: the starting value read as terracotta next to the over-budget orange and was flagged by the taste inspector; the streak card copies the Strava widget, so its orange fits, at 4.7:1 on the card. The accent is iOS blue lifted until it passes 4.5:1. UI_SPEC 7 lists both as starting values to verify. Rejected: keeping `#e8622a`.
+
+**D63. Where the design skills and UI_SPEC disagree, UI_SPEC wins (CLAUDE.md).**
+Kept from UI_SPEC despite the skill's advice: the accent on the active tab and selected day, the centred 520px column on desktop, the thick (16px) calorie ring, the greeting as the page's `h1`. Why: the spec copies proven fitness-app patterns that Rob chose. Rejected: restyling to the skill's defaults.
+
+**D64. The API key gate is a form shown until a key is stored; any 401 clears the key and brings the gate back through a browser event (`api:unauthorized`).**
+Why: the fetch helper does not need to know about React; the gate just listens. The key stays in `localStorage` on the device, sent as `X-API-Key`. Rejected: a React context threaded into the fetch helper.
+
+**D65. Activities and Nutrition are minimal in 6a and reuse the dashboard cards (the exercises card expanded; the calorie and protein cards).**
+Why: the plan allows minimal pages in 6a; reusing cards means no throwaway code before 6b. Rejected: placeholder text pages.
+
+**D66. Screenshots come from a separate demo stack: Compose profile `demo` with its own database `app_demo`, API key `demo-key`, and a frozen clock (`NOW_OVERRIDE` = Sat 2026-10-17 14:00).**
+`scripts/seed_demo.py` refuses any database whose name does not end in `_demo`, drops and re-migrates it, then loads one scenario; its SQL lives in `db/sql/demo/`. The demo app runs at http://localhost:5174. Why: demo data can never reach the real warehouse, and the pictures are the same on every run. Rejected: seeding the real database; a time-mocking library.
+
+**D67. `make up` renews anonymous volumes (`--renew-anon-volumes`); the API engine uses `pool_pre_ping`.**
+Why: the web container keeps `node_modules` in an anonymous volume, which kept stale packages after a rebuild (500 errors: "Failed to resolve import react-router"); the named `pgdata` volume is never touched. `pool_pre_ping` lets the API survive Postgres restarts and the demo database being recreated. Rejected: deleting volumes by hand.
+
+**D68. Full-page screenshots make the bottom nav static for the capture only.**
+Why: a fixed nav is painted where the first screen ends, over the cards, in a full-page capture; on the phone it stays fixed. The taste inspector cannot pass the key gate, so the screenshot run can also save the rendered HTML (`SNAPSHOT_DIR`) for it to inspect. Rejected: screenshots of the first screen only.
 
 ## Plan, process, and cross-cutting
 

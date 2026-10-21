@@ -1,0 +1,66 @@
+/* Design tokens (UI_SPEC.md section 7). Components use these names only, never raw hex.
+   Dark-first: true black like iOS dark mode on an OLED iPhone, with the iOS grouped-card
+   greys one lightness step apart. Elevation is a lightness step, never a shadow or a
+   border (style: true-black flat). Colour goes on data: the ring, bars, markers, flame. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --surface: #000000; /* page */
+  --card: #1c1c1e; /* cards */
+  --card-elevated: #2c2c2e; /* tracks, missed circles, exercise rows */
+  --card-hover: #232325; /* a linked card under the pointer: half a step up */
+  --rule: #1a1a1a; /* the one line: above the bottom nav */
+
+  /* Text: both tiers pass 4.5:1 on --card and --card-elevated */
+  --text: #ffffff;
+  --text-secondary: #a1a1a6;
+  --text-dim: #636366; /* future days only, paired with an accessible name */
+
+  /* Data colours */
+  --within-budget: #66b33f; /* ring, bars, within marker, protein */
+  --over-budget: #e39a3b; /* over ring, bars, marker (one token for all three) */
+  --flame: #fc4c02; /* streak flame and "Days": Strava's own orange, as in the reference
+                       widget (UI_SPEC's ~#e8622a read as terracotta); 4.7:1 on --card */
+  --accent: #409cff; /* selected day, active tab (iOS blue lifted for 4.5:1) */
+  --neutral: #6e6e73; /* not_logged ring, not_set marker and bar */
+  --freeze-tint: rgba(64, 156, 255, 0.22); /* recovery circle: the accent, pale */
+
+  /* Type: the system face (SF Pro on iPhone) */
+  --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --fs-small: 0.75rem; /* 12 */
+  --fs-body: 0.875rem; /* 14 */
+  --fs-card: 1.0625rem; /* 17: card titles */
+  --fs-figure: 1.375rem; /* 22: card figures */
+  --fs-title: 1.75rem; /* 28: greeting / page title */
+  --fs-answer: 2rem; /* 32: kcal left in the ring, the screen's answer */
+
+  /* Shape and space */
+  --radius-card: 24px;
+  --radius-inner: 16px;
+  --radius-pill: 999px;
+  --page-pad: 16px;
+  --card-pad: 16px;
+  --gap: 12px;
+  --column: 520px;
+  --touch: 44px;
+  --nav-height: 56px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ring-duration: 600ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ring-duration: 0ms;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-secondary: #d1d1d6;
+    --neutral: #9a9aa0;
+    --card-elevated: #3a3a3c;
+  }
+}

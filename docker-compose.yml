@@ -80,5 +80,61 @@ services:
       interval: 10s
       retries: 10
 
+  # --- Demo stack for screenshots (profile "demo": `make up` never starts these) ---------
+  # Its own database (app_demo), a frozen clock, and a throwaway key, so demo data can
+  # never reach the real warehouse (UI_SPEC.md section 11).
+
+  api-demo:
+    profiles: ["demo"]
+    build: ./api
+    env_file: .env
+    environment:
+      WAREHOUSE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/app_demo
+      API_KEY: demo-key # not a secret: it only opens the demo database
+      APP_ENV: test
+      NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./api:/app
+      - ./db:/db
+      - ./scripts:/scripts:ro # seed_demo.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 5s
+      retries: 20
+
+  web-demo:
+    profiles: ["demo"]
+    build: ./web
+    environment:
+      API_PROXY_TARGET: http://api-demo:8000
+    ports:
+      - "127.0.0.1:5174:5173" # the demo app on this Mac, for checking screenshots by eye
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    depends_on:
+      - api-demo
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      retries: 20
+
+  screenshots:
+    profiles: ["demo"]
+    build:
+      context: ./web
+      dockerfile: Dockerfile.playwright
+    environment:
+      BASE_URL: http://web-demo:5173
+      API_KEY: demo-key
+    volumes:
+      - ./web/e2e:/app/e2e:ro
+      - ./web/playwright.config.ts:/app/playwright.config.ts:ro
+      - ./docs/screenshots:/app/screenshots
+
 volumes:
   pgdata:

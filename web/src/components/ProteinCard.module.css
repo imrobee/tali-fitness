@@ -1,0 +1,52 @@
+/* Protein (UI_SPEC.md 5.7): label and grams left, percentage right, a thin green bar.
+   The percentage sits outside the bar; the bar never turns orange. */
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--fs-card);
+  font-weight: 600;
+}
+
+.grams {
+  color: var(--text-secondary);
+}
+
+.percent {
+  font-size: var(--fs-figure);
+  font-weight: 600;
+}
+
+.track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--within-budget);
+}
+
+.setGoal {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.setGoal:hover {
+  text-decoration: underline;
+}

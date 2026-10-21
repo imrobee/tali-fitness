@@ -1,0 +1,49 @@
+/* Day chooser (UI_SPEC.md 5.2): a full-width pill, ‹ label ›, not in a card. */
+
+.pill {
+  display: grid;
+  grid-template-columns: var(--touch) 1fr var(--touch);
+  align-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+}
+
+.arrow,
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.arrow {
+  border-radius: var(--radius-pill);
+  font-size: 20px;
+}
+
+.arrow:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.label {
+  gap: 8px;
+  font-weight: 600;
+}
+
+.label:disabled {
+  cursor: default;
+}
+
+.calendar {
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+
+.arrow:not(:disabled):active,
+.label:not(:disabled):active {
+  background: var(--card-elevated);
+}

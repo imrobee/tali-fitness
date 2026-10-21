@@ -16,7 +16,9 @@ def get_engine() -> Engine:
 
     Also a FastAPI dependency, so tests can swap in an engine for a test database.
     """
-    return create_engine(os.environ["WAREHOUSE_URL"])
+    # pool_pre_ping checks a pooled connection before using it, so the API survives a
+    # Postgres restart (or the demo database being recreated) without a failed request.
+    return create_engine(os.environ["WAREHOUSE_URL"], pool_pre_ping=True)
 
 
 def load_sql(name: str) -> TextClause:

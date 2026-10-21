@@ -154,8 +154,8 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 | `--text` / `--text-secondary` | text | white / gray |
 | `--within-budget` | ring, bars, within marker, protein | green ~#66B33F |
 | `--over-budget` | over ring, bars, marker | orange ~#E39A3B |
-| `--flame` | flame and unit label | orange ~#E8622A |
-| `--accent` | selected day, active tab | blue |
+| `--flame` | flame and unit label | orange ~#E8622A; built as `#FC4C02`, Strava's orange (DECISIONS D62) |
+| `--accent` | selected day, active tab | blue; built as `#409CFF` for 4.5:1 (D62) |
 | `--neutral` | `not_logged` hollow marker, `not_set` marker and bar | neutral gray |
 
 `--over-budget` is one token shared by ring, bars, and marker. **No red anywhere.** Light mode is a token swap, only if time allows.
