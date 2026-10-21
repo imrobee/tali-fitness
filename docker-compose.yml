@@ -27,7 +27,8 @@ services:
       - "0.0.0.0:8000:8000" # all interfaces, so the iPhone can reach it on the LAN
     volumes:
       - ./api:/app
-      - ./db:/db # Alembic migrations run from here
+      - ./db:/db # Alembic migrations and SQL files
+      - ./docs/samples:/samples:ro # recorded payloads used as test fixtures
     depends_on:
       postgres:
         condition: service_healthy
