@@ -49,7 +49,8 @@ def engine(migrated_engine: Engine) -> Engine:
         conn.execute(
             text(
                 "TRUNCATE raw.strava_activities, ops.oauth_tokens, ops.watermarks, "
-                "ops.pipeline_runs"
+                "ops.pipeline_runs, ops.quarantine, core.dim_exercise, "
+                "core.dim_activity_type, core.exercise_muscle_map CASCADE"
             )
         )
     return migrated_engine

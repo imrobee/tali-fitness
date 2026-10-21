@@ -86,11 +86,11 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Deliverables:** `make strava-auth` (one-time OAuth); token refresh with storage in `ops.oauth_tokens`; DAG `strava_sync` (hourly, `catchup=False`, `max_active_runs=1`, retries with backoff); incremental watermark with a 7-day lookback; `raw.strava_activities` upsert by `strava_id`; `ops.pipeline_runs` row per run; rate-limit handling (read current limits from Strava docs).
 **Acceptance:** run twice, row count unchanged and no duplicates; kill the run midway then rerun, still correct; an edited Strava description is picked up inside the lookback window; a unit test shows `start_date_local` with a trailing `Z` is stored as naive local time and gets the right `local_date`; tests use recorded fixtures (no live API in CI); DAG import test passes.
 
-### Slice 3: Health ingest endpoint `[~]`
+### Slice 3: Health ingest endpoint `[x]`
 **Deliverables:** `POST /api/v1/ingest/health` with `X-API-Key`; Pydantic validation; `raw.health_batches` + `raw.health_samples`; rejects go to `ops.quarantine`; response `{batch_id, received, accepted, rejected, duplicate}`; `core.apply_health_batch(batch_id)` called in the ingest transaction (replaces only the `(local_date, type)` pairs present in the batch); `ops.pipeline_runs` row per ingest; `scripts/send_sample_shortcut_payload.sh`. No health DAG (`ARCHITECTURE.md` 6.2).
 **Acceptance:** same payload sent twice leaves `core.fact_dietary_sample` unchanged; an edited payload (food entry changed, or one of several entries removed) updates that day and type correctly; a batch missing a type for a day leaves that day's existing rows of that type untouched; a failure mid-batch rolls back raw and core; invalid unit/value is quarantined not dropped; wrong or missing API key returns 401; the real Shortcut on Rob's iPhone posts to the Mac over HTTP and rows appear.
 
-### Slice 4: Core model and Hevy parser `[ ]`
+### Slice 4: Core model and Hevy parser `[~]`
 **Deliverables:** `core.dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`; seed CSVs (activity types, exercise-to-muscle map); pure parser `parse_hevy(description) -> ParsedWorkout` handling the four set kinds and exercise notes (`ARCHITECTURE.md` section 7) with kg, metre, and second normalization; `fact_set.set_kind` with one `CHECK` per kind; quarantine of unparseable lines with raw text and reason; re-parse is idempotent (replace sets per activity in one transaction); `dim_exercise` uses `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)`.
 **Acceptance (golden):** `docs/samples/hevy_description_01.txt` parses to **9 exercises, 22 sets, total volume 3490.90 kg** (rounded to 2 dp; the two lbs exercises are converted at 0.45359237 kg/lb; original value and unit are kept); `docs/samples/hevy_description_02.txt` parses to **6 exercise entries, 12 sets, 2 notes, 55 reps, 52 km, 8,642 s, volume 0** with `parse_status = ok`; a row violating its kind's `CHECK` is rejected by the database; a Strava activity without the Hevy marker is `not_hevy`, not an error; every unknown line becomes a quarantine row and the activity is `partial`, never silently dropped; at least 10 parser unit tests including blank lines, trailing spaces, lbs, and a garbage line; parsing the golden sample twice leaves the `dim_exercise` row count unchanged (covers exercises with NULL equipment).
 
@@ -116,9 +116,9 @@ Research free hosting options (current pricing and limits, from official pages);
 
 | Claim | Evidence required | Status |
 |---|---|---|
-| Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | partial: `strava_sync` DAG runs hourly into `raw` (Slice 2); star schema in Slice 4 |
-| Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | not built |
-| Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | partial: Strava built and tested (Slice 2); health in Slice 3 |
+| Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | partial: `strava_sync` runs hourly raw -> core star schema (`dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`, `fact_dietary_sample`); ERD in README pending (Slice 8) |
+| Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | partial: parser and both golden tests built (Slice 4); parse-coverage DQ check in Slice 5 |
+| Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | built: run-twice tests in CI for Strava (Slice 2, watermark + 7-day lookback) and health (Slice 3, replace per day and type, canonical duplicate check) |
 | Data-quality checks and CI | `ops.dq_results` populated; CI badge | CI built (Slice 1, `make check` on every push); DQ checks not built |
 | SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend views | not built |
 

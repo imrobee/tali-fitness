@@ -25,7 +25,9 @@ def test_task_order(dag):
     tasks = dag.task_dict
     assert tasks["refresh_token"].upstream_task_ids == {"start_run"}
     assert tasks["sync_activities"].upstream_task_ids == {"start_run", "refresh_token"}
-    assert tasks["close_run"].upstream_task_ids == {"start_run", "sync_activities"}
+    assert tasks["transform_core"].upstream_task_ids == {"start_run", "sync_activities"}
+    assert tasks["parse_hevy"].upstream_task_ids == {"start_run", "transform_core"}
+    assert tasks["close_run"].upstream_task_ids == {"start_run", "parse_hevy"}
 
 
 def test_close_run_always_runs(dag):
