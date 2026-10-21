@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 42 API + 126 pipeline + 2 web, all in CI |
+| Tests | 74 API + 126 pipeline + 49 web, all in CI |
 
 ## Architecture and design
 
@@ -75,6 +75,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Data-quality checks are plain SQL with their thresholds inside**, run hourly by their own DAG, each with a pass test and a fail test. A failing check is a stored finding, not a crashed pipeline. Trade-off: no framework like Great Expectations, in exchange for checks anyone can read.
 - **Freshness counts "the Shortcut reached us", not "new data arrived"**, so a quiet day with duplicate pushes isn't mistaken for a broken pipeline.
 
+## Slice 6a: API and dashboard
+
+- **Rules in SQL, wording in Python, pixels in React.** The recovery card's state is one SQL function that both the card and `POST /recovery` use, so the button never offers something the server refuses. The API only adds text and shapes one payload per screen.
+- **Logic out of components.** Ring maths, number and date formatting, screen-reader labels and form validation are pure TypeScript functions with unit tests; components only lay them out. Trade-off: more files, but every number on screen is tested without a browser.
+- **The URL is the state.** The selected day lives in `?date=`, so the back button, refresh and the bottom tabs all keep it, with no global store.
+- **Deterministic screenshots from a separate demo stack.** Its own database (`app_demo`, and the seed script refuses any other name), its own key, and a frozen clock, so the same scenario draws the same picture every time and demo data can't touch real data.
+- **Accessibility built in.** Shape, not colour, carries meaning (circle, dot, square), every chart has a text label, and contrast was checked token by token. Trade-off: I changed two spec colours to pass, and recorded why.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -84,5 +92,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Identical Health re-sends were stored as new batches | Live data: two identical pushes a minute apart | The Shortcut reorders samples; fingerprint a sorted, canonical form instead of raw bytes |
 | Yesterday's food disappeared from Health pushes | Live data the morning after day one | iOS Shortcuts compares dates by calendar day, not time; filter from the day before yesterday |
 | Strava's local start time ends in a misleading `Z` | Comparing UTC and local fields in the spike | Treat it as naive local time; a test keeps an 11:30 pm workout on its own day |
+| The rebuilt web app returned 500s: "Failed to resolve import react-router" | First run against real data after adding packages | Docker kept the old `node_modules` in an anonymous volume; `make up` now renews anonymous volumes (the database volume is named and untouched) |
+| The recovery card changed height between states | Comparing the three screenshots side by side | The minimum height fitted only one-line states; it is now computed from the type sizes, and measured equal (132.6px) in every state |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

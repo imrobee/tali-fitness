@@ -1,0 +1,88 @@
+/* Logged exercises (UI_SPEC.md 5.5). Rows are card-in-card on the elevated surface and are
+   not clickable: the whole card opens Activities. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-inner);
+  background: var(--card-elevated);
+}
+
+/* A neutral disc one step darker than the row: the icon's container codes nothing. */
+.icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text);
+  font-size: 20px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* lets a long title shrink and truncate */
+}
+
+.name {
+  display: block;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duration {
+  color: var(--text-secondary);
+}
+
+.empty {
+  color: var(--text-secondary);
+}
+
+.toggle {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  height: 32px;
+  margin-bottom: -6px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: var(--text);
+}
+
+.toggleIcon {
+  transform: rotate(0deg);
+}
+
+.toggleIcon.open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toggleIcon {
+    transition: transform 200ms var(--ease-out);
+  }
+}

@@ -1,0 +1,86 @@
+/* Recovery day card (UI_SPEC.md 5.4): always visible, the same height in every state. */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  /* Constant height: room for the tallest state (title, a two-line body, the pill), built
+     from the type tokens so it scales with text size. 18px = the two gaps, the pill's
+     top margin and its padding. A three-line body on a very narrow screen still grows. */
+  min-height: calc(
+    (var(--fs-card) + 2 * var(--fs-body) + var(--fs-small)) * 1.45 + 18px
+  );
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: var(--fs-card);
+  font-weight: 600;
+}
+
+.body {
+  color: var(--text-secondary);
+}
+
+.pill {
+  display: inline-flex;
+  align-self: start;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pillIcon {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* The primary control, made primary by inversion (white pill, black label). */
+.primary,
+.secondary {
+  min-height: var(--touch);
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.secondary {
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.primary:active,
+.secondary:active {
+  transform: scale(0.97);
+}
+
+.error {
+  color: var(--over-budget);
+}

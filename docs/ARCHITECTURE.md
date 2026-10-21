@@ -110,6 +110,8 @@ Seeds are CSV files in `db/seeds/`, upserted by `transform_core` on every run (e
 ### 5.5 `mart`
 Views/functions: `fn_day_status(p_today date)` (section 8; one row per day with `state`, `island_id`, `freezes_left`), `fn_streak(p_today date)` (`streak`, `at_risk`, `freezes_left`), `fn_daily_nutrition(p_from date, p_to date)` (kcal and protein per local date with the target in effect and `calorie_status`; a function with a date range so days without samples still appear as `not_logged`), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`, `v_trends_*`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
 
+`fn_recovery_state(p_today date, p_day date)` returns the recovery card's state for a day (`locked`, `counted`, `logged`, `no_freeze`, `blocked`, `available`; UI_SPEC 5.4); `POST /recovery` accepts a day only when it returns `available`.
+
 Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` applies one health batch to `core` (section 6.2).
 
 ## 6. Ingestion
@@ -296,7 +298,7 @@ Every DAG run and every health ingest writes `ops.pipeline_runs`. `GET /api/v1/p
 
 ## 11. API contract (v1)
 
-Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` with codes `unauthorized`, `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`.
+Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` (bad query parameters and bodies too, as `invalid_payload`) with codes `unauthorized`, `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -306,9 +308,9 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 | GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok` |
 | GET | `/nutrition?date=` | calorie card, protein card, week chart for the date |
 | GET | `/me` | nickname, timezone, current targets, earliest data date |
-| PUT | `/me` | nickname; targets (inserts `target_history` effective today) |
-| POST | `/recovery` | `{date, note?}`; valid only for today/yesterday and per the freeze rule |
-| DELETE | `/recovery/{date}` | undo |
+| PUT | `/me` | `{nickname?, targets?: {calorie_budget 800-6000, protein_goal 0-400}}`; only fields present change; targets insert a `target_history` row effective today (saving again the same day replaces it) |
+| POST | `/recovery` | `{date, note?}`; 201 when logged, 200 if already logged, 422 `recovery_not_allowed` unless `mart.fn_recovery_state` says `available` |
+| DELETE | `/recovery/{date}` | undo; 204; today or yesterday only |
 | POST | `/ingest/health` | Shortcut push (section 6.2) |
 | GET | `/pipeline/health` | health panel |
 | GET | `/streak` | stretch: small JSON for Scriptable |
@@ -342,7 +344,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 }
 ```
 `calorie_status` (streak week), `calories.status`, and `week_chart.bars[].status` take the values in section 8.1: `not_logged`, `not_set`, `within`, `over` (bars also `future`). With `not_set`, `budget`, `remaining`, and `over` are `null`.
-`recovery.state` is one of `available`, `logged`, `no_freeze`, `blocked`, `counted`, `locked` (definitions in `UI_SPEC.md`). `exercises` are ordered **most recent first** by `started_at`. `week[].primary_activity_type` is the type of the **longest-duration** activity that day (it drives the circle icon). `week_chart` covers the Monday-Sunday week containing `selected_date`; the streak `week` is always the current week.
+`recovery.state` is one of `available`, `logged`, `no_freeze`, `blocked`, `counted`, `locked` (definitions in `UI_SPEC.md`). `exercises` are ordered **most recent first** by `started_at`. `week[].primary_activity_type` is the type of the **longest-duration** activity that day (it drives the circle icon). `week_chart` covers the Monday-Sunday week containing `selected_date`; the streak `week` is always the current week. `selected_date` must be between `earliest_date` (the first day with any data) and `today`, else 422 `date_out_of_range`. Streak-week days before the first data day show `missed`. Bars have `kcal: null` for `not_logged` and `future` days. `streak.message` is the quiet line from UI_SPEC 9 (at risk, then today counted, then fresh start with the best streak). Implementation: `api/app/dashboard/`.
 
 ## 12. Security
 

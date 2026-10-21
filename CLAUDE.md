@@ -18,6 +18,7 @@ Airflow-orchestrated pipeline into a PostgreSQL star schema; parser turning free
 ## Read these first
 | Doc | Use it for |
 |---|---|
+| `docs/HANDOFF.md` | Start here in a new conversation: current state, what's open, the exact next step |
 | `docs/PROJECT_PLAN.md` | Slices, milestones, acceptance criteria, priority order, backlog |
 | `docs/ARCHITECTURE.md` | Stack, data model, pipelines, streak/freeze rules, API contract, tests, CI |
 | `docs/UI_SPEC.md` | The four pages, dashboard cards, tokens, accessibility, visual verification |

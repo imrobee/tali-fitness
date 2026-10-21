@@ -1,0 +1,7 @@
+# Screenshot runner (make screenshots): the official Playwright image, whose browsers
+# match @playwright/test 1.63.0 in package.json, plus the web project's packages.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund

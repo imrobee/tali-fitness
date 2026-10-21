@@ -1,0 +1,66 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  min-height: 100dvh;
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: var(--page-pad);
+}
+
+.mark {
+  color: var(--flame);
+  font-size: 44px;
+}
+
+.title {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.lede {
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.input {
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: 1px solid var(--card-elevated);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* 16px: iOS Safari zooms into smaller inputs */
+}
+
+.submit {
+  min-height: var(--touch);
+  margin-top: 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  color: var(--over-budget);
+}

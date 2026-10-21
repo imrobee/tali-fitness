@@ -48,9 +48,15 @@ def migrated_engine():
 
 @pytest.fixture
 def engine(migrated_engine: Engine) -> Engine:
-    """The test database with the health and ops tables emptied before each test."""
+    """The test database with data tables emptied (and the profile reset) before each test."""
     with migrated_engine.begin() as conn:
-        conn.execute(text("TRUNCATE raw.health_batches, ops.quarantine, ops.pipeline_runs CASCADE"))
+        conn.execute(
+            text(
+                "TRUNCATE raw.health_batches, raw.strava_activities, core.dim_activity_type, "
+                "app.recovery_day, app.target_history, ops.quarantine, ops.pipeline_runs CASCADE"
+            )
+        )
+        conn.execute(text("UPDATE app.profile SET nickname = NULL"))
     return migrated_engine
 
 

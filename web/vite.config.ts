@@ -9,12 +9,16 @@ export default defineConfig({
     // the iPhone (via the Mac's LAN IP) can reach it.
     host: true,
     port: 5173,
-    // Forward /api to the api service so the browser sees a single origin
-    // (no CORS setup needed). "api" is the Compose service name.
-    proxy: { '/api': 'http://api:8000' },
+    // Vite refuses unknown host names; these are the Compose service names the
+    // screenshot container uses. IP addresses (the iPhone) are always allowed.
+    allowedHosts: ['web', 'web-demo'],
+    // Forward /api to the API so the browser sees a single origin (no CORS setup).
+    // The demo stack points this at its own API (docker-compose.yml, profile "demo").
+    proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://api:8000' },
   },
   test: {
-    // Slice 1 only tests pure functions; jsdom arrives with component tests.
+    // Pure functions run in Node; component tests opt into jsdom per file.
     environment: 'node',
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

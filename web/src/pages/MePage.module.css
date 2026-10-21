@@ -1,0 +1,91 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.unit {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.input {
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: 1px solid var(--card-elevated);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* 16px: iOS Safari zooms into smaller inputs */
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--over-budget);
+}
+
+.help {
+  color: var(--text-secondary);
+}
+
+.fieldError {
+  color: var(--over-budget);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.save {
+  min-height: var(--touch);
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.saved {
+  color: var(--text-secondary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--touch);
+}
+
+.rowValue {
+  color: var(--text-secondary);
+}
+
+.change {
+  min-height: var(--touch);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  font-weight: 600;
+  cursor: pointer;
+}

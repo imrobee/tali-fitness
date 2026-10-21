@@ -1,0 +1,102 @@
+.card {
+  position: relative; /* anchors the stretched link */
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--card-pad);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: var(--fs-card);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.titleQuiet {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.aside {
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+/* The whole card is one link (UI_SPEC.md section 2): the link's ::after covers the card.
+   Controls inside the card sit above it with .above. */
+.stretched {
+  color: inherit;
+  text-decoration: none;
+}
+
+.stretched::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.stretched:focus-visible {
+  outline: none;
+}
+
+.card:has(.stretched:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.card:has(.stretched:hover) {
+  background: var(--card-hover);
+}
+
+.card:has(.stretched:active) {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    transition:
+      background-color 150ms var(--ease-out),
+      transform 150ms var(--ease-out);
+  }
+}
+
+.above {
+  position: relative;
+  z-index: 1;
+}
+
+/* Loading: the final layout with each value as a flat bar at its real size, no shimmer. */
+.bar {
+  display: inline-block;
+  border-radius: 6px;
+  background: var(--card-elevated);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.retry {
+  min-height: var(--touch);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  font-weight: 600;
+  cursor: pointer;
+}

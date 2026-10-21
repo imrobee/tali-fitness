@@ -2,6 +2,23 @@
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this file at the end of every slice.
 
+## Status at a glance (2026-10-21)
+
+| Slice | Status | What was cut or changed (reasons in `DECISIONS.md`) |
+|---|---|---|
+| 0 Spikes and samples | `[x]` done | Shared a branch with Slice 1. Body mass added to the Shortcut; MyNetDiary keeps one weight per day (D2). Shortcut sends JSON built as text (D4), runs when MyNetDiary closes (D5), filters dates from the day before yesterday (D31). Hevy has four set kinds plus notes, no supersets or warm-up sets (D17). Spike scripts kept in `scripts/spikes/`. |
+| 1 Skeleton, CI | `[x]` done | Airflow `standalone` in one container (D9). CI runs `make -k check` in the same containers instead of GitHub service containers (D11, D48). Postgres on Mac port 5433 (D15). oxlint instead of ESLint; TypeScript 6.0; Python 3.13 (D13, D14). |
+| 2 Strava to raw | `[x]` done | `fetch_activities` + `load_raw` merged into `sync_activities`; `start_run`/`close_run` replace `record_run` (D19, D20). New activities fetched first under the cap (D21). `make strava-auth` replaces `scripts/strava_auth.py` (D23). GPS dropped before landing, pulled forward from Slice 8 (D24). |
+| 3 Health ingest | `[x]` done | Applied synchronously; no `health_transform` DAG (D1). `core.dim_date` built here, not Slice 4 (D28). Duplicates logged as runs; canonical fingerprint (D27, D30). Extra reason codes, 201/200/413 responses (D26). |
+| 4 Core + Hevy parser | `[x]` done | Option A `set_kind` (D17). Re-parse by raw version and `PARSER_VERSION` (D33). Seeds reloaded each run (D34). New `Cardio` group (D36). |
+| 5 Marts, streak, DQ | `[x]` done | `GET /pipeline/health` moved to 6b. 5 of 15 DQ checks (rest in 6b). `fn_daily_nutrition` is a function, not a view (D37). `ops.dq_results` has no severity column (D39). `data_quality` at minute 30 (D40). |
+| 6a API + web + dashboard (**M1**) | `[~]` built and green; waiting on Rob's iPhone check | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
+| 6b Pages + rest | `[ ]` not started | Now also holds `/pipeline/health`, the other 10 DQ checks, and the full screenshot set. |
+| 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. |
+| 8 Hosting + README | `[ ]` not started | Includes evaluating Strava webhooks. GPS privacy already done (D24). |
+
+Plan-level changes: all deadlines and time gates removed (D45); Rob runs every git command (D46); interview notes live in `docs/INTERVIEW_NOTES.md` (D57). See `docs/HANDOFF.md` for the exact next step.
+
 ## 1. Goal and how it maps to the job posting
 
 Portfolio project for entry-level Data Engineer roles. The target posting emphasizes:
@@ -57,11 +74,15 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 
 | When | Task |
 |---|---|
-| Before Slice 0 | Install Docker Desktop. Create a private GitHub repo (CI needs it). |
-| Slice 0 | Create a Strava API application (callback domain `localhost`), note client ID and secret, put them in `.env` (never commit). |
-| Slice 0 | Build the iOS Shortcut that outputs dietary energy and dietary protein per logged food item, and Body Mass (kg; MyNetDiary keeps one per day). Send one real output (redact if needed) to `docs/samples/`. |
+| Before Slice 0 | Done: Docker Desktop installed; private GitHub repo `imrobee/fitness-tracker`. |
+| Slice 0 | Done: Strava API application created; keys in `.env`. |
+| Slice 0 | Done: iOS Shortcut "Health Push" sends dietary energy, protein, and body mass; samples in `docs/samples/`. |
 | Slice 0 | Done: `docs/samples/hevy_description_02.txt` covers bodyweight, distance/time, and timed sets plus exercise notes. Hevy has no supersets or warm-up/drop/failure sets in its Strava text. |
-| Slice 3 | Set a real `API_KEY` in `.env`; in the Shortcut, change the URL to `http://<mac-lan-ip>:8000/api/v1/ingest/health` and add the header `X-API-Key`; close MyNetDiary and check rows appear. |
+| Slice 2 | Done: `make strava-auth` run once; `strava_sync` switched on in Airflow. |
+| Slice 3 | Done: real `API_KEY` set; Shortcut posts to `http://<mac-lan-ip>:8000/api/v1/ingest/health` with `X-API-Key`; duplicate re-send confirmed live. |
+| Slice 5 | **Open:** switch on the `data_quality` DAG in the Airflow UI (it starts paused). |
+| Slice 1 | **Open:** confirm CI logs show real test counts (run `gh auth login`, or paste the "passed" lines from the Actions log). |
+| Slice 6a | **Open:** commit the web half; open the app on the iPhone over the Mac's LAN IP and save nickname and targets on the Me page (the acceptance step). |
 | Slice 8 | Approve the hosting choice. |
 
 ## 5. Slices
@@ -94,11 +115,11 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Deliverables:** `core.dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`; seed CSVs (activity types, exercise-to-muscle map); pure parser `parse_hevy(description) -> ParsedWorkout` handling the four set kinds and exercise notes (`ARCHITECTURE.md` section 7) with kg, metre, and second normalization; `fact_set.set_kind` with one `CHECK` per kind; quarantine of unparseable lines with raw text and reason; re-parse is idempotent (replace sets per activity in one transaction); `dim_exercise` uses `UNIQUE NULLS NOT DISTINCT (exercise_name, equipment)`.
 **Acceptance (golden):** `docs/samples/hevy_description_01.txt` parses to **9 exercises, 22 sets, total volume 3490.90 kg** (rounded to 2 dp; the two lbs exercises are converted at 0.45359237 kg/lb; original value and unit are kept); `docs/samples/hevy_description_02.txt` parses to **6 exercise entries, 12 sets, 2 notes, 55 reps, 52 km, 8,642 s, volume 0** with `parse_status = ok`; a row violating its kind's `CHECK` is rejected by the database; a Strava activity without the Hevy marker is `not_hevy`, not an error; every unknown line becomes a quarantine row and the activity is `partial`, never silently dropped; at least 10 parser unit tests including blank lines, trailing spaces, lbs, and a garbage line; parsing the golden sample twice leaves the `dim_exercise` row count unchanged (covers exercises with NULL equipment).
 
-### Slice 5: Marts, streak with freeze, data quality, pipeline health `[~]`
+### Slice 5: Marts, streak with freeze, data quality, pipeline health `[x]`
 **Deliverables:** `app.target_history` (budget/goal in effect per date), `app.recovery_day`; `mart.fn_day_status(p_today)`, `mart.fn_streak(p_today)`, `mart.fn_daily_nutrition(p_from, p_to)`; DAG `data_quality` (hourly) running the 5 M1 checks (`strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`) and writing `ops.dq_results`.
 **Acceptance:** every scenario in `ARCHITECTURE.md` section 8.4 passes as a SQL integration test against real Postgres; healing yesterday restores the streak; each of the 5 checks has a pass test and a fail test; killing the Strava token produces a failed run in `ops.pipeline_runs` and a `strava_freshness` warning in `ops.dq_results`.
 
-### Slice 6a: API + web shell + dashboard v0 `[ ]`  **= M1**
+### Slice 6a: API + web shell + dashboard v0 `[~]` (built; waiting on the iPhone check)  **= M1**
 **Deliverables:** `GET /api/v1/dashboard`, `GET/PUT /api/v1/me`, `POST/DELETE /api/v1/recovery`; React app with bottom navigation (4 pages, Activities/Nutrition can be minimal), API-key gate; minimal Me page with the targets form (calorie budget, protein goal, saved effective today); dashboard cards from greeting through protein per `UI_SPEC.md`; visual verification loop with screenshots for 3 scenarios (`midweek`, `at_risk`, `edge_empty`) at iPhone size (393x852) only.
 **Acceptance:** `UI_SPEC.md` section 12 checklist items for those cards pass; Rob opens it on his iPhone via the Mac's LAN IP and sees real data.
 

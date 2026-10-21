@@ -1,0 +1,48 @@
+/* Bottom navigation (UI_SPEC.md section 1): fixed, 56px plus the home-indicator safe area,
+   on the page's own black with one rule above it. No blur. */
+
+.nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: var(--nav-height);
+  color: var(--text-secondary);
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.icon {
+  font-size: 24px;
+}
+
+.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.link:active .icon {
+  transform: scale(0.92);
+}

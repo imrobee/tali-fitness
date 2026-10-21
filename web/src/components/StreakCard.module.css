@@ -1,0 +1,188 @@
+/* Streak card (UI_SPEC.md 5.3), after the Strava streak widget: flame and count on the
+   left, the Monday-Sunday week on the right. */
+
+.body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 12px;
+}
+
+.flameBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 56px;
+}
+
+.flame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  color: var(--flame);
+  font-size: 52px; /* the icon is 1em */
+}
+
+.count {
+  position: absolute;
+  inset: auto 0 9px;
+  color: var(--surface); /* the dark numeral inside the flame */
+  font-size: var(--fs-card);
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.unit {
+  margin-top: 2px;
+  color: var(--flame);
+  font-size: var(--fs-small);
+  font-weight: 700;
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(32px, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.day:disabled {
+  cursor: default;
+}
+
+/* --- The circle, one look per state ------------------------------------------------------- */
+
+.circle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.qualifying {
+  background: var(--text);
+  color: var(--surface);
+  font-size: 18px; /* the activity icon */
+}
+
+.today_pending {
+  border: 2px solid var(--text);
+  color: var(--text);
+}
+
+.missed {
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+/* At risk: like missed, plus a dashed ring that says "still fixable". Never red. */
+.at_risk {
+  background: var(--card-elevated);
+  color: var(--text);
+  outline: 1.5px dashed var(--text-secondary);
+  outline-offset: 2px;
+}
+
+.recovery {
+  background: var(--freeze-tint);
+  color: var(--accent);
+  font-size: 18px; /* the snowflake */
+}
+
+.future {
+  border: 1px solid var(--card-elevated);
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* --- Calorie marker: shape carries the meaning, not colour -------------------------------- */
+
+.marker {
+  width: 9px;
+  height: 9px;
+}
+
+.marker_not_logged {
+  border: 1.5px solid var(--neutral);
+  border-radius: 50%;
+}
+
+.marker_within {
+  border-radius: 50%;
+  background: var(--within-budget);
+}
+
+.marker_over {
+  border-radius: 1px;
+  background: var(--over-budget);
+}
+
+.marker_not_set {
+  border-radius: 50%;
+  background: var(--neutral);
+}
+
+.marker_hidden {
+  visibility: hidden;
+}
+
+.letter {
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.selected {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.message {
+  color: var(--text-secondary);
+}
+
+.fillIn {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 200% zoom or a very narrow screen: the flame block moves above the week. */
+@media (max-width: 340px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+
+  .flameBlock {
+    flex-direction: row;
+    gap: 8px;
+    width: auto;
+  }
+}
