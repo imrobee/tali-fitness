@@ -1,5 +1,5 @@
-// Activities and Nutrition, minimal for M1 (PROJECT_PLAN Slice 6a): the day chooser and
-// the selected day's real cards. The full pages arrive in Slice 6b.
+// Nutrition (UI_SPEC.md 6.2): the day chooser and the selected day's calorie, protein and
+// weekly cards. Activities has its own page (ActivitiesPage.tsx).
 
 import type { ReactNode } from "react";
 import { isOffline } from "../api/client";
@@ -8,9 +8,9 @@ import type { Dashboard } from "../api/types";
 import { CalorieCard } from "../components/CalorieCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { DayChooser } from "../components/DayChooser";
-import { ExercisesCard } from "../components/ExercisesCard";
 import { OfflineBanner, Page } from "../components/Page";
 import { ProteinCard } from "../components/ProteinCard";
+import { WeeklyCard } from "../components/WeeklyCard";
 import { useSelectedDate } from "../lib/selectedDate";
 
 function DayPage({
@@ -18,7 +18,7 @@ function DayPage({
   children,
 }: {
   title: string;
-  children: (dashboard: Dashboard) => ReactNode;
+  children: (dashboard: Dashboard, select: (date: string | null) => void) => ReactNode;
 }) {
   const [selected, setSelected] = useSelectedDate();
   const query = useDashboard(selected);
@@ -54,26 +54,24 @@ function DayPage({
         earliest={dashboard.earliest_date}
         onChange={setSelected}
       />
-      {children(dashboard)}
+      {children(dashboard, setSelected)}
     </Page>
-  );
-}
-
-export function ActivitiesPage() {
-  return (
-    <DayPage title="Activities">
-      {(dashboard) => <ExercisesCard exercises={dashboard.exercises} startExpanded />}
-    </DayPage>
   );
 }
 
 export function NutritionPage() {
   return (
     <DayPage title="Nutrition">
-      {(dashboard) => (
+      {(dashboard, select) => (
         <>
           <CalorieCard calories={dashboard.calories} />
           <ProteinCard protein={dashboard.protein} />
+          <WeeklyCard
+            bars={dashboard.week_chart.bars}
+            today={dashboard.today}
+            selected={dashboard.selected_date}
+            onSelect={(day) => select(day === dashboard.today ? null : day)}
+          />
         </>
       )}
     </DayPage>

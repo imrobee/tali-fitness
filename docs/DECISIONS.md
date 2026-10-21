@@ -210,6 +210,35 @@ Why: the web container keeps `node_modules` in an anonymous volume, which kept s
 **D68. Full-page screenshots make the bottom nav static for the capture only.**
 Why: a fixed nav is painted where the first screen ends, over the cards, in a full-page capture; on the phone it stays fixed. The taste inspector cannot pass the key gate, so the screenshot run can also save the rendered HTML (`SNAPSHOT_DIR`) for it to inspect. Rejected: screenshots of the first screen only.
 
+## Slice 6b: pages, pipeline health, all DQ checks
+
+**D69. The information-only check (`days_with_activity_no_calories`) is stored as `pass` with its count; its threshold text says "information only".**
+Why: `ops.dq_results.status` allows only pass/warn/fail, and the health panel counts warnings and failures, which an informational number should never raise. Rejected: a fourth status `info` (a migration and a CHECK change for one check).
+
+**D70. Range checks warn; integrity checks fail.**
+Outliers (`activity_duration_range`, `set_range`, `calorie_daily_range`, `unmapped_exercises`, `possible_duplicate_activity`, `target_present`) are things to look at, so they warn; broken guarantees (`activity_not_null`, `fk_integrity`, like `activity_unique`) fail. Thresholds follow ARCHITECTURE 9 exactly. Why: a warning should mean "check your data", a failure "the pipeline is wrong". Rejected: failing on outliers.
+
+**D71. Pipeline source status (ok / delayed / failed) is decided in SQL with the freshness checks' thresholds; the response carries the server's `now`.**
+Why: the panel and the DQ checks must never disagree about "stale", and measuring "9 hours ago" from the phone's clock broke when the clocks differed (found in the frozen-clock demo: "4 days ago" next to "Delayed"). Rejected: thresholds in Python; the browser's `Date.now()`.
+
+**D72. Nutrition reuses `GET /dashboard`; the `/nutrition` endpoint from the draft contract is dropped.**
+Why: the dashboard payload already has the calorie, protein and week data for the selected day, so a second endpoint would return the same thing. Rejected: a duplicate endpoint.
+
+**D73. `/activities` takes an explicit `from`/`to` window (default 30 days, at most 366); the page widens it 30 days at a time with "Load older". Sets load only when a row is opened (`/activities/{id}`).**
+Why: the list stays one small query; set detail is fetched on demand. Unknown ids answer 404 `not_found` (a new error code). Rejected: paging by cursor (more moving parts for one user's data); loading every set up front.
+
+**D74. Run pace uses moving time, falling back to elapsed time.**
+Why: ARCHITECTURE 14 #3 (elapsed for display, moving for pace); `moving_s` was added to the list response for it. Rejected: pace from elapsed time (stops at lights make it look slower).
+
+**D75. The weekly chart draws a dashed budget segment per day, not one line.**
+Why: a budget that changes mid-week then shows as a step with no extra code, and `not_set` days simply get no segment (UI_SPEC 5.8). The y-axis top is `max(1.25 x the largest budget, 1.1 x the tallest bar)`. Rejected: one line at a single budget (wrong when targets change).
+
+**D76. Demo data covers every page: invented sets for Saturday's "Full Body" session and a pipeline history per scenario (midweek healthy; at_risk 9 hours stale with a failed health run and two quarantined lines).**
+Why: UI_SPEC 11 asks for an expanded lifting session and a healthy and a stale/failed Me page. The sets are invented demo values in the sample's shape, not Rob's data. Rejected: running the real parser from the demo seed (the parser lives in the Airflow image, not the API image the seed runs in).
+
+**D77. At 200% zoom the streak week wraps (4 + 3) instead of shrinking its circles.**
+Why: UI_SPEC 5.3 keeps circles at 32px or more; seven of them do not fit in ~200px. Rejected: horizontal scrolling inside the card (hides days).
+
 ## Plan, process, and cross-cutting
 
 **D45. No deadlines or time gates.** (Rob, 2026-10-20.)

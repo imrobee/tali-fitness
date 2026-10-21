@@ -1,12 +1,13 @@
 # Handoff (2026-10-21)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D68).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D77).
 
 ## Where we are
 
-- **Slices 0-5 are done and merged into `main`** (PRs #1-#5).
-- **Slice 6a (M1) is built** on branch `slice-6a-api-dashboard`: API (committed) and web half (to commit). Only Rob's iPhone acceptance check remains.
-- Tests: 74 API + 126 pipeline + 49 web, all green with `make -k check`.
+- **Slices 0-6a are done and merged into `main`** (PRs #1-#6).
+- **Slice 6b (M2 UI) is built and green** on branch `slice-6b-pages`: all 15 DQ checks, `/pipeline/health` with the Me panel, `/activities` with the Activities page, the weekly calorie card on Dashboard and Nutrition, 14 screenshots. Waiting on Rob's iPhone check and commits.
+- Tests: 102 API + 153 pipeline + 88 web, all green with `make -k check`.
+- `data_quality` is switched on and writing `ops.dq_results` hourly.
 
 ## What works, and how to run it
 
@@ -24,7 +25,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 
 | What | Where | State |
 |---|---|---|
-| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard, Me (targets form), minimal Activities and Nutrition |
+| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (day list, sets on tap), Nutrition, Me (targets, data and sync) |
 | API | http://localhost:8000/api/v1/health; every other endpoint needs `X-API-Key` (value in `.env`) | Working |
 | Airflow UI | http://localhost:8080, login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` in `.env` | Working |
 | Postgres | `127.0.0.1:5433`, user `fitness`, databases `app` and `airflow` | Working |
@@ -45,10 +46,7 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Half-finished
 
-**Slice 6a:** everything is built; acceptance needs Rob to open the app on the iPhone with real data (see Waiting on Rob).
-UI_SPEC section 12 items for the 6a cards were checked on the screenshots; the remaining items (weekly chart, pipeline health panel, 200% zoom, desktop size, the other scenarios) belong to 6b.
-
-**Also open:** the `data_quality` DAG exists but is paused in Airflow, so `ops.dq_results` is still empty.
+**Slice 6b:** built; acceptance needs Rob to open Activities, Nutrition and Me on the iPhone with real data.
 
 ## Known bugs and limitations
 
@@ -70,15 +68,14 @@ UI_SPEC section 12 items for the 6a cards were checked on the screenshots; the r
 
 ## Waiting on Rob
 
-1. **Commit the Slice 6a web half.** Suggested message: `feat: add web shell, dashboard cards, and demo screenshots`. Leave out `.agents/`, `.claude/skills/`, `skills-lock.json` (skill install). `.taste-skill/` is gitignored (it holds a real-data screenshot).
-2. **iPhone acceptance check:** open `http://192.168.100.120:5173` in Safari, enter the API key, add to Home Screen, save nickname and targets on Me, confirm the dashboard shows real data.
-3. **Switch on `data_quality`** in the Airflow UI.
-4. **Confirm CI test counts**: `gh auth login`, or paste the "passed" lines (expect 74 / 126 / 49).
-5. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
+1. **Commit Slice 6b** (suggested split in the chat: DQ checks, pipeline health, activities, weekly card, screenshots and docs).
+2. **iPhone check:** Activities (open a lifting session), Nutrition (weekly chart, tap a bar), Me (Data and sync).
+3. **Confirm CI test counts**: `gh auth login`, or paste the "passed" lines (expect 102 / 153 / 88).
+4. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
 
 ## Exact next step
 
-After the iPhone check and merging 6a: create branch **`slice-6b-pages`** and start Slice 6b per `PROJECT_PLAN.md`: the weekly calorie budget card, Activities and Nutrition v1, the Me page pipeline health panel with `GET /api/v1/pipeline/health`, the remaining 10 DQ checks, and the full screenshot set (all scenarios, iPhone and desktop). Re-read `UI_SPEC.md` 5.8, 6, 11 and `ARCHITECTURE.md` 9 and 11 first.
+After the iPhone check and merging 6b: create branch **`slice-7a-calendar-trends`** and start Slice 7a per `PROJECT_PLAN.md`: the week/month calendar on Activities, then weekly and monthly trends with window functions (`LAG`, rolling averages). Re-read `PROJECT_PLAN.md` Slice 7 and `ARCHITECTURE.md` 5.5 first.
 
 ## Working agreements to keep
 

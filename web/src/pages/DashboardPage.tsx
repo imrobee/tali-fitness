@@ -8,11 +8,12 @@ import { OfflineBanner, Page } from "../components/Page";
 import { ProteinCard } from "../components/ProteinCard";
 import { RecoveryCard } from "../components/RecoveryCard";
 import { StreakCard } from "../components/StreakCard";
+import { WeeklyCard } from "../components/WeeklyCard";
 import { greetingLine } from "../lib/format";
 import { useSelectedDate } from "../lib/selectedDate";
 
 // Order is fixed by UI_SPEC.md section 2: greeting, day chooser, streak, recovery,
-// exercises, calories, protein (the weekly chart arrives in Slice 6b).
+// exercises, calories, protein, weekly calorie chart.
 export function DashboardPage() {
   const [selected, setSelected] = useSelectedDate();
   const query = useDashboard(selected);
@@ -57,6 +58,13 @@ export function DashboardPage() {
       <ExercisesCard exercises={dashboard.exercises} to={`/activities?date=${date}`} />
       <CalorieCard calories={dashboard.calories} to={`/nutrition?date=${date}`} />
       <ProteinCard protein={dashboard.protein} to={`/nutrition?date=${date}`} />
+      <WeeklyCard
+        bars={dashboard.week_chart.bars}
+        today={dashboard.today}
+        selected={dashboard.selected_date}
+        onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
+        to={`/nutrition?date=${date}`}
+      />
     </Page>
   );
 }
@@ -80,6 +88,9 @@ function DashboardSkeleton() {
       </Card>
       <Card title="Protein">
         <Bar width="100%" height={36} />
+      </Card>
+      <Card title="Weekly calorie budget">
+        <Bar width="100%" height={180} />
       </Card>
     </Page>
   );

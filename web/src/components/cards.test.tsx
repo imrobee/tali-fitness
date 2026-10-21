@@ -6,14 +6,24 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Dashboard, RecoveryState, StreakDay } from "../api/types";
+import type {
+  ActivitySummary,
+  Dashboard,
+  PipelineHealth,
+  RecoveryState,
+  StreakDay,
+  WeekBar,
+} from "../api/types";
 import { CalorieCard } from "./CalorieCard";
+import { DataSyncCard } from "./DataSyncCard";
 import { DayChooser } from "./DayChooser";
+import { ActivityItem } from "./ActivityItem";
 import { ExercisesCard } from "./ExercisesCard";
 import { KeyGate } from "./KeyGate";
 import { ProteinCard } from "./ProteinCard";
 import { RecoveryCard } from "./RecoveryCard";
 import { StreakCard } from "./StreakCard";
+import { WeeklyCard } from "./WeeklyCard";
 
 afterEach(() => {
   cleanup();
@@ -260,5 +270,173 @@ describe("KeyGate", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText("The app")).toBeNull();
     expect(localStorage.getItem("fitness-tracker.api-key")).toBeNull();
+  });
+});
+
+describe("Data and sync panel", () => {
+  const NOW = Date.parse("2026-10-20T12:00:00Z");
+  const health: PipelineHealth = {
+    now: "2026-10-20T12:00:00Z",
+    sources: [
+      { source: "strava", last_success_at: "2026-10-20T03:00:00Z", status: "delayed", failures_7d: 0 },
+      { source: "health", last_success_at: null, status: "failed", failures_7d: 2 },
+    ],
+    quarantine: {
+      open: 1,
+      by_reason: { unparsed_line: 1 },
+      recent: [
+        {
+          source: "strava",
+          entity_id: "42",
+          line_no: 3,
+          reason_code: "unparsed_line",
+          raw_snippet: "Set 1: ???",
+          first_seen_at: "2026-10-20T03:00:00Z",
+        },
+      ],
+    },
+    dq: {
+      passed: 14,
+      warnings: 1,
+      failed: 0,
+      checked_at: "2026-10-20T11:30:00Z",
+      checks: [
+        {
+          check_name: "unmapped_exercises",
+          status: "warn",
+          observed_value: 1,
+          threshold: "exercises with muscle_group Unmapped: warn > 0",
+          checked_at: "2026-10-20T11:30:00Z",
+        },
+      ],
+    },
+  };
+
+  it("shows each source's status as text, not colour alone", () => {
+    wrap(<DataSyncCard health={health} now={NOW} />);
+
+    expect(screen.getByText("Delayed")).toBeTruthy();
+    expect(screen.getByText("Failed")).toBeTruthy();
+    expect(screen.getByText(/Last successful sync 9 hours ago/)).toBeTruthy();
+    expect(screen.getByText("No successful sync yet")).toBeTruthy();
+    expect(screen.getByText("2 failures in the last 7 days")).toBeTruthy();
+  });
+
+  it("opens the quarantine and data-quality lists on demand", () => {
+    wrap(<DataSyncCard health={health} now={NOW} />);
+
+    const quarantine = screen.getByRole("button", { name: /Quarantined records: 1/ });
+    expect(quarantine.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Set 1: ???")).toBeNull();
+
+    fireEvent.click(quarantine);
+    expect(quarantine.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Set 1: ???")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Data quality: 14 passed/ }));
+    expect(screen.getByText("unmapped exercises")).toBeTruthy();
+  });
+
+  it("says so when nothing is waiting in quarantine", () => {
+    wrap(
+      <DataSyncCard
+        health={{ ...health, quarantine: { open: 0, by_reason: {}, recent: [] } }}
+        now={NOW}
+      />,
+    );
+
+    expect(screen.getByText(/Quarantined records: 0\. Nothing waiting for a fix\./)).toBeTruthy();
+  });
+});
+
+describe("Activities rows", () => {
+  const run: ActivitySummary = {
+    id: 1,
+    type: "run",
+    title: "Morning Run",
+    started_at: "2026-10-20T00:10:00Z",
+    duration_s: 1740,
+    moving_s: 1700,
+    distance_m: 5230,
+    parse_status: "not_applicable",
+    exercise_count: 0,
+    set_count: 0,
+    volume_kg: 0,
+  };
+  const lifting: ActivitySummary = {
+    ...run,
+    id: 2,
+    type: "strength",
+    title: "Full Body",
+    distance_m: null,
+    parse_status: "ok",
+    exercise_count: 9,
+    set_count: 22,
+    volume_kg: 3490.9,
+  };
+
+  it("shows a run as a plain row with its pace, not as a button", () => {
+    wrap(
+      <ul>
+        <ActivityItem activity={run} />
+      </ul>,
+    );
+
+    expect(screen.getByText("Morning Run")).toBeTruthy();
+    expect(screen.getByText("5.2 km · 5:25 /km · 29 min")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("opens lifting sessions from a closed button with the volume in the summary", () => {
+    wrap(
+      <ul>
+        <ActivityItem activity={lifting} />
+      </ul>,
+    );
+
+    const toggle = screen.getByRole("button", { name: /Full Body/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByText("9 exercises · 22 sets · 3,491 kg")).toBeTruthy();
+  });
+});
+
+describe("Weekly calorie budget card", () => {
+  // Monday 12 October to Sunday 18 October. Saturday 17 is today; Sunday 18 is in the future.
+  const bars: WeekBar[] = [
+    { date: "2026-10-12", kcal: 1700, budget: 1853, status: "within" },
+    { date: "2026-10-13", kcal: 2173, budget: 1853, status: "over" },
+    { date: "2026-10-14", kcal: 1200, budget: null, status: "not_set" },
+    { date: "2026-10-15", kcal: null, budget: 1853, status: "not_logged" },
+    { date: "2026-10-16", kcal: 1650, budget: 1853, status: "within" },
+    { date: "2026-10-17", kcal: 654, budget: 1853, status: "within" },
+    { date: "2026-10-18", kcal: null, budget: 1853, status: "future" },
+  ];
+
+  it("names each day with its calories and status, and the week in one sentence", () => {
+    wrap(<WeeklyCard bars={bars} today="2026-10-17" selected="2026-10-17" onSelect={() => {}} />);
+
+    expect(screen.getByRole("button", { name: /2,173 kcal, over budget/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /not logged/ })).toBeTruthy();
+    expect(screen.getByText("Weekly calories: 3 days within budget, 1 over, budget 1,853.")).toBeTruthy();
+  });
+
+  it("marks the selected day and cannot select a future day", () => {
+    const onSelect = vi.fn();
+    wrap(<WeeklyCard bars={bars} today="2026-10-17" selected="2026-10-17" onSelect={onSelect} />);
+
+    const today = screen.getByRole("button", { name: /Saturday, October 17/ });
+    expect(today.getAttribute("aria-current")).toBe("date");
+
+    const future = screen.getByRole("button", { name: /Sunday, October 18/ }) as HTMLButtonElement;
+    expect(future.disabled).toBe(true);
+  });
+
+  it("selects the day that was tapped", () => {
+    const onSelect = vi.fn();
+    wrap(<WeeklyCard bars={bars} today="2026-10-17" selected="2026-10-17" onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Monday, October 12/ }));
+
+    expect(onSelect).toHaveBeenCalledWith("2026-10-12");
   });
 });

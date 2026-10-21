@@ -1,0 +1,90 @@
+/* The weekly calorie chart (UI_SPEC.md 5.8). Bars are 22px with rounded tops; the dashed
+   budget line runs across each day's column, so a changing budget reads as a step. */
+
+.chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 0;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.day:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 120px;
+}
+
+.bar {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(22px, 70%); /* narrower at 200% zoom, so neighbouring bars never touch */
+  transform: translateX(-50%);
+  border-radius: 6px 6px 0 0;
+  background: var(--neutral);
+}
+
+.bar[data-status="within"] {
+  background: var(--within-budget);
+}
+
+.bar[data-status="over"] {
+  background: var(--over-budget);
+}
+
+.bar[data-status="not_set"] {
+  background: var(--neutral);
+}
+
+.budgetLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--text-secondary);
+}
+
+.budgetLabel {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+.weekday {
+  font-size: var(--fs-small);
+}
+
+.number {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The selected day: accent colour with a 2px underline under the weekday letters. */
+.selectedText {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}

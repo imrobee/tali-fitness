@@ -35,10 +35,11 @@
   font-size: var(--fs-body);
 }
 
+/* 176px, or the card's width when that is smaller (200% zoom): the SVG scales with it. */
 .ring {
   position: relative;
-  width: 176px;
-  height: 176px;
+  width: min(176px, 100%);
+  aspect-ratio: 1;
 }
 
 .ring svg {
@@ -121,5 +122,17 @@
     grid-column: 1 / -1;
     grid-row: 1;
     justify-self: center;
+  }
+}
+
+/* 200% zoom on a phone: the two figures stack under the ring, both left-aligned. */
+@media (max-width: 240px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+
+  .stat:last-child {
+    align-items: flex-start;
+    text-align: left;
   }
 }

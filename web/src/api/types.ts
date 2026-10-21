@@ -48,9 +48,19 @@ export interface Dashboard {
   protein: { grams: number; goal: number | null; percent: number | null };
   week_chart: {
     week_start: string;
-    bars: { date: string; kcal: number | null; budget: number | null; status: string }[];
+    bars: WeekBar[];
   };
 }
+
+/** One day of the weekly calorie card (UI_SPEC.md 5.8). */
+export interface WeekBar {
+  date: string;
+  kcal: number | null;
+  budget: number | null;
+  status: BarStatus;
+}
+
+export type BarStatus = "within" | "over" | "not_set" | "not_logged" | "future";
 
 export interface Targets {
   calorie_budget: number;
@@ -67,4 +77,101 @@ export interface Me {
 export interface MeUpdate {
   nickname?: string | null;
   targets?: Targets;
+}
+
+// GET /api/v1/pipeline/health (api/app/pipeline.py).
+export interface SourceHealth {
+  source: string;
+  last_success_at: string | null;
+  status: "ok" | "delayed" | "failed";
+  failures_7d: number;
+}
+
+export interface QuarantineItem {
+  source: string;
+  entity_id: string;
+  line_no: number | null;
+  reason_code: string;
+  raw_snippet: string;
+  first_seen_at: string;
+}
+
+export interface DqCheck {
+  check_name: string;
+  status: "pass" | "warn" | "fail";
+  observed_value: number | null;
+  threshold: string;
+  checked_at: string;
+}
+
+export interface PipelineHealth {
+  /** The server's clock; "ago" times are measured from it, not the phone's clock. */
+  now: string;
+  sources: SourceHealth[];
+  quarantine: { open: number; by_reason: Record<string, number>; recent: QuarantineItem[] };
+  dq: {
+    passed: number;
+    warnings: number;
+    failed: number;
+    checked_at: string | null;
+    checks: DqCheck[];
+  };
+}
+
+// GET /api/v1/activities and /activities/{id} (api/app/activities.py).
+export interface ActivitySummary {
+  id: number;
+  type: string;
+  title: string | null;
+  started_at: string;
+  duration_s: number;
+  moving_s: number | null;
+  distance_m: number | null;
+  parse_status: string | null;
+  exercise_count: number;
+  set_count: number;
+  volume_kg: number;
+}
+
+export interface ActivityDay {
+  date: string;
+  activities: ActivitySummary[];
+}
+
+export interface ActivityList {
+  from: string;
+  to: string;
+  days: ActivityDay[];
+}
+
+export interface ActivitySet {
+  number: number;
+  kind: string;
+  weight_kg: number | null;
+  orig_weight: number | null;
+  orig_unit: string | null;
+  reps: number | null;
+  distance_m: number | null;
+  duration_s: number | null;
+}
+
+export interface ActivityExercise {
+  order: number;
+  name: string;
+  equipment: string | null;
+  note: string | null;
+  sets: ActivitySet[];
+}
+
+export interface ActivityDetail {
+  id: number;
+  date: string;
+  type: string;
+  title: string | null;
+  started_at: string;
+  duration_s: number;
+  distance_m: number | null;
+  parse_status: string | null;
+  description_raw: string | null;
+  exercises: ActivityExercise[];
 }
