@@ -34,13 +34,23 @@ def test_close_run_always_runs(dag):
     assert dag.task_dict["close_run"].trigger_rule == "all_done"
 
 
-def test_no_task_argument_uses_a_reserved_airflow_context_name(dag):
+@pytest.mark.parametrize("dag_id", ["strava_sync", "data_quality"])
+def test_no_task_argument_uses_a_reserved_airflow_context_name(dag_id):
     # Regression: a task argument named "run_id" made every run fail before the task
     # started (2026-10-20). Airflow reserves all of its context keys as argument names.
     reserved = set(Context.__annotations__)
-    for task in dag.tasks:
+    for task in DagBag(dag_folder=DAGS_FOLDER).dags[dag_id].tasks:
         arguments = set(inspect.signature(task.python_callable).parameters)
         assert not arguments & reserved, f"{task.task_id} uses {arguments & reserved}"
+
+
+def test_data_quality_runs_at_half_past_after_the_strava_sync():
+    dq = DagBag(dag_folder=DAGS_FOLDER).dags["data_quality"]
+
+    assert dq.schedule == "30 * * * *"
+    assert (dq.catchup, dq.max_active_runs) == (False, 1)
+    assert dq.task_dict["check_data"].upstream_task_ids == {"start_run"}
+    assert dq.task_dict["close_run"].trigger_rule == "all_done"
 
 
 def test_retries_back_off_and_time_out(dag):

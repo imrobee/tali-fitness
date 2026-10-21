@@ -15,5 +15,7 @@ jobs:
         run: cp .env.example .env
 
       # Same command as local: lint, typecheck, and tests against real Postgres.
+      # -k (keep going): run every step even after one fails, so a single CI run reports
+      # all failures; the job still fails if any step failed.
       - name: make check
-        run: make check
+        run: make -k check
