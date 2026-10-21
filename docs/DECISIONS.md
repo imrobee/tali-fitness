@@ -159,3 +159,17 @@ Why: "Strava is stale" must stay visible in `ops.dq_results` without hiding real
 
 **D40. `data_quality` runs at minute 30, after `strava_sync` (minute 0).**
 Why: `row_reconcile` compares raw and core, which are only equal after the sync's transform has run. Rejected: running both on the hour.
+
+## Slice 6a: API and dashboard
+
+**D41. The recovery card's state is a SQL function (`mart.fn_recovery_state`), and `POST /recovery` accepts only what it calls `available`.**
+Why: the card and the endpoint share one rule, so the button can never offer something the server refuses. Rejected: computing the state in Python next to a separate validation in the endpoint.
+
+**D42. The dashboard is composed in Python from the mart functions; only display text (greeting, streak message) is decided there.**
+Why: the rules stay in SQL and are tested there; the API adds wording and shapes one payload for the page. Rejected: one large SQL query returning the whole payload (hard to read and to change).
+
+**D43. "Today" comes from `APP_TIMEZONE`; `app.profile.timezone` is stored and shown read-only in v1.**
+Why: UI_SPEC 6.3 makes the time zone read-only for now, and both say Asia/Manila. Editing the time zone later means switching the clock to read the profile. Rejected: reading the profile from the database on every clock call.
+
+**D44. Validation errors from query parameters and bodies use the standard error shape (`invalid_payload`).**
+Why: the web app handles one error format everywhere. Rejected: FastAPI's default `{"detail": [...]}`.
