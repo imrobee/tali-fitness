@@ -22,12 +22,13 @@ Airflow-orchestrated pipeline into a PostgreSQL star schema; parser turning free
 | `docs/ARCHITECTURE.md` | Stack, data model, pipelines, streak/freeze rules, API contract, tests, CI |
 | `docs/UI_SPEC.md` | The four pages, dashboard cards, tokens, accessibility, visual verification |
 | `docs/samples/` | Real payload samples (redacted). Use them as test fixtures |
+| `docs/INTERVIEW_NOTES.md` | Interview talking points per slice, plus bugs found; built work only |
 | `docs/DECISIONS.md` | Create in Slice 1. One entry per key choice: decision, 1-2 line rationale, alternative rejected |
 
 At the start of every slice read the relevant sections. If two docs disagree, `ARCHITECTURE.md` wins for data and rules, `UI_SPEC.md` wins for visuals. Tell Rob about the conflict.
 
 ## Non-negotiables
-1. **Rob must be able to explain every design decision and every line.** Prefer simple, readable code: small functions, plain Python/SQL/TypeScript, no metaprogramming, no clever one-liners. Add a dependency only with a one-line reason in `docs/DECISIONS.md`. Rob is new to Airflow and FastAPI, so add a 1-2 line "why" comment on key choices there. After each slice, give **Interview notes** (at most 5 bullets: what, why, trade-off).
+1. **Rob must be able to explain every design decision and every line.** Prefer simple, readable code: small functions, plain Python/SQL/TypeScript, no metaprogramming, no clever one-liners. Add a dependency only with a one-line reason in `docs/DECISIONS.md`. Rob is new to Airflow and FastAPI, so add a 1-2 line "why" comment on key choices there. After each slice, give **Interview notes** (at most 5 bullets: what, why, trade-off) and add them to `docs/INTERVIEW_NOTES.md`.
 2. **Protect scope.** Pipeline, tests, and data-quality checks come before UI polish. Anything not in `docs/PROJECT_PLAN.md` goes to the Backlog section of that file, not into code.
 3. **Tests ship with the slice.** CI green before the next slice starts. Never skip, `xfail`, or delete a test to move on. Golden tests are mandatory for the Hevy parser and the SQL streak.
 4. **Local only through Slice 7.** Docker Compose for everything. No hosting, no paid services, no new cloud accounts. Strava is the only external API. Hosting is researched in Slice 8 and needs Rob's approval.

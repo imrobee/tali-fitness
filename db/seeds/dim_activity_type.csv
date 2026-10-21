@@ -1,0 +1,18 @@
+strava_sport_type,app_type,label
+Run,run,Run
+TrailRun,run,Trail run
+VirtualRun,run,Virtual run
+Walk,walk,Walk
+Hike,walk,Hike
+Ride,cycle,Ride
+MountainBikeRide,cycle,Mountain bike ride
+GravelRide,cycle,Gravel ride
+EBikeRide,cycle,E-bike ride
+EMountainBikeRide,cycle,E-mountain bike ride
+VirtualRide,cycle,Virtual ride
+Swim,swim,Swim
+WeightTraining,strength,Weight training
+Yoga,yoga,Yoga
+Pilates,yoga,Pilates
+HighIntensityIntervalTraining,hiit,HIIT
+Crossfit,hiit,CrossFit

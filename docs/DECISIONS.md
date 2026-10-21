@@ -129,3 +129,19 @@ Why: the Shortcut returns the same samples in a different order on each run, so 
 
 **D31. The Shortcut's date filters use `FilterAfter` (start of the day before yesterday), not `WindowFrom`.**
 Why: Shortcuts compares dates in "Start Date is after" by calendar day, so "after yesterday 12:00 AM" silently dropped all of yesterday (found live 2026-10-21; it worked on day one only because the window then started a day earlier). `window.from` still sends yesterday. While debugging, 33 older samples were correctly quarantined as `outside_window`; they were marked resolved with a note, not deleted. Rejected: "is in the last N days" (rolling hours, not calendar days, so its edges are unclear).
+
+## Slice 4: Core model and Hevy parser
+
+**D32. The Python parser alone decides whether an activity is Hevy; the SQL transform only copies raw into `fact_activity`.**
+Why: one place for the rule (first non-blank line is exactly the marker). An activity edited to or from Hevy text is simply re-parsed, and its old sets are removed. Rejected: also classifying with `LIKE` in SQL (two rules that could disagree).
+
+**D33. Re-parse when the raw version differs from the one parsed (`parsed_fetched_at <> source_fetched_at`) or `PARSER_VERSION` changed.**
+Why: an exact comparison, independent of clocks. The first version compared `fetched_at` (the sync's clock) with `parsed_at` (the database clock); tests with fixed times exposed it. Bumping `PARSER_VERSION` replays all of history from `raw`, which is the point of ELT. Rejected: re-parsing everything every run; clock comparison.
+
+**D34. Seeds are CSV files upserted on every run, and sport types missing from the CSV are added as `other`.**
+Why: editing a CSV takes effect on the next run without a migration, and an unexpected Strava sport type never breaks the load. Rejected: seeding inside a migration (every change would need a new one).
+
+**D35. Weights are parsed as `Decimal`, and pounds are converted with the exact factor 0.45359237.**
+Why: the golden total is exact (3490.8973504 kg), with no float rounding. Rejected: floats.
+
+**D36. Cycling maps to a new `Cardio` muscle group.** Why: it appears in Hevy sessions (sample 02) and is not a muscle. Rejected: leaving it `Unmapped` (a permanent DQ warning).

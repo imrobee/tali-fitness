@@ -1,6 +1,7 @@
 """Hourly Strava sync into raw.strava_activities (ARCHITECTURE.md section 6.1).
 
-Tasks: start_run -> refresh_token -> sync_activities -> close_run.
+Tasks: start_run -> refresh_token -> sync_activities -> transform_core -> parse_hevy
+-> close_run.
 The logic lives in include/ so it can be tested without Airflow; these tasks only wire
 it together. No token ever passes through XCom: refresh_token saves it in
 ops.oauth_tokens and sync_activities reads it from there.
@@ -12,7 +13,9 @@ from datetime import UTC, datetime, timedelta
 from airflow.sdk import TriggerRule, dag, task
 
 from include import runs
-from include.db import get_engine
+from include.core.activities import transform_activities
+from include.core.sets import parse_pending
+from include.db import get_engine, load_sql
 from include.strava import sync
 from include.strava.client import StravaClient
 
@@ -64,6 +67,25 @@ def strava_sync():
             with engine.begin() as conn:
                 runs.finish_run(conn, pipeline_run_id, status, result.listed, result.written)
 
+    @task
+    def transform_core(pipeline_run_id: int) -> None:
+        # raw.strava_activities -> core.fact_activity (all rows; upsert, so idempotent).
+        engine = get_engine()
+        with runs.record_failure(engine, pipeline_run_id):
+            transform_activities(engine)
+
+    @task
+    def parse_hevy(pipeline_run_id: int) -> None:
+        # Only activities that are new, re-fetched, or parsed by an older grammar.
+        engine = get_engine()
+        with runs.record_failure(engine, pipeline_run_id):
+            result = parse_pending(engine)
+            with engine.begin() as conn:
+                conn.execute(
+                    load_sql("ops/add_quarantined.sql"),
+                    {"run_id": pipeline_run_id, "count": result.quarantined},
+                )
+
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def close_run(pipeline_run_id: int) -> None:
         # Runs even when an earlier task failed, so every run ends with a final status.
@@ -73,7 +95,9 @@ def strava_sync():
     pipeline_run_id = start_run()
     refreshed = refresh_token(pipeline_run_id)
     synced = sync_activities(pipeline_run_id)
-    refreshed >> synced >> close_run(pipeline_run_id)
+    transformed = transform_core(pipeline_run_id)
+    parsed = parse_hevy(pipeline_run_id)
+    refreshed >> synced >> transformed >> parsed >> close_run(pipeline_run_id)
 
 
 strava_sync()
