@@ -186,3 +186,12 @@
     width: auto;
   }
 }
+
+/* 200% zoom on a phone (about 200px wide): seven 32px circles cannot fit on one line, and
+   UI_SPEC 5.3 keeps circles at 32px or more, so the week wraps to two rows (4 + 3). */
+@media (max-width: 240px) {
+  .week {
+    grid-template-columns: repeat(4, minmax(32px, 1fr));
+    row-gap: 12px;
+  }
+}

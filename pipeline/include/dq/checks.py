@@ -14,13 +14,23 @@ from sqlalchemy import Engine
 
 from include.db import load_sql
 
-# The M1 set (PROJECT_PLAN Slice 5); the other 10 arrive in Slice 6b.
+# All 15 checks, in the order of ARCHITECTURE.md section 9.
 CHECKS = (
     "strava_freshness",
     "health_freshness",
     "activity_unique",
+    "activity_not_null",
+    "activity_duration_range",
+    "set_range",
+    "calorie_daily_range",
+    "fk_integrity",
     "row_reconcile",
     "hevy_parse_coverage",
+    "quarantine_open",
+    "unmapped_exercises",
+    "possible_duplicate_activity",
+    "target_present",
+    "days_with_activity_no_calories",
 )
 
 

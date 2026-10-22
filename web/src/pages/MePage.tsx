@@ -1,17 +1,18 @@
 import { type FormEvent, useState } from "react";
 import { UNAUTHORIZED_EVENT, isOffline } from "../api/client";
-import { useMe, useSaveMe } from "../api/hooks";
+import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
 import { getApiKey, maskKey } from "../api/key";
 import type { Me, MeUpdate } from "../api/types";
+import { DataSyncCard } from "../components/DataSyncCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { OfflineBanner, Page } from "../components/Page";
 import { type ProfileErrors, validateProfile } from "../lib/targets";
 import styles from "./MePage.module.css";
 
-// Me (UI_SPEC.md 6.3), minimal for M1: profile and targets, time zone, and the API key.
-// The data and sync panel arrives in Slice 6b.
+// Me (UI_SPEC.md 6.3): profile and targets, time zone, the data and sync panel, and the key.
 export function MePage() {
   const query = useMe();
+  const health = usePipelineHealth();
 
   return (
     <Page title="Me">
@@ -33,6 +34,13 @@ export function MePage() {
           </div>
         </Card>
       )}
+      {health.isPending && <Bar width="100%" height={200} />}
+      {health.isError && (
+        <Card title="Data and sync">
+          <CardError message={health.error.message} onRetry={() => health.refetch()} />
+        </Card>
+      )}
+      {health.data && <DataSyncCard health={health.data} now={Date.parse(health.data.now)} />}
       <ConnectionCard />
     </Page>
   );

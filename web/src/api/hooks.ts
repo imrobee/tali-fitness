@@ -3,7 +3,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
-import type { Dashboard, Me, MeUpdate } from "./types";
+import type {
+  ActivityDetail,
+  ActivityList,
+  Dashboard,
+  Me,
+  MeUpdate,
+  PipelineHealth,
+} from "./types";
 
 /** `date` null means "today, as the server sees it". */
 export function useDashboard(date: string | null) {
@@ -15,6 +22,31 @@ export function useDashboard(date: string | null) {
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => apiFetch<Me>("/me") });
+}
+
+/** Activities from `from` to `to` (inclusive), grouped by day by the server. Waits for both. */
+export function useActivities(from: string | null, to: string | null) {
+  return useQuery({
+    queryKey: ["activities", from, to],
+    queryFn: () => apiFetch<ActivityList>(`/activities?from=${from}&to=${to}`),
+    enabled: from !== null && to !== null,
+  });
+}
+
+/** One activity's sets. Fetched only when its row is opened (`id` null = not yet). */
+export function useActivity(id: number | null) {
+  return useQuery({
+    queryKey: ["activity", id],
+    queryFn: () => apiFetch<ActivityDetail>(`/activities/${id}`),
+    enabled: id !== null,
+  });
+}
+
+export function usePipelineHealth() {
+  return useQuery({
+    queryKey: ["pipeline-health"],
+    queryFn: () => apiFetch<PipelineHealth>("/pipeline/health"),
+  });
 }
 
 export function useSaveMe() {

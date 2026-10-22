@@ -31,11 +31,13 @@ A separate demo stack (its own database `app_demo`, key `demo-key`, clock frozen
 
 ```bash
 make seed-demo SCENARIO=midweek   # or at_risk, edge_empty; then open http://localhost:5174
-make screenshots                  # iPhone-size screenshots of all three into docs/screenshots/
+make screenshots                  # iPhone and desktop screenshots of every scenario into docs/screenshots/
 ```
 
-| midweek | at_risk | edge_empty |
-|---|---|---|
-| ![midweek](docs/screenshots/midweek-iphone.png) | ![at risk](docs/screenshots/at_risk-iphone.png) | ![empty](docs/screenshots/edge_empty-iphone.png) |
+| Dashboard | Activities | Nutrition | Me (data and sync) |
+|---|---|---|---|
+| ![dashboard](docs/screenshots/midweek-iphone.png) | ![activities](docs/screenshots/midweek-activities-iphone.png) | ![nutrition](docs/screenshots/midweek-nutrition-iphone.png) | ![me](docs/screenshots/midweek-me-iphone.png) |
+
+Other scenarios: [at risk](docs/screenshots/at_risk-iphone.png), [stale pipeline](docs/screenshots/at_risk-me-iphone.png), [nothing set up yet](docs/screenshots/edge_empty-iphone.png), [desktop](docs/screenshots/midweek-desktop.png).
 
 Other commands: `make down`, `make logs`, `make test`, `make lint`. `make db-reset` deletes all local data.

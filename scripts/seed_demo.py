@@ -12,7 +12,7 @@ Saturday afternoon), so every scenario is written relative to that day.
 import json
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from alembic import command
@@ -28,6 +28,76 @@ SPORTS = [  # strava sport_type, app_type, label
     ("Walk", "walk", "Walk"),
     ("WeightTraining", "strength", "Weight training"),
 ]
+
+# Exercises for the demo's Saturday "Full Body" session, so the Activities page has sets to
+# expand. Invented demo values in the shape of the Hevy sample, not Rob's workout.
+# A set is (kind, weight, unit, reps, seconds); weight is in the unit given (lb is converted).
+FULL_BODY = [
+    {
+        "name": "Incline Bench Press",
+        "equipment": "Dumbbell",
+        "muscle": "Chest",
+        "note": None,
+        "sets": [("weight_reps", 20, "kg", 8, None), ("weight_reps", 22.5, "kg", 6, None)],
+    },
+    {
+        "name": "Lat Pulldown",
+        "equipment": "Cable",
+        "muscle": "Back",
+        "note": "Squeeze at the bottom",
+        "sets": [("weight_reps", 40, "lb", 12, None)],
+    },
+    {
+        "name": "Goblet Squat",
+        "equipment": "Kettlebell",
+        "muscle": "Quads",
+        "note": None,
+        "sets": [("reps", None, None, 15, None)],
+    },
+    {
+        "name": "Plank",
+        "equipment": None,
+        "muscle": "Core",
+        "note": None,
+        "sets": [("duration", None, None, None, 90)],
+    },
+]
+
+# The Me page's "Data and sync" panel (UI_SPEC.md 11: a healthy pipeline and a stale/failed
+# one). Times are hours before the demo's frozen "now" (Sat 2026-10-17 14:00 Manila).
+NOW = "2026-10-17T14:00:00+08:00"
+DQ_CHECKS = [
+    "strava_freshness",
+    "health_freshness",
+    "activity_unique",
+    "activity_not_null",
+    "activity_duration_range",
+    "set_range",
+    "calorie_daily_range",
+    "fk_integrity",
+    "row_reconcile",
+    "hevy_parse_coverage",
+    "quarantine_open",
+    "unmapped_exercises",
+    "possible_duplicate_activity",
+    "target_present",
+    "days_with_activity_no_calories",
+]
+HEALTHY = {
+    # (source, hours ago, status, error)
+    "runs": [("strava", 0.7, "success", None), ("health", 0.9, "success", None)],
+    "dq": {},  # every check passes
+    "quarantine": [],
+}
+STALE = {
+    "runs": [
+        ("strava", 9, "success", None),
+        ("health", 120, "success", None),
+        ("health", 2, "failed", "Shortcut payload had no samples"),
+    ],
+    "dq": {"strava_freshness": "warn", "health_freshness": "fail", "quarantine_open": "warn"},
+    "quarantine": [("Set 1: 20 kg x 8 @ RPE 8", 4), ("Superset A1: Curl", 7)],
+}
 
 # A scenario is a list of days: (date, activities, food).
 # activity = (sport, title, local start "HH:MM", minutes); food = (kcal, protein grams).
@@ -49,6 +119,7 @@ SCENARIOS = {
     # Mon run, Tue strength over budget, Wed recovery, Thu, Fri, Sat with three
     # activities and 654 kcal / 21 g so far, Sun ahead (UI_SPEC.md 11 "midweek").
     "midweek": {
+        "pipeline": HEALTHY,
         "nickname": "Rob",
         "target": TARGET,
         "recovery": [days_ago(3)],
@@ -71,6 +142,7 @@ SCENARIOS = {
     },
     # Yesterday (Fri) has nothing; today has nothing yet (UI_SPEC.md 11 "at_risk").
     "at_risk": {
+        "pipeline": STALE,
         "nickname": "Rob",
         "target": TARGET,
         "recovery": [],
@@ -78,6 +150,7 @@ SCENARIOS = {
     },
     # No targets and nothing this week; an older three-day streak (UI_SPEC.md 11 "edge_empty").
     "edge_empty": {
+        "pipeline": None,
         "nickname": None,
         "target": None,
         "recovery": [],
@@ -126,11 +199,16 @@ def insert_scenario(engine, scenario: dict) -> None:
         for day in scenario["recovery"]:
             conn.execute(sql("insert_recovery"), {"day": day})
 
+        if scenario["pipeline"]:
+            insert_pipeline(conn, scenario["pipeline"])
+
         strava_id = 1000
         for day, activities, food in scenario["days"]:
             for sport, title, start, minutes in activities:
                 strava_id += 1
                 insert_activity(conn, strava_id, day, sport, title, start, minutes)
+                if title == "Full Body":
+                    insert_exercises(conn, strava_id, FULL_BODY)
             if food:
                 insert_food(conn, day, *food)
 
@@ -150,6 +228,76 @@ def insert_activity(conn, strava_id, day, sport, title, start, minutes) -> None:
             "sport": sport,
         },
     )
+
+
+def insert_exercises(conn, strava_id: int, exercises: list) -> None:
+    for order, exercise in enumerate(exercises, start=1):
+        exercise_key = conn.execute(
+            sql("insert_exercise"),
+            {
+                "name": exercise["name"],
+                "equipment": exercise["equipment"],
+                "muscle_group": exercise["muscle"],
+            },
+        ).scalar_one()
+        for number, (kind, weight, unit, reps, seconds) in enumerate(exercise["sets"], start=1):
+            is_weight = kind == "weight_reps"
+            conn.execute(
+                sql("insert_set"),
+                {
+                    "exercise_key": exercise_key,
+                    "exercise_order": order,
+                    "set_number": number,
+                    "set_kind": kind,
+                    # Stored in kg; the original value and unit are kept, as in the real data.
+                    "weight_kg": weight * 0.45359237 if is_weight and unit == "lb" else weight,
+                    "reps": reps,
+                    "distance_m": None,
+                    "duration_s": seconds,
+                    "orig_weight": weight if is_weight else None,
+                    "orig_unit": unit if is_weight else None,
+                    "note": exercise["note"],
+                    "strava_id": strava_id,
+                },
+            )
+
+
+def hours_before_now(hours: float) -> str:
+    return (datetime.fromisoformat(NOW) - timedelta(hours=hours)).isoformat()
+
+
+def insert_pipeline(conn, pipeline: dict) -> None:
+    for source, hours, status, error in pipeline["runs"]:
+        conn.execute(
+            sql("insert_run"),
+            {"source": source, "at": hours_before_now(hours), "status": status, "error": error},
+        )
+    dq_at = hours_before_now(0.5)
+    run_id = conn.execute(
+        sql("insert_run"), {"source": "dq", "at": dq_at, "status": "success", "error": None}
+    ).scalar_one()
+    for check in DQ_CHECKS:
+        conn.execute(
+            sql("insert_dq_result"),
+            {
+                "run_id": run_id,
+                "check_name": check,
+                "status": pipeline["dq"].get(check, "pass"),
+                "observed_value": 0,
+                "threshold": "demo",
+                "at": dq_at,
+            },
+        )
+    for index, (raw, line_no) in enumerate(pipeline["quarantine"]):
+        conn.execute(
+            sql("insert_quarantine"),
+            {
+                "entity_id": str(9000 + index),
+                "line_no": line_no,
+                "raw_content": raw,
+                "at": hours_before_now(3 + index),
+            },
+        )
 
 
 def insert_food(conn, day, kcal, protein) -> None:

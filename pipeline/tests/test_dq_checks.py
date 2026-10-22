@@ -1,4 +1,7 @@
-"""The five M1 data-quality checks: a pass test and a fail test for each (ARCHITECTURE.md 9)."""
+"""The five M1 data-quality checks: a pass test and a fail test for each (ARCHITECTURE.md 9).
+
+The other ten are in test_dq_checks_m2.py.
+"""
 
 from datetime import UTC, datetime, timedelta
 

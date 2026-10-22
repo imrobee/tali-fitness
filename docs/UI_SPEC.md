@@ -134,6 +134,7 @@ Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing
 - Strength summary omits the volume when it is 0 (bodyweight, cardio, and timed sets only): `6 exercises · 12 sets`.
 - **Tap an item to expand** (here items are interactive): lifting shows exercises and sets by kind: `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`; bodyweight `Set 1  10 reps`; distance `Set 1  21 km · 1 h`; timed hold `Set 1  1 min 30 s`. Equipment appears as a muted suffix. An exercise note appears as one muted line under the exercise name. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
 - Empty, loading (skeleton), and error states. Week/month calendar and trends arrive in Slice 7.
+- Built (Slice 6b): only lifting sessions with sets, and sessions whose text was only partly read, open; other activities are plain rows. A strength session with no sets shows its duration instead of "0 exercises".
 
 ### 6.2 Nutrition
 Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here). Trends arrive in Slice 7.
@@ -168,7 +169,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 - Streak summary: `"Streak: 12 days. Today: workout logged."` plus at-risk status.
 - Ring: `"Calories: 654 eaten of 1,853, 1,199 left."` or `"... 320 over budget."` Protein: `"Protein: 21 of 130 grams, 16 percent."` Chart: summary (`"Weekly calories: 4 days within budget, 1 over, budget 1,853."`) plus per-bar labels.
 - Freeze indicator and every status are text plus icon.
-- Respect `prefers-reduced-motion` and `prefers-contrast`. Use rem units and verify at 200% zoom.
+- Respect `prefers-reduced-motion` and `prefers-contrast`. Use rem units and verify at 200% zoom. Checked in Slice 6b at a 197px-wide viewport (a 393px phone at 200%): no horizontal scroll; the streak week wraps to two rows (4 + 3, circles stay 32px), the calorie ring shrinks to the card and its figures stack, weekly bars narrow so they never touch.
 
 ## 9. Copy (no red, no shame, no exclamation marks, no modals)
 

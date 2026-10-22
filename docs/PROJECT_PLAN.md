@@ -12,9 +12,9 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this fil
 | 3 Health ingest | `[x]` done | Applied synchronously; no `health_transform` DAG (D1). `core.dim_date` built here, not Slice 4 (D28). Duplicates logged as runs; canonical fingerprint (D27, D30). Extra reason codes, 201/200/413 responses (D26). |
 | 4 Core + Hevy parser | `[x]` done | Option A `set_kind` (D17). Re-parse by raw version and `PARSER_VERSION` (D33). Seeds reloaded each run (D34). New `Cardio` group (D36). |
 | 5 Marts, streak, DQ | `[x]` done | `GET /pipeline/health` moved to 6b. 5 of 15 DQ checks (rest in 6b). `fn_daily_nutrition` is a function, not a view (D37). `ops.dq_results` has no severity column (D39). `data_quality` at minute 30 (D40). |
-| 6a API + web + dashboard (**M1**) | `[~]` built and green; waiting on Rob's iPhone check | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
-| 6b Pages + rest | `[ ]` not started | Now also holds `/pipeline/health`, the other 10 DQ checks, and the full screenshot set. |
-| 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. |
+| 6a API + web + dashboard (**M1**) | `[x]` done (PR #6; iPhone check passed 2026-10-21) | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
+| 6b Pages + rest (**M2 UI**) | `[~]` built and green; waiting on Rob's iPhone check | All 15 DQ checks (D69, D70); `/pipeline/health` and the Me panel (D71); `/activities` and the Activities page with set detail (D73, D74); weekly calorie card on Dashboard and Nutrition (D75); Nutrition reuses `/dashboard`, no `/nutrition` endpoint (D72); 14 screenshots, 3 scenarios at iPhone and desktop plus Activities, Nutrition and Me (D76); 200% zoom fixed (D77). Nothing from the cut line was cut. |
+| 7 Leftovers + Next | `[ ]` not started | Weight trend vs goal added as the first 7b item. Sync now moved from the Backlog to 7c (D78). |
 | 8 Hosting + README | `[ ]` not started | Includes evaluating Strava webhooks. GPS privacy already done (D24). |
 
 Plan-level changes: all deadlines and time gates removed (D45); Rob runs every git command (D46); interview notes live in `docs/INTERVIEW_NOTES.md` (D57). See `docs/HANDOFF.md` for the exact next step.
@@ -43,10 +43,11 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 
 ### Priority order (lowest priority first; trim from the top if scope must shrink; never cut the "never cut" list)
 1. Slice 7b "Next" features (weight trend, PRs, weekly summary, muscle volume, small forms)
-2. Slice 7a trends (monthly first, then weekly)
-3. Calendar view (week/month)
-4. Weekly calorie card polish and the dashed overflow arc
-5. Activities page set-by-set detail (fall back to raw description text)
+2. Slice 7c Sync now
+3. Slice 7a trends (monthly first, then weekly)
+4. Calendar view (week/month)
+5. Weekly calorie card polish and the dashed overflow arc
+6. Activities page set-by-set detail (fall back to raw description text)
 
 **Never cut:** tests, idempotency, data-quality checks, quarantine, CI, README with diagram.
 
@@ -82,7 +83,7 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 | Slice 3 | Done: real `API_KEY` set; Shortcut posts to `http://<mac-lan-ip>:8000/api/v1/ingest/health` with `X-API-Key`; duplicate re-send confirmed live. |
 | Slice 5 | **Open:** switch on the `data_quality` DAG in the Airflow UI (it starts paused). |
 | Slice 1 | **Open:** confirm CI logs show real test counts (run `gh auth login`, or paste the "passed" lines from the Actions log). |
-| Slice 6a | **Open:** commit the web half; open the app on the iPhone over the Mac's LAN IP and save nickname and targets on the Me page (the acceptance step). |
+| Slice 6a | Done: app opened on the iPhone over the Mac's LAN IP with real data (2026-10-21). |
 | Slice 8 | Approve the hosting choice. |
 
 ## 5. Slices
@@ -119,16 +120,22 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
 **Deliverables:** `app.target_history` (budget/goal in effect per date), `app.recovery_day`; `mart.fn_day_status(p_today)`, `mart.fn_streak(p_today)`, `mart.fn_daily_nutrition(p_from, p_to)`; DAG `data_quality` (hourly) running the 5 M1 checks (`strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`) and writing `ops.dq_results`.
 **Acceptance:** every scenario in `ARCHITECTURE.md` section 8.4 passes as a SQL integration test against real Postgres; healing yesterday restores the streak; each of the 5 checks has a pass test and a fail test; killing the Strava token produces a failed run in `ops.pipeline_runs` and a `strava_freshness` warning in `ops.dq_results`.
 
-### Slice 6a: API + web shell + dashboard v0 `[~]` (built; waiting on the iPhone check)  **= M1**
+### Slice 6a: API + web shell + dashboard v0 `[x]`  **= M1**
 **Deliverables:** `GET /api/v1/dashboard`, `GET/PUT /api/v1/me`, `POST/DELETE /api/v1/recovery`; React app with bottom navigation (4 pages, Activities/Nutrition can be minimal), API-key gate; minimal Me page with the targets form (calorie budget, protein goal, saved effective today); dashboard cards from greeting through protein per `UI_SPEC.md`; visual verification loop with screenshots for 3 scenarios (`midweek`, `at_risk`, `edge_empty`) at iPhone size (393x852) only.
 **Acceptance:** `UI_SPEC.md` section 12 checklist items for those cards pass; Rob opens it on his iPhone via the Mac's LAN IP and sees real data.
 
-### Slice 6b: Complete pages and remaining dashboard card `[ ]`
-Weekly calorie budget card; Activities page v1 (day-grouped list; lifting sessions expand to exercises and sets; runs show distance, pace, duration; unparsed descriptions shown as raw text with a quarantine tag); Nutrition page v1; Me page (pipeline health panel, DQ status); `GET /api/v1/pipeline/health` (moved from Slice 5); the remaining 10 DQ checks, each with a pass and a fail test; the full screenshot set (all scenarios, both viewports).
+### Slice 6b: Complete pages and remaining dashboard card `[~]`
+**Checkpoints (one commit each):** (1) the 10 remaining DQ checks; (2) `/pipeline/health` and the Me panel; (3) Activities API and page; (4) weekly card and Nutrition; (5) screenshots and docs.
+**Acceptance:** all 15 DQ checks run in `data_quality`, each with a pass and a fail test; `/pipeline/health` matches ARCHITECTURE 10 with threshold tests; `/activities` is day-grouped, newest first, last 30 days by default, and the real Hevy session reads 9 exercises, 22 sets, 3,490.90 kg through it; every `UI_SPEC.md` section 12 item passes; screenshots for the 3 scenarios at 393x852 and 1280x800 plus the Activities, Nutrition and Me pages; Rob opens the new pages on his iPhone.
+**Cut line (first to go):** the weekly card's step line for mid-week budget changes; then set-by-set detail on Activities (fall back to the raw description).
+**Deliverables:** Weekly calorie budget card; Activities page v1 (day-grouped list; lifting sessions expand to exercises and sets; runs show distance, pace, duration; unparsed descriptions shown as raw text with a quarantine tag); Nutrition page v1; Me page (pipeline health panel, DQ status); `GET /api/v1/pipeline/health` (moved from Slice 5); the remaining 10 DQ checks, each with a pass and a fail test; the full screenshot set (all scenarios, both viewports).
 
 ### Slice 7: Core leftovers, then Next features `[ ]`
 - **7a Core leftovers:** calendar (week/month toggle on Activities, tap a day to filter), weekly/monthly trends (training on Activities, calories/protein on Nutrition), using window functions (`LAG`, rolling averages).
 - **7b Next (pick in this order while time lasts):** weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, `ARCHITECTURE.md` section 14 #8); personal records by estimated 1RM (Epley `w * (1 + reps/30)`, `RANK`/`MAX OVER`); weekly summary vs previous week; weekly volume per muscle group; small manual-entry forms.
+- **7c Sync now (D78):** a **Sync now** button on the Me page's Data and sync panel calls `POST /api/v1/sync/strava` (API key, 2-minute cooldown, `409` while a run is active). The API triggers `strava_sync` through Airflow's REST API (`max_active_runs=1` prevents doubles); Airflow stays the only code that calls Strava. The UI shows "Syncing..." and refetches when the run finishes. Optional: refresh-if-stale on app open (last successful sync older than N minutes). A **Sync Health** button opens `shortcuts://run-shortcut?name=Health%20Push` (verify on the iPhone first).
+  **Acceptance:** API tests for the trigger, the cooldown, and an Airflow error (Airflow's API mocked at the HTTP boundary); one live run triggered from the button lands a new activity; the Airflow credentials live only in `.env`.
+  **Cut line:** refresh-if-stale on app open first, then the Sync Health button.
 
 ### Slice 8: Hosting decision, deploy, README `[ ]`
 Research free hosting options (current pricing and limits, from official pages); include **Strava webhooks** (push on create/update/delete instead of hourly polling; needs a public HTTPS callback URL, so only possible once hosted); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
@@ -140,7 +147,7 @@ Research free hosting options (current pricing and limits, from official pages);
 | Airflow-orchestrated pipeline into a PostgreSQL star schema | DAGs running locally; `core` dims/facts; ERD in README | partial: `strava_sync` runs hourly raw -> core star schema (`dim_date`, `dim_activity_type`, `dim_exercise`, `fact_activity`, `fact_set`, `fact_dietary_sample`); ERD in README pending (Slice 8) |
 | Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | partial: parser and both golden tests built (Slice 4); parse-coverage DQ check in Slice 5 |
 | Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | built: run-twice tests in CI for Strava (Slice 2, watermark + 7-day lookback) and health (Slice 3, replace per day and type, canonical duplicate check) |
-| Data-quality checks and CI | `ops.dq_results` populated; CI badge | partial: CI built (Slice 1); 5 of 15 DQ checks built with pass and fail tests, writing `ops.dq_results` hourly (Slice 5); the other 10 in Slice 6b |
+| Data-quality checks and CI | `ops.dq_results` populated; CI badge | partial: CI built (Slice 1); all 15 DQ checks built with pass and fail tests, run hourly by `data_quality` into `ops.dq_results` (Slices 5 and 6b); `ops.dq_results` fills once Rob switches the DAG on |
 | SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend views | partial: streak with the freeze rule built (`LAG` + gaps-and-islands running `SUM`), all 17 scenarios in CI (Slice 5); trends in Slice 7a |
 
 ## 7. Risks
@@ -162,7 +169,6 @@ Research free hosting options (current pricing and limits, from official pages);
 - Light mode; per-role DB users; reconcile Strava deletions.
 - Cheaper Strava polling (decided to wait, 2026-10-20: about 145 of 1,000 daily read calls today). (a) Skip night hours: cron `0 6-23 * * *` with the DAG time zone set to Asia/Manila (Airflow defaults to UTC). (b) Hourly runs fetch only new activities; one morning run re-checks the 7-day lookback for edited descriptions. (b) matters more: today every run re-fetches the whole week, so cost grows with activity count and could reach the daily limit in a very busy week.
 - Shareable **Health Push** Shortcut: an iCloud link (or a signed `.shortcut` file via macOS `shortcuts sign`) in the README instead of rebuilding by hand. Use the Shortcut's import questions so each person enters their own server URL and API key at install; the shared copy must never contain Rob's key. Includes the day-granular date filter fix (ARCHITECTURE.md 6.2).
-- "Sync now" / refresh-if-stale on app open: when the dashboard loads and the last successful Strava sync is older than N minutes, the API triggers `strava_sync` through Airflow's REST API (`max_active_runs=1` prevents doubles) and the UI shows "Syncing..." then refetches. Airflow stays the only code that calls Strava. Also a manual **Sync now** button (`POST /api/v1/sync/strava`, API key, 2-minute cooldown). For Apple Health the server cannot reach the phone, so a **Sync Health** button opens `shortcuts://run-shortcut?name=Health%20Push` to run the Shortcut from Safari (verify on the iPhone first).
 
 ## 9. README skeleton (Slice 8)
 

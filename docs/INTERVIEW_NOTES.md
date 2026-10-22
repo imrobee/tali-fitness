@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 74 API + 126 pipeline + 49 web, all in CI |
+| Tests | 102 API + 153 pipeline + 88 web, all in CI |
 
 ## Architecture and design
 
@@ -83,6 +83,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Deterministic screenshots from a separate demo stack.** Its own database (`app_demo`, and the seed script refuses any other name), its own key, and a frozen clock, so the same scenario draws the same picture every time and demo data can't touch real data.
 - **Accessibility built in.** Shape, not colour, carries meaning (circle, dot, square), every chart has a text label, and contrast was checked token by token. Trade-off: I changed two spec colours to pass, and recorded why.
 
+## Slice 6b: all 15 data-quality checks, pipeline health, the full pages
+
+- **15 data-quality checks, each a plain SQL file with its thresholds inside, each with a pass and a fail test.** Checks guarding a constraint (no orphans, no nulls) prove the fail case by dropping the constraint inside a rolled-back transaction. On real data, one check found an exercise with no muscle group on its first run.
+- **Warnings mean "look at your data", failures mean "the pipeline is wrong".** Outliers warn; broken guarantees fail. A failing check is a stored finding, not a crashed DAG.
+- **One definition of "stale".** The health panel's ok / delayed / failed uses the same thresholds as the freshness checks, and the server sends its own clock, so the page can't say "4 days ago" next to "Delayed".
+- **Fetch on demand.** The Activities list is one query with totals computed in SQL; a session's sets load only when you open it. The golden number (22 sets, 3,490.90 kg) reads the same through the API.
+- **Accessibility as a test, not a hope.** At 200% zoom, two cards clipped; fixed so circles keep their 32px minimum and wrap instead.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -93,6 +101,8 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Yesterday's food disappeared from Health pushes | Live data the morning after day one | iOS Shortcuts compares dates by calendar day, not time; filter from the day before yesterday |
 | Strava's local start time ends in a misleading `Z` | Comparing UTC and local fields in the spike | Treat it as naive local time; a test keeps an 11:30 pm workout on its own day |
 | The rebuilt web app returned 500s: "Failed to resolve import react-router" | First run against real data after adding packages | Docker kept the old `node_modules` in an anonymous volume; `make up` now renews anonymous volumes (the database volume is named and untouched) |
+| "Last sync 4 days ago" next to a "Delayed" status | Looking at the demo screenshot, whose server clock is frozen | The page measured time from the phone's clock and the status from the server's; the API now sends its own `now` |
+| Two cards clipped at 200% zoom | Rendering the dashboard at 197px wide (a phone at 200%) | The ring now scales to the card and the streak week wraps instead of overflowing |
 | The recovery card changed height between states | Comparing the three screenshots side by side | The minimum height fitted only one-line states; it is now computed from the type sizes, and measured equal (132.6px) in every state |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

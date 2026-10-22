@@ -1,0 +1,155 @@
+/* One activity row in the Activities list (UI_SPEC.md 6.1): a card-in-card row. */
+
+.item {
+  border-radius: var(--radius-inner);
+  background: var(--card-elevated);
+}
+
+.head {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.toggle {
+  min-height: var(--touch);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--card-hover);
+}
+
+/* The icon sets its own size: without one it inherits the 14px text and looks lost. */
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text);
+  font-size: 24px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+/* The same chevron as the dashboard's exercises card: 20px, turning over when open. */
+.chevron {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.open,
+.raw[open] .chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 200ms var(--ease-out);
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 12px 68px; /* lines up with the title: 12 + 44 + 12 */
+}
+
+.exercise {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exerciseName {
+  margin: 0;
+  font-weight: 600;
+}
+
+.muted,
+.note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+.sets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: var(--fs-body);
+}
+
+/* "Set 1" in its own column so the measures line up under each other. */
+.set {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+}
+
+/* Shape and words, not colour: a labelled tag. */
+.tag {
+  align-self: flex-start;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--over-budget);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+/* Our chevron replaces the browser's small default triangle. */
+.raw summary {
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.raw summary::-webkit-details-marker {
+  display: none;
+}
+
+.raw pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 10px;
+  border-radius: var(--radius-inner);
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  white-space: pre-wrap;
+}

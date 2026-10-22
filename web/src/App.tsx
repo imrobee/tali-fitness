@@ -2,7 +2,8 @@ import { Route, Routes } from "react-router";
 import { BottomNav } from "./components/BottomNav";
 import { KeyGate } from "./components/KeyGate";
 import { DashboardPage } from "./pages/DashboardPage";
-import { ActivitiesPage, NutritionPage } from "./pages/DayPages";
+import { ActivitiesPage } from "./pages/ActivitiesPage";
+import { NutritionPage } from "./pages/DayPages";
 import { MePage } from "./pages/MePage";
 
 // Four pages and one bottom navigation (UI_SPEC.md section 1). Everything sits behind

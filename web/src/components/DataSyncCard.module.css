@@ -1,0 +1,112 @@
+/* The Me page's "Data and sync" panel (UI_SPEC.md 6.3). */
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sourceHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sourceName {
+  font-weight: 600;
+}
+
+.status {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ok {
+  color: var(--within-budget);
+}
+
+.delayed {
+  color: var(--over-budget);
+}
+
+.failed {
+  color: var(--text);
+}
+
+.meta {
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The same chevron as the dashboard's exercises card: 20px, turning over when open. */
+.chevron {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 200ms var(--ease-out);
+  }
+}
+
+.panel {
+  padding-top: 4px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkRow {
+  flex-direction: row !important;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.snippet {
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+}

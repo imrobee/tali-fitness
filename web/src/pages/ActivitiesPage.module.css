@@ -1,0 +1,62 @@
+/* The Activities list (UI_SPEC.md 6.1). */
+
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scroll-margin-top: 16px;
+}
+
+/* The day named in ?date=: an accent rule down its left edge. */
+.selectedDay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent);
+  scroll-margin-top: 16px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: var(--fs-card);
+  font-weight: 600;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.older {
+  align-self: center;
+  min-height: var(--touch);
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}

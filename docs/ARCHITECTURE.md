@@ -290,29 +290,28 @@ Also test: sample at 23:59 local counts for that date; target history (budget ch
 
 Checks are plain SQL files in `db/sql/dq/` returning `(observed_value, status, threshold)`, given `:now`; thresholds live in the SQL next to the rule. No external DQ framework in v1. A failing check is a finding stored in `ops.dq_results`, not a failed DAG run. Freshness counts `success` (and `partial` for Strava) runs only. They run in the `data_quality` DAG (6.3).
 
-**Staging:** M1 ships 5 checks: `strava_freshness`, `health_freshness`, `activity_unique`, `row_reconcile`, `hevy_parse_coverage`. All 15 are due by M2. **Every check has a pass test and a fail test** against real Postgres.
+**Staging:** M1 shipped 5 checks (Slice 5); all 15 are built as of Slice 6b. **Every check has a pass test and a fail test** against real Postgres; checks that guard a database constraint (`activity_unique`, `activity_not_null`, `fk_integrity`) break it inside a rolled-back transaction to prove the fail case. `days_with_activity_no_calories` is information only and is stored as `pass` with its count (DECISIONS D69). The `today` for it comes from `app.profile.timezone`.
 
 ## 10. Pipeline observability
 
-Every DAG run and every health ingest writes `ops.pipeline_runs`. `GET /api/v1/pipeline/health` returns, per source (`strava`, `health`): `last_success_at`, `status` (`ok` within the warn threshold, `delayed` between warn and fail, `failed` beyond fail or last run failed), `failures_7d`; plus `quarantine` (open count, counts by reason, the 20 most recent items with a raw snippet) and `dq` (passed, warnings, failed, list). The Me page renders this (see `UI_SPEC.md`).
+Every DAG run and every health ingest writes `ops.pipeline_runs`. `GET /api/v1/pipeline/health` returns, per source (`strava`, `health`): `last_success_at`, `status` (`ok` within the warn threshold, `delayed` between warn and fail, `failed` beyond fail or last run failed), `failures_7d`; plus `quarantine` (open count, counts by reason, the 20 most recent items with a raw snippet) and `dq` (passed, warnings, failed, list). The Me page renders this (see `UI_SPEC.md`). The source status uses the same thresholds as the freshness checks, in `db/sql/api/pipeline_sources.sql`. The Nutrition page reads `GET /dashboard` (it already holds the calorie, protein and week data), so there is no separate `/nutrition` endpoint (DECISIONS D72).
 
 ## 11. API contract (v1)
 
-Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` (bad query parameters and bodies too, as `invalid_payload`) with codes `unauthorized`, `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`.
+Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` (bad query parameters and bodies too, as `invalid_payload`) with codes `unauthorized`, `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`, `not_found`.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | liveness, no auth |
 | GET | `/dashboard?date=YYYY-MM-DD` | composed payload for the dashboard (below) |
-| GET | `/activities?from=&to=` | day-grouped summaries, newest first; default last 30 days |
-| GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok` |
-| GET | `/nutrition?date=` | calorie card, protein card, week chart for the date |
+| GET | `/activities?from=&to=` | day-grouped summaries, newest first; default last 30 days, at most 366 days per request (`date_out_of_range`); each item carries `duration_s`, `moving_s`, `distance_m`, `parse_status`, and exercise, set and volume totals |
+| GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok`; 404 `not_found` for an unknown id |
 | GET | `/me` | nickname, timezone, current targets, earliest data date |
 | PUT | `/me` | `{nickname?, targets?: {calorie_budget 800-6000, protein_goal 0-400}}`; only fields present change; targets insert a `target_history` row effective today (saving again the same day replaces it) |
 | POST | `/recovery` | `{date, note?}`; 201 when logged, 200 if already logged, 422 `recovery_not_allowed` unless `mart.fn_recovery_state` says `available` |
 | DELETE | `/recovery/{date}` | undo; 204; today or yesterday only |
 | POST | `/ingest/health` | Shortcut push (section 6.2) |
-| GET | `/pipeline/health` | health panel |
+| GET | `/pipeline/health` | health panel (section 10), plus the server's `now`, so "9 hours ago" never depends on the phone's clock |
 | GET | `/streak` | stretch: small JSON for Scriptable |
 
 `GET /dashboard` response (draft; keep field names stable once the UI uses them):
