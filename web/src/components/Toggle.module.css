@@ -1,0 +1,26 @@
+/* A pill with two options; the pressed one is filled. 44px tall for the thumb. */
+
+.group {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+}
+
+.option {
+  min-width: 64px;
+  min-height: calc(var(--touch) - 6px);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.option[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--surface);
+}

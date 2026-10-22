@@ -20,7 +20,7 @@ Four pages, one **bottom navigation bar** on every page:
 - Fixed to the bottom, ~56px high plus `env(safe-area-inset-bottom)`. Page content gets matching bottom padding so nothing hides behind it. Active tab: filled icon, accent color, bold label, `aria-current="page"`. Inactive: outline icon, secondary text color. Each tab shows icon **and** label.
 - `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`, `apple-mobile-web-app-capable`, status-bar style meta, an apple-touch-icon, `theme-color`. No service worker.
 - Desktop: content in a centered column (max width ~520px), nav aligned to the same column. Same layout, no separate desktop design.
-- **`selectedDate`** is shared state synced to the URL (`?date=YYYY-MM-DD`). Default: `today` from the API. Cannot go past today or before `earliest_date`. Tab switches keep it. Dashboard and Nutrition show the day chooser; Activities scrolls to and highlights that day.
+- **`selectedDate`** is shared state synced to the URL (`?date=YYYY-MM-DD`). Default: `today` from the API. Cannot go past today or before `earliest_date`. Tab switches keep it. Dashboard and Nutrition show the day chooser; Activities lists only that day (Slice 7a; it scrolled to and highlighted it in 6b).
 - First load without an API key shows a small gate screen asking for the key (stored in `localStorage`). A 401 returns to it.
 - Dark-first. All reference images are dark.
 
@@ -129,15 +129,18 @@ Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing
 ## 6. Other pages (v1)
 
 ### 6.1 Activities
-- Title "Activities". **Day-grouped list, newest first**, default last 30 days with a "Load older" button. Day header: "Mon, Oct 19" plus a "Today" or "Yesterday" chip. When arriving with `?date=`, scroll to that day and highlight it.
+- Title "Activities". **Day-grouped list, newest first**, default last 30 days with a "Load older" button. Day header: "Mon, Oct 19" plus a "Today" or "Yesterday" chip. When arriving with `?date=` (from the calendar or the dashboard), the list shows only that day, from any month, with "Showing one day" and a **Show all days** button that clears `?date=`.
 - Activity item (card): icon circle, title, time range, duration, and a type summary: run = `5.2 km · 5:41 /km · 29 min`; strength = `9 exercises · 22 sets · 3,491 kg`.
 - Strength summary omits the volume when it is 0 (bodyweight, cardio, and timed sets only): `6 exercises · 12 sets`.
 - **Tap an item to expand** (here items are interactive): lifting shows exercises and sets by kind: `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`; bodyweight `Set 1  10 reps`; distance `Set 1  21 km · 1 h`; timed hold `Set 1  1 min 30 s`. Equipment appears as a muted suffix. An exercise note appears as one muted line under the exercise name. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
-- Empty, loading (skeleton), and error states. Week/month calendar and trends arrive in Slice 7.
+- Empty, loading (skeleton), and error states.
+- **Order (Slice 7a):** training trend card, calendar card, then the list.
+- **Calendar card:** title "Calendar" with a **Week / Month** switch (a pill of two buttons, the pressed one filled white; `aria-pressed`). Under it `‹ October 2026 ›` (`Oct 12 – 18` in week view); the arrows go to the server's `previous` and `next` dates and are disabled when those are null. Then `M T W T F S S` and full Monday-Sunday weeks of circles (36px, shrinking with their column at 200% zoom). A day with training: **solid white circle with a dark date number** (numbers, not icons, because in a month grid the numbers are how you find a day). A valid recovery day: the tinted snowflake circle. Today without training: white outline. Days of the neighbouring months: the same at lower opacity. Future days: dim and disabled. The filtered day: a 2px accent ring around its circle and `aria-pressed`. Tapping a day filters the list to it; tapping it again clears the filter. Accessible name: `"Wednesday, October 14: 2 activities, the longest a strength session."`, `"... recovery day."`, `"... no activity."`, `"... not yet."`.
+- **Training trend card:** title "Training trend" with the Week / Month switch (8 weeks or 6 months). A headline for the **last finished** period: "Last week: 4 sessions, 3 h 10 min, up 20% on the week before." (the change is left out when the previous period had no training; "No training last week." when empty). A muted line "Running 12.5 km · Lifting 3,491 kg" (zeros left out). One white bar per period for active time, two-line labels (`Oct` over `12`, or `Oct` over `'26`); the running period is lighter with a dashed edge, and a muted line under the chart says "This week so far: 1 session, 30 min.". Bars are not interactive; each has a spoken sentence ("Week of October 12: 4 sessions, 3 h 10 min.").
 - Built (Slice 6b): only lifting sessions with sets, and sessions whose text was only partly read, open; other activities are plain rows. A strength session with no sets shows its duration instead of "0 exercises".
 
 ### 6.2 Nutrition
-Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here). Trends arrive in Slice 7.
+Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here), then the **calorie trend card** (Slice 7a): title "Calorie trend" with the Week / Month switch; headline "7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days." (the week ending yesterday); a muted line for the last finished period, "Last week: 1,850 kcal a day, 4 of 5 logged days within budget."; one bar per period for the average kcal **per logged day**, coloured like the weekly card (`within` green, `over` orange, `not_set` neutral, nothing logged: no bar), a dashed segment at each period's average budget with the value at the right end, the running period lighter with a dashed edge; footer "Averages count logged days only." The trend card does not follow the day chooser.
 
 ### 6.3 Me
 - **Profile and targets:** nickname, calorie budget (kcal), protein goal (g). Helper text: "Changes apply from today. Past days keep their old targets." Sanity limits (calories 800-6000, protein 0-400). Save button with inline errors.
@@ -169,7 +172,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 - Streak summary: `"Streak: 12 days. Today: workout logged."` plus at-risk status.
 - Ring: `"Calories: 654 eaten of 1,853, 1,199 left."` or `"... 320 over budget."` Protein: `"Protein: 21 of 130 grams, 16 percent."` Chart: summary (`"Weekly calories: 4 days within budget, 1 over, budget 1,853."`) plus per-bar labels.
 - Freeze indicator and every status are text plus icon.
-- Respect `prefers-reduced-motion` and `prefers-contrast`. Use rem units and verify at 200% zoom. Checked in Slice 6b at a 197px-wide viewport (a 393px phone at 200%): no horizontal scroll; the streak week wraps to two rows (4 + 3, circles stay 32px), the calorie ring shrinks to the card and its figures stack, weekly bars narrow so they never touch.
+- Respect `prefers-reduced-motion` and `prefers-contrast`. Use rem units and verify at 200% zoom. Checked in Slice 6b at a 197px-wide viewport (a 393px phone at 200%): no horizontal scroll; the streak week wraps to two rows (4 + 3, circles stay 32px), the calorie ring shrinks to the card and its figures stack, weekly bars narrow so they never touch. Slice 7a, same check on Activities, Nutrition, Dashboard and Me: 0px horizontal scroll; card headers wrap so the Week / Month switch drops under the title; the calendar keeps 7 columns and its circles shrink; trend charts keep only the first and last axis labels (every bar keeps its spoken label).
 
 ## 9. Copy (no red, no shame, no exclamation marks, no modals)
 
@@ -218,7 +221,7 @@ Scenarios:
 - [ ] Ring is a plain flat circle (no apple, no glow), green fill, orange when over with "kcal over" and a dashed overflow arc.
 - [ ] Protein is its own card: label, "Xg, Yg left", percentage at right, thin green bar, percentage outside the bar.
 - [ ] Weekly chart has a visible dashed budget line; over-budget bars are orange and rise above it; selected-day label has accent color and underline.
-- [ ] Day chooser drives every card except the streak; Activities scrolls to the selected day.
+- [ ] Day chooser drives every card except the streak and the trend cards; Activities lists only the selected day, with Show all days.
 - [ ] Me page saves targets (effective today) and shows the pipeline health panel with text-plus-icon statuses.
 - [ ] No red anywhere; nothing from the "do not copy" list.
 - [ ] Contrast, grayscale, and 200% zoom checks pass.

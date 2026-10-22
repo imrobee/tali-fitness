@@ -242,6 +242,24 @@ Why: UI_SPEC 5.3 keeps circles at 32px or more; seven of them do not fit in ~200
 **D78. "Sync now" moves from the Backlog to Slice 7c (decided by Rob 2026-10-21).**
 The API triggers the `strava_sync` DAG through Airflow's REST API; Airflow stays the only code that calls Strava. Why: hourly polling leaves up to an hour before a new workout appears, and webhooks need a public URL (Slice 8), while this works locally. Rejected: calling Strava from the API directly (two code paths writing raw data); waiting for webhooks.
 
+**D79. Trends are mart functions taking `p_today` (`fn_training_trend`, `fn_nutrition_trend`, `fn_nutrition_rolling`, `fn_periods`), not the planned `v_trends_*` views.**
+Why: they depend on what "today" is, and the rule (ARCHITECTURE 5.5) is that anything with a today is a function so tests can fix the clock. Rejected: views reading `now()`.
+
+**D80. Each trend computes one extra, hidden period before the ones shown, so `LAG` has a value for the oldest bar.**
+Why: without it, the first period shown always says "no comparison", even when there was data the week before. Rejected: returning one more period and dropping it in Python (the rule would live in two places).
+
+**D81. Nutrition averages count logged days only; the 7-day average ends yesterday.**
+A day with no food logged is missing data, not 0 kcal (`AVG` skips NULLs); today is still being logged, so including it would pull the average down every morning. Rejected: dividing by 7 calendar days; a window ending today.
+
+**D82. Headlines compare the last finished period, not the one still running; the running period is drawn lighter with a dashed edge and described as "so far".**
+Why: comparing three days of this week with all of last week always reads as a drop. Rejected: a pro-rated current period (an estimate presented as data).
+
+**D83. On Activities, `?date=` filters the list to that day (calendar tap or dashboard link), with "Show all days" to clear it. This replaces the 6b behaviour (scroll to the day and highlight it); UI_SPEC 1, 6.1 and 12 updated.**
+Why: the plan asks for "tap a day to filter", and a day from an older month is not in the 30-day list to scroll to. `?date=` stays the one shared selected day. Rejected: a second URL parameter only for the filter.
+
+**D84. `GET /calendar` returns full Monday-Sunday weeks and the previous/next dates; the browser only draws them.**
+Why: the server decides what is future and where the data starts (ARCHITECTURE 4). Calendar circles show date numbers, not activity icons (in a month grid, numbers are how you find a day). Rejected: computing the month grid in the browser.
+
 ## Plan, process, and cross-cutting
 
 **D45. No deadlines or time gates.** (Rob, 2026-10-20.)

@@ -115,15 +115,40 @@ def steady_week(first: int, last: int) -> list:
     ]
 
 
+def history(first: int, last: int) -> list:
+    """Older invented training and food for the trend cards, `first` to `last` days ago.
+
+    About three sessions a week (Mon and Fri runs, a Wednesday lift, a long run every other
+    Saturday), slowly getting longer; food on most days, with every ninth day not logged.
+    """
+    days = []
+    for n in range(first, last - 1, -1):
+        day = days_ago(n)
+        longer = (first - n) // 20  # a few minutes more every three weeks or so
+        activities = []
+        if day.weekday() in (0, 4):
+            activities.append(("Run", "Morning Run", "06:30", 28 + n % 4 * 4 + longer))
+        if day.weekday() == 2:
+            activities.append(("WeightTraining", "Upper Body", "17:10", 50 + n % 3 * 5 + longer))
+        if day.weekday() == 5 and n % 14 < 7:
+            activities.append(("Run", "Long Run", "07:00", 66 + n % 5 * 4 + longer))
+        food = None if n % 9 == 0 else (1690 + n * 37 % 380, 104 + n % 29)
+        days.append((day, activities, food))
+    return days
+
+
 SCENARIOS = {
     # Mon run, Tue strength over budget, Wed recovery, Thu, Fri, Sat with three
     # activities and 654 kcal / 21 g so far, Sun ahead (UI_SPEC.md 11 "midweek").
+    # Older history (from May to Oct 5) feeds the trends; Oct 6 and 7 stay empty, so it
+    # never joins the current streak.
     "midweek": {
         "pipeline": HEALTHY,
         "nickname": "Rob",
         "target": TARGET,
         "recovery": [days_ago(3)],
-        "days": steady_week(9, 6)
+        "days": history(165, 12)
+        + steady_week(9, 6)
         + [
             (days_ago(5), [("Run", "Morning Run", "06:30", 41)], (1702, 126)),
             (days_ago(4), [("WeightTraining", "Upper Body", "17:10", 64)], (2173, 141)),
@@ -213,6 +238,12 @@ def insert_scenario(engine, scenario: dict) -> None:
                 insert_food(conn, day, *food)
 
 
+def distance_m(sport: str, minutes: int) -> int | None:
+    """Invented distances at a steady pace: runs 5:40 /km, walks 12:00 /km."""
+    seconds_per_km = {"Run": 340, "Walk": 720}.get(sport)
+    return None if seconds_per_km is None else round(minutes * 60 / seconds_per_km * 1000)
+
+
 def insert_activity(conn, strava_id, day, sport, title, start, minutes) -> None:
     payload = json.dumps({"id": strava_id, "name": title})
     conn.execute(sql("insert_raw_activity"), {"id": strava_id, "payload": payload})
@@ -225,6 +256,7 @@ def insert_activity(conn, strava_id, day, sport, title, start, minutes) -> None:
             "started": f"{day}T{start}:00+08:00",
             "local": f"{day} {start}",
             "seconds": minutes * 60,
+            "distance": distance_m(sport, minutes),
             "sport": sport,
         },
     )

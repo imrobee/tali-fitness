@@ -8,12 +8,16 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ActivitySummary,
+  Calendar,
   Dashboard,
+  NutritionTrend,
   PipelineHealth,
   RecoveryState,
   StreakDay,
+  TrainingPeriod,
   WeekBar,
 } from "../api/types";
+import { CalendarCard } from "./CalendarCard";
 import { CalorieCard } from "./CalorieCard";
 import { DataSyncCard } from "./DataSyncCard";
 import { DayChooser } from "./DayChooser";
@@ -23,6 +27,7 @@ import { KeyGate } from "./KeyGate";
 import { ProteinCard } from "./ProteinCard";
 import { RecoveryCard } from "./RecoveryCard";
 import { StreakCard } from "./StreakCard";
+import { NutritionTrendCard, TrainingTrendCard } from "./TrendCards";
 import { WeeklyCard } from "./WeeklyCard";
 
 afterEach(() => {
@@ -438,5 +443,114 @@ describe("Weekly calorie budget card", () => {
     fireEvent.click(screen.getByRole("button", { name: /Monday, October 12/ }));
 
     expect(onSelect).toHaveBeenCalledWith("2026-10-12");
+  });
+});
+
+describe("Activities calendar", () => {
+  // The week of Monday 12 October; Saturday 17 is today.
+  const calendar: Calendar = {
+    view: "week",
+    today: "2026-10-17",
+    period_start: "2026-10-12",
+    period_end: "2026-10-18",
+    previous: "2026-10-05",
+    next: null,
+    days: [12, 13, 14, 15, 16, 17, 18].map((d) => ({
+      date: `2026-10-${d}`,
+      in_period: true,
+      future: d === 18,
+      activity_count: d === 14 ? 2 : d === 12 ? 1 : 0,
+      primary_activity_type: d === 14 ? "strength" : d === 12 ? "run" : null,
+      recovery: d === 15,
+    })),
+  };
+
+  function renderCalendar(selected: string | null = null) {
+    const handlers = { onSelect: vi.fn(), onMove: vi.fn(), onViewChange: vi.fn() };
+    wrap(<CalendarCard calendar={calendar} view="week" selected={selected} {...handlers} />);
+    return handlers;
+  }
+
+  it("names each day with its activities and cannot pick a future day", () => {
+    renderCalendar();
+
+    expect(
+      screen.getByRole("button", { name: "Wednesday, October 14: 2 activities, the longest a strength session." }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Thursday, October 15: recovery day." })).toBeTruthy();
+    const future = screen.getByRole("button", { name: /Sunday, October 18/ }) as HTMLButtonElement;
+    expect(future.disabled).toBe(true);
+    expect(screen.getByText("Oct 12 – 18")).toBeTruthy();
+  });
+
+  it("filters to the tapped day, and tapping it again shows all days", () => {
+    const first = renderCalendar();
+    fireEvent.click(screen.getByRole("button", { name: /Monday, October 12/ }));
+    expect(first.onSelect).toHaveBeenCalledWith("2026-10-12");
+
+    cleanup();
+    const second = renderCalendar("2026-10-12");
+    const monday = screen.getByRole("button", { name: /Monday, October 12/ });
+    expect(monday.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(monday);
+    expect(second.onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it("moves with the server's previous date and stops where it has none", () => {
+    const { onMove } = renderCalendar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+    expect(onMove).toHaveBeenCalledWith("2026-10-05");
+    expect((screen.getByRole("button", { name: "Next week" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("switches between week and month", () => {
+    const { onViewChange } = renderCalendar();
+
+    expect(screen.getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Month" }));
+    expect(onViewChange).toHaveBeenCalledWith("month");
+  });
+});
+
+describe("Trend cards", () => {
+  const trainingPeriods: TrainingPeriod[] = [
+    {
+      start: "2026-10-12", end: "2026-10-18", current: false, sessions: 4, active_s: 11400,
+      run_m: 12500, volume_kg: 3490.9, prev_sessions: 3, prev_active_s: 9500, active_change_pct: 20,
+    },
+    {
+      start: "2026-10-19", end: "2026-10-25", current: true, sessions: 1, active_s: 1800,
+      run_m: 5000, volume_kg: 0, prev_sessions: 4, prev_active_s: 11400, active_change_pct: -84,
+    },
+  ];
+
+  it("leads training with the last finished week and speaks every bar", () => {
+    wrap(
+      <TrainingTrendCard trend={{ grain: "week", periods: trainingPeriods }} grain="week" onGrainChange={() => {}} />,
+    );
+
+    expect(screen.getByText("Last week: 4 sessions, 3 h 10 min, up 20% on the week before.")).toBeTruthy();
+    expect(screen.getByText("Running 12.5 km · Lifting 3,491 kg")).toBeTruthy();
+    expect(screen.getByText("Week of October 19 so far: 1 session, 30 min.")).toBeTruthy();
+  });
+
+  it("leads nutrition with the 7-day average and draws the budget line's value", () => {
+    const trend: NutritionTrend = {
+      grain: "week",
+      rolling_7d: { end_date: "2026-10-18", kcal_avg: 1742, protein_avg_g: 112, days_logged: 6 },
+      periods: [
+        {
+          start: "2026-10-12", end: "2026-10-18", current: false, days_logged: 5, avg_kcal: 1850,
+          avg_protein_g: 110, avg_budget: 1853, days_within: 4, days_over: 1, status: "within",
+          prev_avg_kcal: null,
+        },
+      ],
+    };
+    wrap(<NutritionTrendCard trend={trend} grain="week" onGrainChange={() => {}} />);
+
+    expect(screen.getByText("7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days.")).toBeTruthy();
+    expect(screen.getByText("Week of October 12: 1,850 kcal a day, within budget on average.")).toBeTruthy();
+    expect(screen.getByText("1,853")).toBeTruthy();
   });
 });

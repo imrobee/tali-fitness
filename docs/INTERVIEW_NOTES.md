@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 102 API + 153 pipeline + 88 web, all in CI |
+| Tests | 119 API + 172 pipeline + 113 web, all in CI |
 
 ## Architecture and design
 
@@ -91,6 +91,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Fetch on demand.** The Activities list is one query with totals computed in SQL; a session's sets load only when you open it. The golden number (22 sets, 3,490.90 kg) reads the same through the API.
 - **Accessibility as a test, not a hope.** At 200% zoom, two cards clipped; fixed so circles keep their 32px minimum and wrap instead.
 
+## Slice 7a: calendar and trends with window functions
+
+- **Trends are SQL window functions, not app code.** `LAG` compares each week or month with the one before; `AVG ... ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` gives the 7-day rolling average. Both are mart functions taking `p_today`, so tests fix the clock.
+- **The first bar still gets a comparison.** Each trend computes one hidden period before the ones shown, so `LAG` has a value for the oldest bar. Removing that trick made 7 of the 19 SQL tests fail, which is how I know they guard it.
+- **Missing data is not zero.** Averages count logged days only (`AVG` skips NULLs), and the 7-day average ends yesterday because today is still being logged. Trade-off: a week with one logged day can show a misleading average, so the card always says how many days it covers.
+- **Compare finished periods only.** Three days of this week against all of last week always reads as a drop; the running period is drawn "so far" and the headline compares the last finished one.
+- **The server owns the calendar.** It returns full Monday-Sunday weeks and where the arrows can go; tapping a day filters the list to it, from any month.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -104,5 +112,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | "Last sync 4 days ago" next to a "Delayed" status | Looking at the demo screenshot, whose server clock is frozen | The page measured time from the phone's clock and the status from the server's; the API now sends its own `now` |
 | Two cards clipped at 200% zoom | Rendering the dashboard at 197px wide (a phone at 200%) | The ring now scales to the card and the streak week wraps instead of overflowing |
 | The recovery card changed height between states | Comparing the three screenshots side by side | The minimum height fitted only one-line states; it is now computed from the type sizes, and measured equal (132.6px) in every state |
+| The Activities page crashed when a picked day's activities arrived before the dashboard | Rendering the new Activities page in the screenshot run (a blank page, a `RangeError` in the console) | The list now waits for the server's today; a page test fakes the slow dashboard and fails without the fix |
+| The Week / Month switch pushed past the card edge at 200% zoom | Measuring horizontal scroll at 197px wide | Card headers wrap; trend charts keep only the first and last axis labels at that width |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

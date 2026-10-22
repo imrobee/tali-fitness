@@ -32,16 +32,29 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await capture(page, `${scenario}-${viewport.name}.png`);
 
     if (scenario === "midweek") {
+      // Activities filtered to Saturday from the calendar, with the trend above it.
       await page.goto("/activities?date=2026-10-17");
       await expect(page.getByRole("heading", { level: 1, name: "Activities" })).toBeVisible();
+      await expect(page.getByText(/^Last week: /)).toBeVisible();
+      await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
       await page.getByRole("button", { name: /Full Body/ }).click();
       await expect(page.getByText("20 kg × 8")).toBeVisible();
       await capture(page, `midweek-activities-${viewport.name}.png`);
 
       await page.goto("/nutrition?date=2026-10-17");
       await expect(page.getByRole("heading", { name: "Weekly calorie budget" })).toBeVisible();
+      await expect(page.getByText(/^7-day average: /)).toBeVisible();
       await capture(page, `midweek-nutrition-${viewport.name}.png`);
 
+      // The same trends by month, at phone size only.
+      if (viewport.name === "iphone") {
+        await page.getByRole("group", { name: "Calorie trend range" }).getByRole("button", { name: "Month" }).click();
+        await expect(page.getByText(/^Last month: /)).toBeVisible();
+        await page.goto("/activities");
+        await page.getByRole("group", { name: "Training trend range" }).getByRole("button", { name: "Month" }).click();
+        await expect(page.getByText(/^Last month: /)).toBeVisible();
+        await capture(page, "midweek-activities-month-iphone.png");
+      }
     }
 
     // The Me page twice: a healthy pipeline (midweek) and a stale/failed one (at_risk).

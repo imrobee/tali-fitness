@@ -1,15 +1,20 @@
 // Data hooks (TanStack Query: caching, loading and error states, and a refetch whenever
 // the app comes back into view, so the greeting and "today" stay correct; UI_SPEC.md 5.1).
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import type {
   ActivityDetail,
   ActivityList,
+  Calendar,
+  CalendarView,
   Dashboard,
+  Grain,
   Me,
   MeUpdate,
+  NutritionTrend,
   PipelineHealth,
+  TrainingTrend,
 } from "./types";
 
 /** `date` null means "today, as the server sees it". */
@@ -39,6 +44,32 @@ export function useActivity(id: number | null) {
     queryKey: ["activity", id],
     queryFn: () => apiFetch<ActivityDetail>(`/activities/${id}`),
     enabled: id !== null,
+  });
+}
+
+/** The week or month that contains `date` (null = the one containing today). */
+export function useCalendar(view: CalendarView, date: string | null) {
+  return useQuery({
+    queryKey: ["calendar", view, date ?? "today"],
+    queryFn: () => apiFetch<Calendar>(`/calendar?view=${view}${date ? `&date=${date}` : ""}`),
+    // Keep the old grid on screen while the next month loads, so the card does not jump.
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useTrainingTrend(grain: Grain) {
+  return useQuery({
+    queryKey: ["trends", "training", grain],
+    queryFn: () => apiFetch<TrainingTrend>(`/trends/training?grain=${grain}`),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useNutritionTrend(grain: Grain) {
+  return useQuery({
+    queryKey: ["trends", "nutrition", grain],
+    queryFn: () => apiFetch<NutritionTrend>(`/trends/nutrition?grain=${grain}`),
+    placeholderData: keepPreviousData,
   });
 }
 
