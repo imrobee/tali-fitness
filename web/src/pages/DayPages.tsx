@@ -11,6 +11,7 @@ import { DayChooser } from "../components/DayChooser";
 import { OfflineBanner, Page } from "../components/Page";
 import { ProteinCard } from "../components/ProteinCard";
 import { NutritionTrendSection } from "../components/TrendCards";
+import { WeightSection } from "../components/WeightCard";
 import { WeeklyCard } from "../components/WeeklyCard";
 import { useSelectedDate } from "../lib/selectedDate";
 
@@ -74,6 +75,7 @@ export function NutritionPage() {
             onSelect={(day) => select(day === dashboard.today ? null : day)}
           />
           <NutritionTrendSection />
+          <WeightSection />
         </>
       )}
     </DayPage>

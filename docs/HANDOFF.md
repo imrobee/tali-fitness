@@ -5,8 +5,8 @@ Where the project stands, for picking it up in a new conversation. Read with `CL
 ## Where we are
 
 - **Slices 0-6b are done and merged into `main`** (PRs #1-#7).
-- **Slice 7a is built and green** on branch `slice-7a-calendar-trends`: migration 0008 (trend functions with `LAG` and a 7-day rolling average), `GET /calendar`, `GET /trends/training`, `GET /trends/nutrition`, the calendar card with a day filter and the training trend card on Activities, the calorie trend card on Nutrition, demo history for the trends, 15 screenshots. Applied to the live database. Waiting on Rob's iPhone check and commits.
-- Tests: 119 API + 172 pipeline + 113 web, all green with `make -k check`.
+- **Slice 7a is merged** (PR #8). **Slices 7b and 7c are built and green on one branch** (Rob's call: no separate 7c branch), not yet committed: weight trend and goal, kg / lb unit on Me, personal records, muscle volume, the dashboard's "Last week", and Sync now (Me page) through Airflow's REST API. Migrations 0009-0013 are applied to the live database; Sync now was tried live (run 101, success in 6 s; the cooldown answered the second press).
+- Tests: 144 API + 195 pipeline + 145 web, all green with `make -k check`.
 - `data_quality` is switched on and writing `ops.dq_results` hourly.
 
 ## What works, and how to run it
@@ -15,7 +15,7 @@ Needs Docker Desktop and make. All commands from the repo root.
 
 ```bash
 make up            # start postgres, api, airflow, web
-make migrate       # apply migrations (now at 0008)
+make migrate       # apply migrations (now at 0013)
 make -k check      # lint, typecheck, all tests (what CI runs)
 make strava-auth   # one-time Strava login (already done; only if tokens are lost)
 make logs          # follow container logs
@@ -68,13 +68,15 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Waiting on Rob
 
-1. **Commit Slice 7a** (suggested split in the chat).
-2. **iPhone check:** Activities (Week/Month on the trend and the calendar, tap a day, Show all days) and Nutrition (calorie trend). Real data has calories only from Oct 20, so most nutrition bars are empty for now.
-3. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
+1. **Commit 7b and 7c** (suggested split in the chat).
+2. **Your weight goal and unit** on Me (the switch is beside the goal).
+3. **"Small manual-entry forms"** (the last 7b item) has no definition: say which forms, or drop it.
+4. **iPhone check:** Me (kg / lb switch, Sync now, Run Health Push opens the Shortcut), Activities (muscle volume, records), Dashboard (Last week), Nutrition (weight in lb).
+5. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
 
 ## Exact next step
 
-After the iPhone check and merging 7a: create branch **`slice-7b-weight-trend`** and start Slice 7b per `PROJECT_PLAN.md`, beginning with weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, ARCHITECTURE 14 #8). Re-read `PROJECT_PLAN.md` Slice 7 and `ARCHITECTURE.md` 6.2 (body mass) first.
+After the iPhone check and merging: finish 7b's "small forms" once Rob defines them, or move to Slice 8 (hosting decision, deploy, README; webhooks evaluated there). Re-read `PROJECT_PLAN.md` Slice 8 first; hosting needs Rob's approval before anything is deployed.
 
 ## Working agreements to keep
 

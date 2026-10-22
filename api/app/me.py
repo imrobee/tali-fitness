@@ -5,7 +5,7 @@ keep the targets they had (ARCHITECTURE.md 5.3).
 """
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -31,12 +31,16 @@ class TargetsOut(Targets):
 class MeUpdate(BaseModel):
     nickname: str | None = Field(default=None, min_length=1, max_length=40)
     targets: Targets | None = None
+    weight_goal_kg: float | None = Field(default=None, ge=30, le=250)
+    weight_unit: Literal["kg", "lb"] | None = None
 
 
 class Me(BaseModel):
     nickname: str | None
     timezone: str
     targets: TargetsOut | None  # the targets in effect today
+    weight_goal_kg: float | None  # the weight goal in effect today, always in kg
+    weight_unit: Literal["kg", "lb"]  # how the app shows and asks for weights
     earliest_date: date
 
 
@@ -44,11 +48,16 @@ def read_me(conn: Connection) -> Me:
     today = clock.today()
     profile = conn.execute(load_sql("api/profile.sql")).one()
     target = conn.execute(load_sql("api/target_in_effect.sql"), {"day": today}).one_or_none()
+    weight_goal = conn.execute(
+        load_sql("api/weight_goal_in_effect.sql"), {"day": today}
+    ).scalar_one_or_none()
     first_day = conn.execute(load_sql("api/day_status.sql"), {"today": today}).first()
     return Me(
         nickname=profile.nickname,
         timezone=profile.timezone,
         targets=TargetsOut(**target._mapping) if target else None,
+        weight_goal_kg=None if weight_goal is None else float(weight_goal),
+        weight_unit=profile.weight_unit,
         earliest_date=first_day.day if first_day else today,
     )
 
@@ -70,5 +79,14 @@ def put_me(update: MeUpdate, engine: Annotated[Engine, Depends(get_engine)]) -> 
             conn.execute(
                 load_sql("api/save_target.sql"),
                 {"today": clock.today(), **update.targets.model_dump()},
+            )
+        if update.weight_unit is not None:
+            conn.execute(
+                load_sql("api/update_weight_unit.sql"), {"weight_unit": update.weight_unit}
+            )
+        if update.weight_goal_kg is not None:
+            conn.execute(
+                load_sql("api/save_weight_goal.sql"),
+                {"today": clock.today(), "goal_kg": update.weight_goal_kg},
             )
         return read_me(conn)

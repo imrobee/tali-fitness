@@ -63,6 +63,36 @@ FULL_BODY = [
     },
 ]
 
+
+def upper_body(day: date) -> list:
+    """Invented sets for the history's Upper Body sessions, a little heavier every three
+    weeks from May, so the demo has personal records and muscle volume to show."""
+    step = (day - date(2026, 5, 5)).days // 21
+    return [
+        {
+            "name": "Incline Bench Press",
+            "equipment": "Dumbbell",
+            "muscle": "Chest",
+            "note": None,
+            "sets": [("weight_reps", 15 + 1.25 * step, "kg", 8, None)] * 3,
+        },
+        {
+            "name": "Lat Pulldown",
+            "equipment": "Cable",
+            "muscle": "Back",
+            "note": None,
+            "sets": [("weight_reps", 30 + 2.5 * step, "lb", 12, None)] * 3,
+        },
+        {
+            "name": "Lateral Raise",
+            "equipment": "Dumbbell",
+            "muscle": "Shoulders",
+            "note": None,
+            "sets": [("weight_reps", 5 + 0.5 * (step // 2), "kg", 12, None)] * 2,
+        },
+    ]
+
+
 # The Me page's "Data and sync" panel (UI_SPEC.md 11: a healthy pipeline and a stale/failed
 # one). Times are hours before the demo's frozen "now" (Sat 2026-10-17 14:00 Manila).
 NOW = "2026-10-17T14:00:00+08:00"
@@ -149,6 +179,8 @@ SCENARIOS = {
         "recovery": [days_ago(3)],
         "days": history(165, 12)
         + steady_week(9, 6)
+        # Last week's lifting, on a day that already counts, so the streak is unchanged.
+        + [(days_ago(8), [("WeightTraining", "Upper Body", "17:10", 58)], None)]
         + [
             (days_ago(5), [("Run", "Morning Run", "06:30", 41)], (1702, 126)),
             (days_ago(4), [("WeightTraining", "Upper Body", "17:10", 64)], (2173, 141)),
@@ -221,6 +253,8 @@ def insert_scenario(engine, scenario: dict) -> None:
         conn.execute(sql("set_nickname"), {"nickname": scenario["nickname"]})
         if scenario["target"]:
             conn.execute(sql("insert_target"), scenario["target"])
+            conn.execute(sql("insert_weight_goal"), {"goal_kg": 73.0})
+            insert_weights(conn, 165, 0)
         for day in scenario["recovery"]:
             conn.execute(sql("insert_recovery"), {"day": day})
 
@@ -234,6 +268,8 @@ def insert_scenario(engine, scenario: dict) -> None:
                 insert_activity(conn, strava_id, day, sport, title, start, minutes)
                 if title == "Full Body":
                     insert_exercises(conn, strava_id, FULL_BODY)
+                if title == "Upper Body" and day < days_ago(5):  # history: sets as described
+                    insert_exercises(conn, strava_id, upper_body(day))
             if food:
                 insert_food(conn, day, *food)
 
@@ -328,6 +364,30 @@ def insert_pipeline(conn, pipeline: dict) -> None:
                 "line_no": line_no,
                 "raw_content": raw,
                 "at": hours_before_now(3 + index),
+            },
+        )
+
+
+def weight_kg(n: int) -> float:
+    """Invented weights: a slow fall from about 77.5 kg in May to 74.8 kg, with small wobbles."""
+    return round(77.5 - (165 - n) * 0.0165 + (n % 4 - 1.5) * 0.3, 1)
+
+
+def insert_weights(conn, first: int, last: int) -> None:
+    """One weigh-in on most days from `first` to `last` days ago (one a day, like MyNetDiary)."""
+    for n in range(first, last - 1, -1):
+        if n % 6 == 0:
+            continue  # no weigh-in that day
+        day = days_ago(n)
+        batch_id = conn.execute(sql("insert_batch"), {"day": day}).scalar_one()
+        conn.execute(
+            sql("insert_body_mass"),
+            {
+                "day": day,
+                "date_key": date_key(day),
+                "kg": weight_kg(n),
+                "start": f"{day}T07:00:00+08:00",
+                "batch_id": batch_id,
             },
         )
 

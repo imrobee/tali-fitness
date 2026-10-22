@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNutritionTrend, useTrainingTrend } from "../api/hooks";
+import { useNutritionTrend, useTrainingTrend, useWeightUnit } from "../api/hooks";
 import type { Grain, NutritionTrend, TrainingTrend } from "../api/types";
 import { formatNumber } from "../lib/format";
 import {
@@ -57,8 +57,9 @@ interface Props<T> {
 
 /** Activities: active time per week or month, and how the last one compares. */
 export function TrainingTrendCard({ trend, grain, onGrainChange }: Props<TrainingTrend>) {
+  const unit = useWeightUnit();
   const last = lastComplete(trend.periods);
-  const detail = last ? trainingDetail(last) : "";
+  const detail = last ? trainingDetail(last, unit) : "";
   return (
     <Card
       title="Training trend"

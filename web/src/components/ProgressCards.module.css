@@ -1,0 +1,151 @@
+/* Personal records, muscle volume and the "Last week" table: quiet rows of text, one
+   white bar per muscle group, no colour for better or worse (nothing here is a judgement). */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.record,
+.muscle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recordHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.value {
+  font-weight: 600;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.track {
+  height: 8px;
+  margin: 4px 0;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text);
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+  min-height: var(--touch);
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chevron {
+  font-size: 20px;
+}
+
+.open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 150ms var(--ease-out);
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table tr + tr th,
+.table tr + tr td {
+  padding-top: 8px;
+}
+
+.rowLabel {
+  padding: 0;
+  color: var(--text-secondary);
+  font-weight: 400;
+  text-align: left;
+}
+
+.rowValue {
+  padding: 0 8px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rowChange {
+  width: 1%;
+  padding: 0;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 200% zoom on a phone: three columns do not fit, so each row stacks: the label on its
+   own line, the value and the change under it. */
+@media (max-width: 240px) {
+  .table tr {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    column-gap: 8px;
+  }
+
+  .rowLabel {
+    width: 100%;
+  }
+
+  .rowValue {
+    padding: 0;
+    text-align: left;
+  }
+
+  /* width: 1% shrinks a table column to fit; in a stacked row it would be a 1px box
+     with its text spilling past the card. */
+  .rowChange {
+    width: auto;
+  }
+}

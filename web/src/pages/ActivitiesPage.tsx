@@ -10,6 +10,7 @@ import { ActivityItem } from "../components/ActivityItem";
 import { CalendarCard } from "../components/CalendarCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { OfflineBanner, Page } from "../components/Page";
+import { MuscleVolumeSection, RecordsSection } from "../components/ProgressCards";
 import { TrainingTrendSection } from "../components/TrendCards";
 import { dayChip, dayHeading } from "../lib/activities";
 import { addDays } from "../lib/dates";
@@ -52,6 +53,8 @@ export function ActivitiesPage() {
   return (
     <Page title="Activities">
       <TrainingTrendSection />
+      <MuscleVolumeSection />
+      <RecordsSection />
       {calendar.data ? (
         <CalendarCard
           calendar={calendar.data}

@@ -1,6 +1,8 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { UNAUTHORIZED_EVENT, isOffline } from "../api/client";
 import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
+import { Toggle } from "../components/Toggle";
+import { toKg, type WeightUnit, weightNumber } from "../lib/units";
 import { getApiKey, maskKey } from "../api/key";
 import type { Me, MeUpdate } from "../api/types";
 import { DataSyncCard } from "../components/DataSyncCard";
@@ -53,11 +55,35 @@ function ProfileForm({ me }: { me: Me }) {
     me.targets ? String(me.targets.calorie_budget) : "",
   );
   const [proteinGoal, setProteinGoal] = useState(me.targets ? String(me.targets.protein_goal) : "");
+  const saveUnit = useSaveMe();
+  const [unit, setUnit] = useState<WeightUnit>(me.weight_unit);
+  const [weightGoal, setWeightGoal] = useState(
+    me.weight_goal_kg === null ? "" : weightNumber(me.weight_goal_kg, me.weight_unit),
+  );
+
+  // The goal in kg as the field means it. While the field still shows the stored goal, use
+  // the stored value: the field is rounded to a tenth, and converting the rounded number
+  // would turn 160 lb into 160.1 lb, or save 72.6 kg over 72.575 kg.
+  const goalInKg = (text: string, inUnit: WeightUnit): number | null => {
+    if (text.trim() === "" || !Number.isFinite(Number(text.trim()))) return null;
+    if (me.weight_goal_kg !== null && text.trim() === weightNumber(me.weight_goal_kg, inUnit)) {
+      return me.weight_goal_kg;
+    }
+    return toKg(Number(text.trim()), inUnit);
+  };
+
+  // The unit is a preference, saved at once; a goal already typed is converted, not lost.
+  const changeUnit = (next: WeightUnit) => {
+    const kg = goalInKg(weightGoal, unit);
+    if (kg !== null) setWeightGoal(weightNumber(kg, next));
+    setUnit(next);
+    saveUnit.mutate({ weight_unit: next });
+  };
   const [errors, setErrors] = useState<ProfileErrors>({});
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const found = validateProfile({ nickname, calorieBudget, proteinGoal });
+    const found = validateProfile({ nickname, calorieBudget, proteinGoal, weightGoal, weightUnit: unit });
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -69,6 +95,10 @@ function ProfileForm({ me }: { me: Me }) {
       (targets.calorie_budget !== me.targets?.calorie_budget ||
         targets.protein_goal !== me.targets?.protein_goal);
     if (changed) update.targets = targets;
+    // The weight goal is its own history (weight_goal_history), saved only when it changed.
+    // Goals are stored in kg; an unchanged goal is not saved again.
+    const goal = goalInKg(weightGoal, unit);
+    if (goal !== null && goal !== me.weight_goal_kg) update.weight_goal_kg = goal;
     save.mutate(update);
   };
 
@@ -101,6 +131,26 @@ function ProfileForm({ me }: { me: Me }) {
           error={errors.proteinGoal}
           numeric
         />
+        <Field
+          id="weight-goal"
+          label="Weight goal"
+          unit={unit}
+          value={weightGoal}
+          onChange={setWeightGoal}
+          error={errors.weightGoal}
+          decimal
+          trailing={
+            <Toggle
+              label="Weight unit"
+              options={[
+                { value: "kg", text: "kg" },
+                { value: "lb", text: "lb" },
+              ]}
+              value={unit}
+              onChange={changeUnit}
+            />
+          }
+        />
         <p className={styles.help}>Changes apply from today. Past days keep their old targets.</p>
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={save.isPending}>
@@ -128,25 +178,31 @@ interface FieldProps {
   onChange: (value: string) => void;
   error?: string;
   numeric?: boolean;
+  decimal?: boolean;
+  /** A control beside the input, e.g. the kg / lb switch. */
+  trailing?: ReactNode;
   autoComplete?: string;
 }
 
-function Field({ id, label, unit, value, onChange, error, numeric, autoComplete }: FieldProps) {
+function Field({ id, label, unit, value, onChange, error, numeric, decimal, trailing, autoComplete }: FieldProps) {
   return (
     <div className={styles.field}>
       <label className={styles.label} htmlFor={id}>
         {label} {unit && <span className={styles.unit}>({unit})</span>}
       </label>
-      <input
-        id={id}
-        className={`${styles.input} num`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        inputMode={numeric ? "numeric" : undefined}
-        autoComplete={autoComplete ?? "off"}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-      />
+      <div className={styles.inputRow}>
+        <input
+          id={id}
+          className={`${styles.input} num`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          inputMode={numeric ? "numeric" : decimal ? "decimal" : undefined}
+          autoComplete={autoComplete ?? "off"}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+        />
+        {trailing}
+      </div>
       {error && (
         <span id={`${id}-error`} className={styles.fieldError}>
           {error}

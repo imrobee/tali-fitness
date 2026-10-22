@@ -89,3 +89,16 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* An input with a control beside it (the kg / lb switch); the input takes the rest. */
+.inputRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inputRow > input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}

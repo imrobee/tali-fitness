@@ -3,6 +3,7 @@
 
 import { addDays, parseIsoDate } from "./dates";
 import { formatDuration, formatNumber } from "./format";
+import { volume, type WeightUnit, weightNumber } from "./units";
 
 export interface ActivitySummaryData {
   type: string;
@@ -66,13 +67,13 @@ export function timeRange(startedAt: string, durationS: number): string {
  * The one line under an activity's title. Strength lists its volume only when it is not 0;
  * a strength session with no sets read (no Hevy text) falls back to its duration.
  */
-export function activitySummary(activity: ActivitySummaryData): string {
+export function activitySummary(activity: ActivitySummaryData, unit: WeightUnit = "kg"): string {
   if (activity.type === "strength" && activity.set_count > 0) {
     const parts = [
       plural(activity.exercise_count, "exercise"),
       plural(activity.set_count, "set"),
     ];
-    if (activity.volume_kg > 0) parts.push(`${formatNumber(activity.volume_kg)} kg`);
+    if (activity.volume_kg > 0) parts.push(volume(activity.volume_kg, unit));
     return parts.join(" · ");
   }
   const parts: string[] = [];
@@ -86,21 +87,28 @@ export function activitySummary(activity: ActivitySummaryData): string {
   return parts.join(" · ");
 }
 
-/** "Set 1  20 kg × 8", the line for each set. Lb sets keep the original value (UI_SPEC 6.1). */
-export function setLine(number: number, set: SetData): string {
-  return `Set ${number}  ${setMeasure(set)}`;
+/** "Set 1  20 kg × 8", the line for each set (UI_SPEC 6.1). */
+export function setLine(number: number, set: SetData, unit: WeightUnit = "kg"): string {
+  return `Set ${number}  ${setMeasure(set, unit)}`;
 }
 
-/** The measure part of a set line: "20 kg × 8", "10 reps", "1 min 30 s". */
-export function setMeasure(set: SetData): string {
+/**
+ * The measure part of a set line: "20 kg × 8", "10 reps", "1 min 30 s". The weight is in
+ * the person's unit; a set entered in the other unit also shows what was typed, exactly:
+ * "18.1 kg (40 lb) × 12", or in pounds "44.1 lb (20 kg) × 8".
+ */
+export function setMeasure(set: SetData, unit: WeightUnit = "kg"): string {
   switch (set.kind) {
     case "weight_reps": {
-      const kg = `${formatDecimal(set.weight_kg ?? 0)} kg`;
-      const weight =
-        set.orig_unit === "lb" && set.orig_weight !== null
-          ? `${kg} (${formatDecimal(set.orig_weight)} lb)`
-          : kg;
-      return `${weight} × ${set.reps}`;
+      const entered = set.orig_unit === unit && set.orig_weight !== null;
+      const shown = entered
+        ? `${formatDecimal(set.orig_weight ?? 0)} ${unit}`
+        : `${weightNumber(set.weight_kg ?? 0, unit)} ${unit}`;
+      const original =
+        !entered && set.orig_unit !== null && set.orig_weight !== null
+          ? ` (${formatDecimal(set.orig_weight)} ${set.orig_unit})`
+          : "";
+      return `${shown}${original} × ${set.reps}`;
     }
     case "reps":
       return `${set.reps} reps`;

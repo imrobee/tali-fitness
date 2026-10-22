@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 119 API + 172 pipeline + 113 web, all in CI |
+| Tests | 144 API + 195 pipeline + 145 web, all in CI |
 
 ## Architecture and design
 
@@ -99,6 +99,28 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Compare finished periods only.** Three days of this week against all of last week always reads as a drop; the running period is drawn "so far" and the headline compares the last finished one.
 - **The server owns the calendar.** It returns full Monday-Sunday weeks and where the arrows can go; tapping a day filters the list to it, from any month.
 
+## Slice 7b: weight trend against a goal
+
+- **One weigh-in a day, by the same replace as calories.** A batch replaces the days it has a weight for and leaves other days alone, so a re-sent batch changes nothing. Tests replay a batch and check the day's last reading wins, whatever order the samples arrive in.
+- **The goal has its own history table.** Saving the calorie budget writes a new target row; a goal column there would have gone blank on that row. Keeping goals in their own effective-dated table means each setting is changed on its own.
+- **The change is a window function on a calendar, not on weigh-ins.** `LAG 7` compares this day's 7-day average with the one 7 days earlier. The query reads 13 days back so both sides exist; a gap is shown as a gap, never filled in.
+- **A migration can be wrong about old data.** Migration 0009 created the table but did not copy the weigh-ins already in `raw`, so the live app showed no weight. Migration 0010 fills it in; the lesson is to check the live data after every migration, not just the tests.
+- **Bugs found by the tests:** the test helper converted a 7 am Manila reading to the previous UTC day, and the change was empty for a single day because the window was one week too short. Both were fixed, and a broken rule was put back on purpose to check each test fails.
+
+## Slice 7b (continued): units, records, muscle volume, weekly summary
+
+- **Units are presentation, storage is canonical.** Every weight is kept in kg; kg or lb is a profile setting applied when shown, with the exact 0.45359237. Switching never rewrites data, so it is lossless both ways. A test caught a rounding bug: converting the on-screen "72.6 kg" made a 160 lb goal 160.1 lb, so the page now converts the stored value.
+- **Personal records with two window functions.** `RANK()` picks each exercise's best estimated 1RM (Epley, 1-12 reps), and a running `MAX() OVER (... ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)` finds the best before it, so the page can say how much the record improved.
+- **LAG needs like-for-like rows.** Muscle volume cross-joins every muscle group with every week, so a group not trained this week is a 0 compared with last week, not a missing row that LAG would skip.
+- **One summary from the existing functions.** The weekly summary reuses the trend functions (already LAG-based) for the last finished week and adds qualifying days and weight with their own LAG.
+
+## Slice 7c: Sync now
+
+- **Event-triggered runs of a scheduled DAG.** The button asks the API, the API asks Airflow's REST API to run `strava_sync` now, and Airflow stays the only code that talks to Strava. Trade-off: the run still takes Airflow's queue time (6 seconds live), but there is one code path for loading data.
+- **Verify the API you call.** The Airflow reference page renders with JavaScript, so I read the endpoints from the running Airflow 3.3.2's own OpenAPI spec: a JWT from `/auth/token`, then `POST /api/v2/dags/{id}/dagRuns` with `logical_date: null`.
+- **Guard rails in layers.** A 2-minute cooldown in the database, a refusal while a run is in progress (ignoring "running" rows older than 30 minutes, which are crash leftovers), and the DAG's `max_active_runs=1` as the last line.
+- **Test at the HTTP boundary.** The tests start a real local HTTP server playing Airflow, so the client's actual requests (path, body, bearer token, URL-encoded run id) are checked, and an Airflow error is shown to never leak the password.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -114,5 +136,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | The recovery card changed height between states | Comparing the three screenshots side by side | The minimum height fitted only one-line states; it is now computed from the type sizes, and measured equal (132.6px) in every state |
 | The Activities page crashed when a picked day's activities arrived before the dashboard | Rendering the new Activities page in the screenshot run (a blank page, a `RangeError` in the console) | The list now waits for the server's today; a page test fakes the slow dashboard and fails without the fix |
 | The Week / Month switch pushed past the card edge at 200% zoom | Measuring horizontal scroll at 197px wide | Card headers wrap; trend charts keep only the first and last axis labels at that width |
+| Switching the goal to pounds showed 160.1 lb for a 160 lb goal | A page test of the kg / lb switch | The page converted the rounded on-screen value; it now uses the stored goal while the field is untouched, and never re-saves it |
+| The dashboard was 21px too wide at 200% zoom, but no element stuck out | Measuring scroll width, then hiding cards one by one | A `width: 1%` table-column trick became a 1px box when the rows stacked, and its text spilled past the card; bounding boxes do not include spilled text |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

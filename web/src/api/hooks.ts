@@ -2,6 +2,7 @@
 // the app comes back into view, so the greeting and "today" stay correct; UI_SPEC.md 5.1).
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { WeightUnit } from "../lib/units";
 import { apiFetch } from "./client";
 import type {
   ActivityDetail,
@@ -12,9 +13,14 @@ import type {
   Grain,
   Me,
   MeUpdate,
+  MuscleVolume,
+  PersonalRecord,
   NutritionTrend,
   PipelineHealth,
+  SyncStatus,
   TrainingTrend,
+  Weight,
+  WeeklySummary,
 } from "./types";
 
 /** `date` null means "today, as the server sees it". */
@@ -27,6 +33,11 @@ export function useDashboard(date: string | null) {
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => apiFetch<Me>("/me") });
+}
+
+/** The person's weight unit from the Me page; kg until /me has answered. */
+export function useWeightUnit(): WeightUnit {
+  return useMe().data?.weight_unit ?? "kg";
 }
 
 /** Activities from `from` to `to` (inclusive), grouped by day by the server. Waits for both. */
@@ -70,6 +81,55 @@ export function useNutritionTrend(grain: Grain) {
     queryKey: ["trends", "nutrition", grain],
     queryFn: () => apiFetch<NutritionTrend>(`/trends/nutrition?grain=${grain}`),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The server's default range (the last 90 days). */
+export function useWeight() {
+  return useQuery({
+    queryKey: ["weight"],
+    queryFn: () => apiFetch<Weight>("/weight"),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useRecords() {
+  return useQuery({
+    queryKey: ["records"],
+    queryFn: () => apiFetch<{ records: PersonalRecord[] }>("/records"),
+  });
+}
+
+export function useMuscleVolume() {
+  return useQuery({ queryKey: ["muscle-volume"], queryFn: () => apiFetch<MuscleVolume>("/muscle-volume") });
+}
+
+export function useWeeklySummary() {
+  return useQuery({ queryKey: ["summary-week"], queryFn: () => apiFetch<WeeklySummary>("/summary/week") });
+}
+
+/** The last "Sync now" run. Polled every 3 s while Airflow is still working on it. */
+export function useSyncStatus() {
+  return useQuery({
+    queryKey: ["sync-strava"],
+    queryFn: () => apiFetch<SyncStatus>("/sync/strava"),
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "queued" || state === "running" ? 3000 : false;
+    },
+  });
+}
+
+export function useSyncNow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch<SyncStatus>("/sync/strava", { method: "POST" }),
+    // Follow the new run straight away, then ask Airflow for its state without waiting
+    // for the first 3-second poll.
+    onSuccess: (status) => {
+      queryClient.setQueryData(["sync-strava"], status);
+      queryClient.invalidateQueries({ queryKey: ["sync-strava"] });
+    },
   });
 }
 

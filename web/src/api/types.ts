@@ -71,12 +71,16 @@ export interface Me {
   nickname: string | null;
   timezone: string;
   targets: (Targets & { effective_from: string }) | null;
+  weight_goal_kg: number | null;
+  weight_unit: "kg" | "lb";
   earliest_date: string;
 }
 
 export interface MeUpdate {
   nickname?: string | null;
   targets?: Targets;
+  weight_goal_kg?: number;
+  weight_unit?: "kg" | "lb";
 }
 
 // GET /api/v1/pipeline/health (api/app/pipeline.py).
@@ -244,4 +248,81 @@ export interface NutritionTrend {
     days_logged: number;
   };
   periods: NutritionPeriod[];
+}
+
+// GET /weight
+export interface WeightDay {
+  date: string;
+  weight_kg: number | null;
+  avg_7d_kg: number | null;
+  change_7d_kg: number | null;
+  goal_kg: number | null;
+  status: "not_logged" | "not_set" | "at_or_below" | "above";
+}
+
+export interface Weight {
+  from: string;
+  to: string;
+  latest_date: string | null;
+  latest_kg: number | null;
+  avg_7d_kg: number | null;
+  change_7d_kg: number | null;
+  goal_kg: number | null;
+  to_goal_kg: number | null;
+  days: WeightDay[];
+}
+
+// GET /records, /muscle-volume, /summary/week
+export interface PersonalRecord {
+  exercise: string;
+  equipment: string | null;
+  muscle_group: string;
+  e1rm_kg: number;
+  weight_kg: number;
+  reps: number;
+  date: string;
+  activity_id: number;
+  prev_e1rm_kg: number | null;
+  sessions: number;
+  recent: boolean;
+}
+
+export interface MuscleWeek {
+  muscle_group: string;
+  sets: number;
+  volume_kg: number;
+  prev_sets: number;
+  prev_volume_kg: number;
+}
+
+export interface MuscleVolume {
+  week_start: string;
+  week_end: string;
+  groups: MuscleWeek[];
+}
+
+export interface WeeklySummary {
+  week_start: string;
+  week_end: string;
+  qualifying_days: number;
+  prev_qualifying_days: number | null;
+  sessions: number;
+  prev_sessions: number | null;
+  active_s: number;
+  prev_active_s: number | null;
+  run_m: number;
+  volume_kg: number;
+  days_logged: number;
+  avg_kcal: number | null;
+  prev_avg_kcal: number | null;
+  avg_protein_g: number | null;
+  avg_weight_kg: number | null;
+  prev_avg_weight_kg: number | null;
+}
+
+// POST/GET /sync/strava
+export interface SyncStatus {
+  requested_at: string | null;
+  dag_run_id: string | null;
+  state: "queued" | "running" | "success" | "failed" | null;
 }
