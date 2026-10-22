@@ -4,7 +4,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app import activities, me, pipeline, recovery
+from app import activities, activity_calendar, me, pipeline, recovery, trends
 from app.dashboard.router import router as dashboard_router
 from app.errors import ApiError, handle_api_error
 from app.ingest.router import router as ingest_router
@@ -44,3 +44,5 @@ app.include_router(me.router)
 app.include_router(recovery.router)
 app.include_router(pipeline.router)
 app.include_router(activities.router)
+app.include_router(activity_calendar.router)
+app.include_router(trends.router)

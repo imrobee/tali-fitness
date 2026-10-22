@@ -1,0 +1,115 @@
+/* The Activities calendar. Same circle language as the streak card: a filled white circle
+   is a day with training, an outline is today, dim is not yet. */
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.period {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.move {
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  font-size: 22px; /* the chevron is 1em */
+  cursor: pointer;
+}
+
+.move:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 4px;
+}
+
+.weekday {
+  padding-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-align: center;
+}
+
+.day {
+  display: grid;
+  place-items: center;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.day:disabled {
+  cursor: default;
+}
+
+/* Days of the neighbouring months: there for the shape of the weeks, quieter. */
+.outside {
+  opacity: 0.45;
+}
+
+.circle {
+  display: grid;
+  place-items: center;
+  width: min(36px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.active {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.recovery {
+  background: var(--freeze-tint);
+  color: var(--accent);
+  font-size: 18px; /* the snowflake */
+}
+
+.today {
+  border: 2px solid var(--text);
+  color: var(--text);
+}
+
+.rest {
+  color: var(--text-secondary);
+}
+
+.future {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* The day the list is filtered to: an accent ring around its circle. */
+.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 200% zoom on a phone: seven columns stay (they are the weekdays), so circles shrink
+   with their column instead of wrapping. */
+@media (max-width: 240px) {
+  .circle {
+    font-size: var(--fs-small);
+  }
+}

@@ -1,13 +1,16 @@
-// Activities (UI_SPEC.md 6.1): the last 30 days, grouped by day, newest first. The day in
-// ?date= is scrolled to and marked; "Load older" widens the window a month at a time.
+// Activities (UI_SPEC.md 6.1): the calendar, then the activity list. With a day picked
+// (?date=, from the calendar or from the dashboard) the list shows only that day, from any
+// month; without one it shows the last 30 days, and "Load older" adds a month at a time.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { isOffline } from "../api/client";
-import { useActivities, useDashboard } from "../api/hooks";
-import type { ActivityDay } from "../api/types";
+import { useActivities, useCalendar, useDashboard } from "../api/hooks";
+import type { ActivityDay, CalendarView } from "../api/types";
 import { ActivityItem } from "../components/ActivityItem";
+import { CalendarCard } from "../components/CalendarCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { OfflineBanner, Page } from "../components/Page";
+import { TrainingTrendSection } from "../components/TrendCards";
 import { dayChip, dayHeading } from "../lib/activities";
 import { addDays } from "../lib/dates";
 import { useSelectedDate } from "../lib/selectedDate";
@@ -18,20 +21,18 @@ const STEP_DAYS = 30;
 const MAX_DAYS = 360;
 
 export function ActivitiesPage() {
-  const [selected] = useSelectedDate();
+  const [selected, setSelected] = useSelectedDate();
   const today = useDashboard(null);
+  const [view, setView] = useState<CalendarView>("month");
+  // The calendar opens on the picked day's month; the arrows move it from there.
+  const [anchor, setAnchor] = useState<string | null>(selected);
+  const calendar = useCalendar(view, anchor);
   const [windowDays, setWindowDays] = useState(STEP_DAYS);
+
   // Until the server has said what today is, there is no window to ask for.
   const to = today.data?.today ?? null;
   const from = to === null ? null : addDays(to, -(windowDays - 1));
-  const list = useActivities(from, to);
-
-  // Scroll to the day named in ?date= once the days are on the screen.
-  const loaded = list.data !== undefined;
-  useEffect(() => {
-    if (!loaded || !selected) return;
-    document.getElementById(`day-${selected}`)?.scrollIntoView({ block: "start" });
-  }, [loaded, selected]);
+  const list = useActivities(selected ?? from, selected ?? to);
 
   if (today.isError || list.isError) {
     const error = today.error ?? list.error;
@@ -50,16 +51,48 @@ export function ActivitiesPage() {
 
   return (
     <Page title="Activities">
-      {!list.data && <Bar width="100%" height={160} />}
-      {list.data && list.data.days.length === 0 && (
-        <Card title="Activities">
-          <p className={styles.empty}>No activities in the last {windowDays} days.</p>
+      <TrainingTrendSection />
+      {calendar.data ? (
+        <CalendarCard
+          calendar={calendar.data}
+          view={view}
+          onViewChange={setView}
+          onMove={setAnchor}
+          selected={selected}
+          onSelect={(day) => {
+            setSelected(day);
+            if (day) setAnchor(day);
+          }}
+        />
+      ) : calendar.isError ? (
+        <Card title="Calendar">
+          <CardError message={calendar.error.message} onRetry={() => setAnchor(null)} />
+        </Card>
+      ) : (
+        <Bar width="100%" height={view === "month" ? 320 : 140} />
+      )}
+
+      {selected && (
+        <div className={styles.filter}>
+          <span>Showing one day</span>
+          <button type="button" className={styles.showAll} onClick={() => setSelected(null)}>
+            Show all days
+          </button>
+        </div>
+      )}
+
+      {/* The day chips need the server's today, so the list waits for it. */}
+      {(!list.data || to === null) && <Bar width="100%" height={160} />}
+      {list.data && to !== null && list.data.days.length === 0 && (
+        <Card title={selected ? dayHeading(selected) : "Activities"}>
+          <p className={styles.empty}>
+            {selected ? "No activities on this day." : `No activities in the last ${windowDays} days.`}
+          </p>
         </Card>
       )}
-      {list.data?.days.map((day) => (
-        <DaySection key={day.date} day={day} today={to ?? ""} selected={day.date === selected} />
-      ))}
-      {list.data && windowDays < MAX_DAYS && (
+      {to !== null &&
+        list.data?.days.map((day) => <DaySection key={day.date} day={day} today={to} />)}
+      {list.data && !selected && windowDays < MAX_DAYS && (
         <button
           type="button"
           className={styles.older}
@@ -72,10 +105,10 @@ export function ActivitiesPage() {
   );
 }
 
-function DaySection({ day, today, selected }: { day: ActivityDay; today: string; selected: boolean }) {
+function DaySection({ day, today }: { day: ActivityDay; today: string }) {
   const chip = dayChip(day.date, today);
   return (
-    <section id={`day-${day.date}`} className={selected ? styles.selectedDay : styles.day}>
+    <section className={styles.day}>
       <h2 className={styles.heading}>
         <span>{dayHeading(day.date)}</span>
         {chip && <span className={styles.chip}>{chip}</span>}

@@ -1,12 +1,12 @@
-# Handoff (2026-10-21)
+# Handoff (2026-10-22)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D77).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D84).
 
 ## Where we are
 
-- **Slices 0-6a are done and merged into `main`** (PRs #1-#6).
-- **Slice 6b (M2 UI) is built and green** on branch `slice-6b-pages`: all 15 DQ checks, `/pipeline/health` with the Me panel, `/activities` with the Activities page, the weekly calorie card on Dashboard and Nutrition, 14 screenshots. Waiting on Rob's iPhone check and commits.
-- Tests: 102 API + 153 pipeline + 88 web, all green with `make -k check`.
+- **Slices 0-6b are done and merged into `main`** (PRs #1-#7).
+- **Slice 7a is built and green** on branch `slice-7a-calendar-trends`: migration 0008 (trend functions with `LAG` and a 7-day rolling average), `GET /calendar`, `GET /trends/training`, `GET /trends/nutrition`, the calendar card with a day filter and the training trend card on Activities, the calorie trend card on Nutrition, demo history for the trends, 15 screenshots. Applied to the live database. Waiting on Rob's iPhone check and commits.
+- Tests: 119 API + 172 pipeline + 113 web, all green with `make -k check`.
 - `data_quality` is switched on and writing `ops.dq_results` hourly.
 
 ## What works, and how to run it
@@ -15,7 +15,7 @@ Needs Docker Desktop and make. All commands from the repo root.
 
 ```bash
 make up            # start postgres, api, airflow, web
-make migrate       # apply migrations (now at 0007)
+make migrate       # apply migrations (now at 0008)
 make -k check      # lint, typecheck, all tests (what CI runs)
 make strava-auth   # one-time Strava login (already done; only if tokens are lost)
 make logs          # follow container logs
@@ -25,7 +25,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 
 | What | Where | State |
 |---|---|---|
-| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (day list, sets on tap), Nutrition, Me (targets, data and sync) |
+| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
 | API | http://localhost:8000/api/v1/health; every other endpoint needs `X-API-Key` (value in `.env`) | Working |
 | Airflow UI | http://localhost:8080, login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` in `.env` | Working |
 | Postgres | `127.0.0.1:5433`, user `fitness`, databases `app` and `airflow` | Working |
@@ -34,7 +34,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 - **Strava:** `strava_sync` runs hourly (switched on): raw -> `core.fact_activity` -> Hevy parsed into `core.fact_set`. 24 activities; the Oct 19 session gives 22 sets / 3,490.90 kg.
 - **Apple Health:** the iPhone Shortcut "Health Push" posts to `POST /api/v1/ingest/health` when MyNetDiary is closed. Calories and protein land in `core.fact_dietary_sample` from Oct 20.
 - **Business rules:** `mart.fn_day_status`, `fn_streak`, `fn_daily_nutrition`, `fn_recovery_state` (streak is 1 today).
-- **API endpoints:** `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, `POST /ingest/health`.
+- **API endpoints:** `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, `POST /ingest/health`, `GET /pipeline/health`, `GET /activities`, `GET /activities/{id}`, `GET /calendar`, `GET /trends/training`, `GET /trends/nutrition`.
 
 Useful queries (`docker compose exec postgres psql -U fitness -d app`):
 ```sql
@@ -46,7 +46,7 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Half-finished
 
-**Slice 6b:** built; acceptance needs Rob to open Activities, Nutrition and Me on the iPhone with real data.
+**Slice 7a:** built; acceptance needs Rob to open Activities (trend, calendar, tap a day) and Nutrition (calorie trend) on the iPhone with real data.
 
 ## Known bugs and limitations
 
@@ -68,14 +68,13 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Waiting on Rob
 
-1. **Commit Slice 6b** (suggested split in the chat: DQ checks, pipeline health, activities, weekly card, screenshots and docs).
-2. **iPhone check:** Activities (open a lifting session), Nutrition (weekly chart, tap a bar), Me (Data and sync).
-3. **Confirm CI test counts**: `gh auth login`, or paste the "passed" lines (expect 102 / 153 / 88).
-4. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
+1. **Commit Slice 7a** (suggested split in the chat).
+2. **iPhone check:** Activities (Week/Month on the trend and the calendar, tap a day, Show all days) and Nutrition (calorie trend). Real data has calories only from Oct 20, so most nutrition bars are empty for now.
+3. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
 
 ## Exact next step
 
-After the iPhone check and merging 6b: create branch **`slice-7a-calendar-trends`** and start Slice 7a per `PROJECT_PLAN.md`: the week/month calendar on Activities, then weekly and monthly trends with window functions (`LAG`, rolling averages). Re-read `PROJECT_PLAN.md` Slice 7 and `ARCHITECTURE.md` 5.5 first.
+After the iPhone check and merging 7a: create branch **`slice-7b-weight-trend`** and start Slice 7b per `PROJECT_PLAN.md`, beginning with weight trend vs goal (body mass from the Shortcut; daily weight = last reading of the day, ARCHITECTURE 14 #8). Re-read `PROJECT_PLAN.md` Slice 7 and `ARCHITECTURE.md` 6.2 (body mass) first.
 
 ## Working agreements to keep
 

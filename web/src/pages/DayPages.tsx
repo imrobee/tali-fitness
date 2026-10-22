@@ -10,6 +10,7 @@ import { Bar, Card, CardError } from "../components/Card";
 import { DayChooser } from "../components/DayChooser";
 import { OfflineBanner, Page } from "../components/Page";
 import { ProteinCard } from "../components/ProteinCard";
+import { NutritionTrendSection } from "../components/TrendCards";
 import { WeeklyCard } from "../components/WeeklyCard";
 import { useSelectedDate } from "../lib/selectedDate";
 
@@ -72,6 +73,7 @@ export function NutritionPage() {
             selected={dashboard.selected_date}
             onSelect={(day) => select(day === dashboard.today ? null : day)}
           />
+          <NutritionTrendSection />
         </>
       )}
     </DayPage>

@@ -1,0 +1,90 @@
+/* Trend bars: the weekly card's drawing rules, one bar per week or month. Training is
+   white (the colour of an activity day); calories reuse the within/over colours. The
+   period still running is lighter with a dashed edge: "so far". */
+
+.chart {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr); /* never wider than the card, even with long labels */
+  grid-auto-flow: column;
+  align-items: end;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 112px;
+}
+
+.bar {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(22px, 70%);
+  transform: translateX(-50%);
+  border-radius: 6px 6px 0 0;
+}
+
+.bar[data-tone="training"] {
+  background: var(--text);
+}
+
+.bar[data-tone="within"] {
+  background: var(--within-budget);
+}
+
+.bar[data-tone="over"] {
+  background: var(--over-budget);
+}
+
+.bar[data-tone="not_set"] {
+  background: var(--neutral);
+}
+
+.current {
+  opacity: 0.55;
+  outline: 1.5px dashed var(--text);
+  outline-offset: -1.5px;
+}
+
+.reference {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--text-secondary);
+}
+
+.referenceLabel {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  line-height: 1.3;
+}
+
+/* 200% zoom on a phone: eight labels cannot fit, so only the first and last stay on
+   screen. Every bar keeps its full spoken label. */
+@media (max-width: 240px) {
+  .column:not(:first-child):not(:last-child) .axis {
+    visibility: hidden;
+  }
+}

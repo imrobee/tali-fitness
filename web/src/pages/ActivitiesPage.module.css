@@ -4,17 +4,25 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  scroll-margin-top: 16px;
 }
 
-/* The day named in ?date=: an accent rule down its left edge. */
-.selectedDay {
+/* "Showing one day · Show all days": the list is filtered to the calendar's day. */
+.filter {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding-left: 10px;
-  border-left: 2px solid var(--accent);
-  scroll-margin-top: 16px;
+  color: var(--text-secondary);
+}
+
+.showAll {
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .heading {

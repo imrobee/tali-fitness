@@ -175,3 +175,73 @@ export interface ActivityDetail {
   description_raw: string | null;
   exercises: ActivityExercise[];
 }
+
+// GET /calendar
+export type CalendarView = "week" | "month";
+
+export interface CalendarDay {
+  date: string;
+  in_period: boolean;
+  future: boolean;
+  activity_count: number;
+  primary_activity_type: string | null;
+  recovery: boolean;
+}
+
+export interface Calendar {
+  view: CalendarView;
+  today: string;
+  period_start: string;
+  period_end: string;
+  previous: string | null;
+  next: string | null;
+  days: CalendarDay[];
+}
+
+// GET /trends/training and /trends/nutrition
+export type Grain = "week" | "month";
+
+export interface TrainingPeriod {
+  start: string;
+  end: string;
+  current: boolean;
+  sessions: number;
+  active_s: number;
+  run_m: number;
+  volume_kg: number;
+  prev_sessions: number | null;
+  prev_active_s: number | null;
+  active_change_pct: number | null;
+}
+
+export interface TrainingTrend {
+  grain: Grain;
+  periods: TrainingPeriod[];
+}
+
+export type PeriodStatus = "within" | "over" | "not_set" | "not_logged";
+
+export interface NutritionPeriod {
+  start: string;
+  end: string;
+  current: boolean;
+  days_logged: number;
+  avg_kcal: number | null;
+  avg_protein_g: number | null;
+  avg_budget: number | null;
+  days_within: number;
+  days_over: number;
+  status: PeriodStatus;
+  prev_avg_kcal: number | null;
+}
+
+export interface NutritionTrend {
+  grain: Grain;
+  rolling_7d: {
+    end_date: string;
+    kcal_avg: number | null;
+    protein_avg_g: number | null;
+    days_logged: number;
+  };
+  periods: NutritionPeriod[];
+}
