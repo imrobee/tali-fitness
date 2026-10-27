@@ -53,10 +53,11 @@ def engine(migrated_engine: Engine) -> Engine:
         conn.execute(
             text(
                 "TRUNCATE raw.health_batches, raw.strava_activities, core.dim_activity_type, "
-                "app.recovery_day, app.target_history, ops.quarantine, ops.pipeline_runs CASCADE"
+                "app.recovery_day, app.target_history, app.weight_goal_history, ops.quarantine, "
+                "ops.pipeline_runs CASCADE"
             )
         )
-        conn.execute(text("UPDATE app.profile SET nickname = NULL"))
+        conn.execute(text("UPDATE app.profile SET nickname = NULL, weight_unit = 'kg'"))
     return migrated_engine
 
 

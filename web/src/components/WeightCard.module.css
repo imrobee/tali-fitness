@@ -1,0 +1,41 @@
+.headline {
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.average {
+  fill: none;
+  stroke: var(--within-budget);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.goal {
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.point {
+  fill: var(--text);
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+}

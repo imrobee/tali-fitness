@@ -5,6 +5,7 @@ import { Bar, Card, CardError } from "../components/Card";
 import { DayChooser } from "../components/DayChooser";
 import { ExercisesCard } from "../components/ExercisesCard";
 import { OfflineBanner, Page } from "../components/Page";
+import { WeeklySummarySection } from "../components/ProgressCards";
 import { ProteinCard } from "../components/ProteinCard";
 import { RecoveryCard } from "../components/RecoveryCard";
 import { StreakCard } from "../components/StreakCard";
@@ -65,6 +66,7 @@ export function DashboardPage() {
         onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
         to={`/nutrition?date=${date}`}
       />
+      <WeeklySummarySection />
     </Page>
   );
 }

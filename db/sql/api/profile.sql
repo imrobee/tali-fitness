@@ -1,1 +1,1 @@
-SELECT nickname, timezone FROM app.profile WHERE id = 1;
+SELECT nickname, timezone, weight_unit FROM app.profile WHERE id = 1;

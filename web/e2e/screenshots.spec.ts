@@ -24,6 +24,7 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: /^Good / })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Calorie budget", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Last week" })).toBeVisible();
     // Optional: save the rendered page for the design-taste inspector, which cannot get past
     // the key gate on its own. Written once, at the iPhone size.
     if (process.env.SNAPSHOT_DIR && viewport.name === "iphone") {
@@ -37,6 +38,8 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
       await expect(page.getByRole("heading", { level: 1, name: "Activities" })).toBeVisible();
       await expect(page.getByText(/^Last week: /)).toBeVisible();
       await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Personal records" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Muscle volume" })).toBeVisible();
       await page.getByRole("button", { name: /Full Body/ }).click();
       await expect(page.getByText("20 kg × 8")).toBeVisible();
       await capture(page, `midweek-activities-${viewport.name}.png`);
@@ -44,6 +47,7 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
       await page.goto("/nutrition?date=2026-10-17");
       await expect(page.getByRole("heading", { name: "Weekly calorie budget" })).toBeVisible();
       await expect(page.getByText(/^7-day average: /)).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Weight" })).toBeVisible();
       await capture(page, `midweek-nutrition-${viewport.name}.png`);
 
       // The same trends by month, at phone size only.
@@ -54,6 +58,16 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
         await page.getByRole("group", { name: "Training trend range" }).getByRole("button", { name: "Month" }).click();
         await expect(page.getByText(/^Last month: /)).toBeVisible();
         await capture(page, "midweek-activities-month-iphone.png");
+
+        // Pounds: switched on the Me page, as a person would; every weight follows.
+        await page.goto("/me");
+        await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "lb" }).click();
+        await page.goto("/nutrition?date=2026-10-17");
+        await expect(page.getByText(/^Latest [\d.]+ lb on /).first()).toBeVisible();
+        await capture(page, "midweek-nutrition-lb-iphone.png");
+        await page.goto("/me");
+        await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "kg" }).click();
+        await expect(page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "kg" })).toHaveAttribute("aria-pressed", "true");
       }
     }
 

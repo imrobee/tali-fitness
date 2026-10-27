@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useActivity } from "../api/hooks";
+import { useActivity, useWeightUnit } from "../api/hooks";
 import type { ActivitySummary } from "../api/types";
 import { activitySummary, setMeasure, timeRange } from "../lib/activities";
 import { ActivityIcon, ChevronDownIcon } from "../icons";
@@ -16,6 +16,7 @@ interface Props {
  */
 export function ActivityItem({ activity }: Props) {
   const [open, setOpen] = useState(false);
+  const unit = useWeightUnit();
   const expandable = activity.set_count > 0 || activity.parse_status === "partial";
   const panelId = `activity-${activity.id}-sets`;
   const head = (
@@ -28,7 +29,7 @@ export function ActivityItem({ activity }: Props) {
         <span className={`${styles.meta} num`}>
           {timeRange(activity.started_at, activity.duration_s)}
         </span>
-        <span className={`${styles.meta} num`}>{activitySummary(activity)}</span>
+        <span className={`${styles.meta} num`}>{activitySummary(activity, unit)}</span>
       </span>
     </>
   );
@@ -65,6 +66,7 @@ export function ActivityItem({ activity }: Props) {
 /** Loads the sets once the row is open; the list itself stays light. */
 function SetDetail({ id }: { id: number }) {
   const query = useActivity(id);
+  const unit = useWeightUnit();
 
   if (query.isPending) return <Bar width="100%" height={80} />;
   if (query.isError) {
@@ -88,7 +90,7 @@ function SetDetail({ id }: { id: number }) {
             {exercise.sets.map((set) => (
               <li key={set.number} className={`${styles.set} num`}>
                 <span className={styles.muted}>Set {set.number}</span>
-                <span>{setMeasure(set)}</span>
+                <span>{setMeasure(set, unit)}</span>
               </li>
             ))}
           </ol>

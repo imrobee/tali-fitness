@@ -110,3 +110,32 @@
   color: var(--text-secondary);
   font-size: var(--fs-small);
 }
+
+/* Sync now (Strava) and Run Health Push (Apple Health), under each source. */
+.action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 6px;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  color: var(--text-secondary);
+  cursor: default;
+}

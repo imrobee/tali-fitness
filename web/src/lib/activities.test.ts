@@ -135,3 +135,22 @@ describe("day headings", () => {
     expect(dayChip("2026-10-17", "2026-10-20")).toBeNull();
   });
 });
+
+describe("sets and volume in pounds", () => {
+  const kgSet = { kind: "weight_reps", weight_kg: 20, orig_weight: 20, orig_unit: "kg", reps: 8, distance_m: null, duration_s: null } as const;
+  const lbSet = { kind: "weight_reps", weight_kg: 18.14369, orig_weight: 40, orig_unit: "lb", reps: 12, distance_m: null, duration_s: null } as const;
+
+  it("shows a set typed in pounds exactly, and a kg set converted with what was typed", () => {
+    expect(setLine(1, lbSet, "lb")).toBe("Set 1  40 lb × 12");
+    expect(setLine(2, kgSet, "lb")).toBe("Set 2  44.1 lb (20 kg) × 8");
+  });
+
+  it("shows volume in pounds", () => {
+    expect(
+      activitySummary(
+        { type: "strength", duration_s: 4080, moving_s: null, distance_m: null, exercise_count: 9, set_count: 22, volume_kg: 3490.9 },
+        "lb",
+      ),
+    ).toBe("9 exercises · 22 sets · 7,696 lb");
+  });
+});

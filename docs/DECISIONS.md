@@ -303,3 +303,37 @@ Why: the resume claims must stay honest and talking points should not be lost in
 
 **D58. Spec decisions resolved from Slice 0 and settled defaults.**
 Sample order from the Shortcut is not stable (handled by D30); `source` is always present (`MyNetDiary`); weights arrive as exact pound conversions (D2); Strava's HIIT sport type is `HighIntensityIntervalTraining`; `data_quality` and every new DAG start paused and must be switched on in the Airflow UI.
+
+**D85. The weight trend lives on Nutrition, and the weight goal is set on Me.**
+Why: UI_SPEC 6.2 lists calorie and protein trends on Nutrition, and body weight is the outcome those numbers feed; the goal sits with the other targets. Rejected: a Weight page (a fifth tab would break the four-tab nav in UI_SPEC 1).
+
+**D86. The weight goal is its own effective-dated history (`app.weight_goal_history`), not a column on `target_history`.**
+Why: saving the calorie budget inserts a new target row; a goal column there would be blank on that row and hide the goal. Rejected: one table with a nullable goal (the latest row would lose it).
+
+**D87. One weight per day is the last reading of that day, replaced per day in the batch (the same rule as calories and protein, D1).**
+Why: MyNetDiary already keeps one per day, so the rule only matters for other apps writing weights (ARCHITECTURE 14 #8). Rejected: averaging a day's readings (a second weigh-in later in the day would move the number for no reason). Migration 0010 backfills `core.fact_body_mass` from `raw`, because 0009 only created the table and the earlier batches were never copied.
+
+**D88. The trend and the goal distance are SQL; the 7-day average uses only days with a weigh-in, and no average is shown for a gap.**
+Why: the same rule as calories (D81): a missing day is not a zero, and the change is compared with the average 7 days earlier (`LAG 7`), so it is never a difference between a weigh-in and a gap. Rejected: filling gaps by interpolation (an invented number presented as data).
+
+**D89. Weight unit (kg or lb) is a display preference on `app.profile`; every weight stays stored in kg (added to Slice 7b at Rob's request, 2026-10-22).**
+Switching to lb re-displays every existing weight in lb (body weight, goal, sets, volume, records), because the conversion happens when shown, with the exact 0.45359237. The weight goal moved to `numeric(7,3)` so 160 lb reads back as 160.0, not 160.1. Why: one source of truth, nothing rewritten, switching back is lossless. Rejected: converting stored values (rounding drift every switch); storing each weight in the unit it was entered.
+
+**D90. The kg / lb switch saves at once; while the goal field still shows the stored goal, the stored value is used, not the rounded text.**
+A test caught the bug: converting the field's "72.6" turned 160 lb into 160.1 lb, and saving an untouched field would have overwritten 72.575 with 72.6. Rejected: saving the unit with the form's Save button (a switch that does nothing until Save reads as broken).
+
+**D91. Personal records use Epley for sets of 1-12 reps; a tie keeps the first time it was lifted.**
+Why: Epley is the plan's formula, and estimates above about 12 reps are not trustworthy. Rejected: all reps (a 20-rep set would beat a real heavy single).
+
+**D92. Muscle volume shows the last finished week with set counts as the bar, against the week before.**
+Why: sets per muscle per week is the common training measure and counts bodyweight work; volume (kg) is shown beside it. Same "finished period" rule as D82. Rejected: volume only (bodyweight groups would read 0).
+
+**D93. The weekly summary is a ninth dashboard card, "Last week", after the weekly calorie card (UI_SPEC 2 and 12 updated).**
+Why: it summarises the whole app, and the dashboard is where the person looks first; at the end it leaves the specified order of the first eight untouched. Rejected: a fifth tab (UI_SPEC 1 keeps four).
+
+**D94. Sync now calls Airflow's REST API with Python's urllib: a JWT from `/auth/token`, then `POST /api/v2/dags/strava_sync/dagRuns` with `logical_date: null` (checked against Airflow 3.3.2's own OpenAPI spec, since the online reference renders with JavaScript).**
+Guards: one request per 2 minutes (`ops.sync_requests`), none while a Strava run started in the last 30 minutes is running, and the DAG's `max_active_runs=1`. Error messages never include the request (it carries the password or token). Rejected: httpx at runtime (a dependency for three calls); calling Strava from the API.
+
+**D95. Sync now's tests run a real local HTTP server as Airflow.**
+Why: the client's real requests (path, body, bearer token, URL-encoded run id) are checked at the HTTP boundary, as the 7c acceptance asks. Rejected: replacing the client with a Python fake (would never test the HTTP code). Cut: refresh-if-stale on app open (first on the 7c cut line).
+

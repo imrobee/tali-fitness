@@ -38,6 +38,6 @@ make screenshots                  # iPhone and desktop screenshots of every scen
 |---|---|---|---|
 | ![dashboard](docs/screenshots/midweek-iphone.png) | ![activities](docs/screenshots/midweek-activities-iphone.png) | ![nutrition](docs/screenshots/midweek-nutrition-iphone.png) | ![me](docs/screenshots/midweek-me-iphone.png) |
 
-Other scenarios: [at risk](docs/screenshots/at_risk-iphone.png), [stale pipeline](docs/screenshots/at_risk-me-iphone.png), [nothing set up yet](docs/screenshots/edge_empty-iphone.png), [desktop](docs/screenshots/midweek-desktop.png), [trends by month](docs/screenshots/midweek-activities-month-iphone.png).
+Other scenarios: [at risk](docs/screenshots/at_risk-iphone.png), [stale pipeline](docs/screenshots/at_risk-me-iphone.png), [nothing set up yet](docs/screenshots/edge_empty-iphone.png), [desktop](docs/screenshots/midweek-desktop.png), [trends by month](docs/screenshots/midweek-activities-month-iphone.png), [weights in pounds](docs/screenshots/midweek-nutrition-lb-iphone.png).
 
 Other commands: `make down`, `make logs`, `make test`, `make lint`. `make db-reset` deletes all local data.

@@ -15,6 +15,7 @@ import type {
   RecoveryState,
   StreakDay,
   TrainingPeriod,
+  Weight,
   WeekBar,
 } from "../api/types";
 import { CalendarCard } from "./CalendarCard";
@@ -27,7 +28,9 @@ import { KeyGate } from "./KeyGate";
 import { ProteinCard } from "./ProteinCard";
 import { RecoveryCard } from "./RecoveryCard";
 import { StreakCard } from "./StreakCard";
+import { RecordsCard, WeeklySummaryCard } from "./ProgressCards";
 import { NutritionTrendCard, TrainingTrendCard } from "./TrendCards";
+import { WeightCard } from "./WeightCard";
 import { WeeklyCard } from "./WeeklyCard";
 
 afterEach(() => {
@@ -552,5 +555,71 @@ describe("Trend cards", () => {
     expect(screen.getByText("7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days.")).toBeTruthy();
     expect(screen.getByText("Week of October 12: 1,850 kcal a day, within budget on average.")).toBeTruthy();
     expect(screen.getByText("1,853")).toBeTruthy();
+  });
+});
+
+describe("Weight card", () => {
+  const weight: Weight = {
+    from: "2026-07-23",
+    to: "2026-10-20",
+    latest_date: "2026-10-20",
+    latest_kg: 74.84,
+    avg_7d_kg: 74.9,
+    change_7d_kg: -0.3,
+    goal_kg: 72.5,
+    to_goal_kg: 2.4,
+    days: [
+      { date: "2026-10-19", weight_kg: 75.1, avg_7d_kg: 75.0, change_7d_kg: null, goal_kg: 72.5, status: "above" },
+      { date: "2026-10-20", weight_kg: null, avg_7d_kg: 74.9, change_7d_kg: -0.3, goal_kg: 72.5, status: "not_logged" },
+    ],
+  };
+
+  it("says the latest weight, the change and the distance to goal in words", () => {
+    wrap(<WeightCard weight={weight} />);
+
+    expect(screen.getAllByText("Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Down 0.3 kg on last week.")).toBeTruthy();
+    expect(screen.getByText("2.4 kg above your goal of 72.5 kg.")).toBeTruthy();
+  });
+
+  it("gives each weigh-in a spoken label and skips days with none", () => {
+    wrap(<WeightCard weight={weight} />);
+
+    expect(screen.getByText("Monday, October 19: 75.1 kg.")).toBeTruthy();
+    expect(screen.queryByText(/no weigh-in/)).toBeNull();
+  });
+});
+
+describe("Progress cards", () => {
+  const records = Array.from({ length: 7 }, (_, i) => ({
+    exercise: `Lift ${i + 1}`, equipment: null, muscle_group: "Chest", e1rm_kg: 50 + i, weight_kg: 40,
+    reps: 8, date: "2026-10-13", activity_id: i, prev_e1rm_kg: null, sessions: 1, recent: i === 0,
+  }));
+
+  it("shows five records, then the rest on demand", () => {
+    wrap(<RecordsCard records={records} unit="kg" />);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: /Show 2 more/ }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(7);
+    expect(screen.getByRole("listitem", { name: /^New record\. Lift 1/ })).toBeTruthy();
+  });
+
+  it("puts last week in a table a screen reader can read row by row", () => {
+    wrap(
+      <WeeklySummaryCard
+        unit="kg"
+        summary={{
+          week_start: "2026-10-12", week_end: "2026-10-18", qualifying_days: 5, prev_qualifying_days: 4,
+          sessions: 4, prev_sessions: 3, active_s: 3600, prev_active_s: 3600, run_m: 0, volume_kg: 0,
+          days_logged: 0, avg_kcal: null, prev_avg_kcal: null, avg_protein_g: null, avg_weight_kg: null,
+          prev_avg_weight_kg: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("rowheader", { name: "Days counted" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "5 of 7" })).toBeTruthy();
+    expect(screen.queryByRole("rowheader", { name: "Calories a day" })).toBeNull();
   });
 });

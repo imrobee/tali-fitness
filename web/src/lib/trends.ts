@@ -5,6 +5,7 @@ import type { Grain, NutritionPeriod, NutritionTrend, PeriodStatus, TrainingPeri
 import { formatDistance } from "./activities";
 import { parseIsoDate } from "./dates";
 import { formatDuration, formatNumber } from "./format";
+import { volume, type WeightUnit } from "./units";
 
 /** The Week / Month switch, shared by the calendar and both trend cards. */
 export const GRAIN_OPTIONS: { value: Grain; text: string }[] = [
@@ -79,10 +80,10 @@ export function trainingSoFar(periods: TrainingPeriod[], grain: Grain): string {
 }
 
 /** "Running 12.5 km · Lifting 3,491 kg", leaving out what is 0. */
-export function trainingDetail(period: TrainingPeriod): string {
+export function trainingDetail(period: TrainingPeriod, unit: WeightUnit = "kg"): string {
   const parts: string[] = [];
   if (period.run_m > 0) parts.push(`Running ${formatDistance(period.run_m)}`);
-  if (period.volume_kg > 0) parts.push(`Lifting ${formatNumber(period.volume_kg)} kg`);
+  if (period.volume_kg > 0) parts.push(`Lifting ${volume(period.volume_kg, unit)}`);
   return parts.join(" · ");
 }
 

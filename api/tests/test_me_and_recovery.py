@@ -21,6 +21,8 @@ def test_me_starts_without_nickname_or_targets(client):
         "nickname": None,
         "timezone": "Asia/Manila",
         "targets": None,
+        "weight_goal_kg": None,
+        "weight_unit": "kg",
         "earliest_date": "2026-10-20",
     }
 

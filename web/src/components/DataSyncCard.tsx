@@ -3,6 +3,7 @@ import type { PipelineHealth, SourceHealth } from "../api/types";
 import { clockTime, reasonLabel, type SourceStatus, sourceName, statusLabel, timeAgo } from "../lib/pipeline";
 import { ChevronDownIcon } from "../icons";
 import { Card } from "./Card";
+import { RunHealthShortcut, SyncNowButton } from "./SyncNow";
 import styles from "./DataSyncCard.module.css";
 
 // Shape and text carry the status, never colour alone (UI_SPEC.md 8). No red (section 9).
@@ -78,6 +79,8 @@ function SourceRow({ source, now }: { source: SourceHealth; now: number }) {
             : `${source.failures_7d} failures in the last 7 days`}
         </span>
       )}
+      {source.source === "strava" && <SyncNowButton />}
+      {source.source === "health" && <RunHealthShortcut />}
     </li>
   );
 }
