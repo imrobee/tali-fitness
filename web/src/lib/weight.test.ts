@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Weight, WeightDay } from "../api/types";
-import { changeLine, chartDomain, goalLine, weightDayLabel, weightHeadline, xFor, yFor } from "./weight";
+import { changeLine, chartDays, chartDomain, goalLine, weightDayLabel, weightHeadline, xFor, yFor } from "./weight";
 
 function weight(overrides: Partial<Weight> = {}): Weight {
   return {
@@ -82,5 +82,25 @@ describe("weight in pounds", () => {
     expect(weightHeadline(lb, "lb")).toBe("Latest 165.0 lb on Tue, Oct 20, 7-day average 165.0 lb.");
     expect(changeLine(-0.45359237, "lb")).toBe("Down 1.0 lb on last week.");
     expect(goalLine(lb, "lb")).toBe("5.0 lb above your goal of 159.8 lb.");
+  });
+});
+
+describe("chart days", () => {
+  const empty = { avg_7d_kg: null, change_7d_kg: null, goal_kg: null, status: "not_logged" as const };
+
+  it("starts at the first weigh-in, so the first point is at the left edge", () => {
+    const days = [
+      { date: "2026-10-18", weight_kg: null, ...empty },
+      { date: "2026-10-19", weight_kg: 75.1, ...empty },
+      { date: "2026-10-20", weight_kg: null, ...empty },
+    ];
+
+    expect(chartDays(days).map((d) => d.date)).toEqual(["2026-10-19", "2026-10-20"]);
+    expect(xFor(0, chartDays(days).length, 300)).toBe(0);
+  });
+
+  it("draws a single weigh-in at the left edge, and nothing without one", () => {
+    expect(xFor(0, 1, 300)).toBe(0);
+    expect(chartDays([{ date: "2026-10-20", weight_kg: null, ...empty }])).toEqual([]);
   });
 });

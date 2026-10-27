@@ -2,7 +2,7 @@
 
 Stack: **React + Vite + TypeScript (strict)**, built to static files, calling the FastAPI JSON API (`ARCHITECTURE.md` section 11). Mobile-first for iPhone Safari ("Add to Home Screen" via Safari, no service worker or PWA features). Also usable on desktop.
 
-All business rules (streak, freeze, qualifying day, calorie status, greeting, today) are computed **server-side**. The front end renders what the API returns and only does presentation math (formatting, ring geometry, chart scaling), in pure functions with unit tests.
+All business rules (streak, kinds of day, calorie status, greeting, today) are computed **server-side**. The front end renders what the API returns and only does presentation math (formatting, ring geometry, chart scaling), in pure functions with unit tests.
 
 Suggested libraries (add each with a one-line reason in DECISIONS): `react-router`, `@tanstack/react-query` (loading/error/caching), `react-icons` (verify icon names exist at build time; wrap them in `src/icons.ts`), Vitest + Testing Library, Playwright. Ring and bar chart are **hand-drawn SVG components** (no chart library; the visuals are specific and easy to explain). Styling: CSS variables for tokens plus CSS modules.
 
@@ -33,7 +33,7 @@ Top to bottom. Every card responds to the **day chooser** (`selectedDate`) excep
 | 1 | Greeting | `h1`, large bold, not in a card, no subtitle | none |
 | 2 | Day chooser | Pill, not in a card | its own buttons |
 | 3 | Streak card | Always the current Mon-Sun week and the real streak. The circle matching `selectedDate` gets an accent underline on its weekday letter | tapping a past or today circle sets `selectedDate` |
-| 4 | Recovery day card | Always visible, constant height, shows the **freeze indicator** | its button |
+| 4 | Recovery day card | Always visible, constant height (Slice 7d: no freeze pill) | its button |
 | 5 | Logged exercises card | Collapsible. **Whole card opens Activities** for `selectedDate`; rows are **not** individually clickable | whole card, except the expand button |
 | 6 | Calorie budget card | Ring | **whole card opens Nutrition** for `selectedDate` |
 | 7 | Protein card | | whole card opens Nutrition |
@@ -54,11 +54,12 @@ Reference images live in `docs/design-reference/`. This text is authoritative wh
 
 **Concept mock (generated) is overall feel only. DO NOT COPY:** neon/teal glowing ring; orange-filled day circles with flame/heart icons and badges; three-dot markers; garbled copy; "Synced 2h ago"; five-tab nav with Home/Calendar/Trends/Log/Settings; teal protein bar with the percentage inside it; weekly chart without a dashed budget line. Take: card rhythm, dark palette, large bold greeting, "Eaten / Budget" pairing, the always-visible recovery card idea.
 
-## 4. Rules the UI must reflect (source of truth: `ARCHITECTURE.md` section 8)
+## 4. Rules the UI must reflect (source of truth: `ARCHITECTURE.md` section 8; Slice 7d)
 
-- A day **qualifies** with a workout AND logged calories. Over/under budget never matters.
-- **One freeze.** A recovery day uses it. It resets on the next qualifying day. Two non-qualifying days in a row break the streak.
-- Yesterday not logged = **at risk** (healable until midnight; count shown unchanged with a quiet message).
+- A good day: food logged within budget and a workout. Over budget is fine once; **two over-budget days in a row** end the streak. A rest day (food without a workout, a workout without food, or a logged recovery day) is fine once; **two rest days in a row** end it. **A day with nothing logged** ends it.
+- **Relaxed weekends** (a setting on Me, from today on) and a **vacation or injury break**: only a day with nothing logged ends the streak.
+- The count is every day that kept the streak.
+- Today never ends the streak before midnight; yesterday that would end it is **at risk** (count shown unchanged with a quiet message) until today ends.
 - Recovery days only for today or yesterday.
 
 ## 5. Components
@@ -72,39 +73,39 @@ Full-width pill: `‹`, calendar icon + label, `›`. Label: "Today", "Yesterday
 ### 5.3 Streak card
 Title "Your streak" top-left. Layout: flame+count block, then the 7-day row. No overflow menu (pause is not in v1).
 
-| `state` | Circle |
+The circle shows what happened that day, from `kind`, `state` and `primary_activity_type` (Slice 7d):
+
+| Day | Circle |
 |---|---|
-| `qualifying` | Solid white circle, **one** black icon for `primary_activity_type` (longest-duration activity that day). No badges, "+N", or "x2". Fallback icon for unknown types |
-| `today_pending` | White outlined ring with the date number; becomes a solid circle with icon when it qualifies |
-| `missed` | Dark filled circle (one step lighter than the card) with white date number. No red |
-| `at_risk` | Same as `missed` plus a small dashed outline (healable); never red |
-| `recovery` | Soft-tinted circle with a **snowflake** glyph (the freeze) |
-| `future` | Dim thin outline with a dim date number, no marker |
+| a workout (any kind) | Solid white circle, **one** black icon for `primary_activity_type` (longest activity). No badges, "+N", or "x2". Fallback icon for unknown types |
+| a rest day without a workout (`kind = recovery`) | Soft-tinted circle with a **snowflake** |
+| today, nothing yet | White outlined circle with the date number |
+| yesterday `at_risk`, no workout | Dark filled circle with a dashed edge (healable); never red |
+| anything else (missed, over without a workout, before the data) | Dark filled circle (one step lighter than the card) with the date number. No red |
+| `future` | Dim thin outline with a dim date number, no ring |
 
-**Calorie marker** (directly under each circle for past days and today; live for today):
+**Calorie ring** (Slice 7d; replaces the marker under the circle): a 2.5px ring around each circle (42px across, the circle stays 32px, with a 2.5px blank gap between them), for past days and today, live for today. Three states only:
 
-| `calorie_status` | Shape | Color |
-|---|---|---|
-| `not_logged` | hollow circle (>= 1.5px stroke) | neutral gray |
-| `within` | filled circle | green |
-| `over` | **filled square** | orange |
-| `not_set` | filled circle | neutral gray (`--neutral`); calories logged but no budget in effect |
+| `calorie_status` | Ring |
+|---|---|
+| `not_logged` | grey (`--neutral`), full circle |
+| `within`, or `not_set` (logged without a budget: nothing to be over) | green, full circle |
+| `over` | orange, **cut off at the very bottom**, with a small orange **triangle** in the gap, so "over" never relies on colour alone |
 
-Marker 8-10px. **Shape carries the meaning, not color.** Hidden on `recovery` and `future` days unless calories were logged. Weekday letters sit below the marker; if crowded, move letters above the circles. Circles >= 32px; if 7 circles plus the flame block do not fit, put the flame+count in the title row and let circles span the width. At 200% zoom stack the flame block above the row.
+No ring on future days. Weekday letters sit below the circles. Circles >= 32px. On phones (up to 460px wide) the flame and count sit in a row above the week and the circles span the width; at 200% zoom the week wraps three a row (3 + 3 + 1).
 
 Footer: one quiet line only when relevant (copy in section 9).
 
 ### 5.4 Recovery day card (always visible)
-Same slot and roughly the same height in every state. Title and body left, button right, **freeze indicator** as a pill with a snowflake icon and text (never color alone). Acts on `selectedDate`. State comes from `recovery.state`:
+Same slot and the same height in every state. Title and body left, button right. Acts on `selectedDate`. A logged recovery day makes that day a rest day (a manual override, kept by Rob in Slice 7d; the single freeze and its pill are gone). State comes from `recovery.state` (ARCHITECTURE 8.3):
 
-| State | Meaning | Title / body | Pill | Button |
-|---|---|---|---|---|
-| `available` | day is today/yesterday, not qualifying, previous day qualified | "Taking a recovery day?" / "Rest counts. Your freeze keeps the streak on hold." | "1 freeze available" | **Log recovery** |
-| `logged` | `selectedDate` is a valid recovery day | "Recovery day logged" / "Your streak is on hold. A workout and logged calories reset your freeze." | "Freeze used" | **Undo** |
-| `no_freeze` | previous day was the recovery day | "No freezes left" / "Log a workout and calories to reset your freeze." | "0 freezes" | none |
-| `blocked` | previous day did not qualify, so a freeze cannot hold the streak | "Fill in yesterday first" / "A freeze needs yesterday to be counted." | "0 freezes" | **Go to yesterday** |
-| `counted` | `selectedDate` already qualifies | "This day counted" / "Nice work. No recovery needed." | "1 freeze available" | none |
-| `locked` | older than yesterday | "Recovery day" / "Recovery days can only be set for today or yesterday." | none | none |
+| State | Meaning | Title / body | Button |
+|---|---|---|---|
+| `available` | today or yesterday would end the streak, and a rest day would help | "Taking a recovery day?" / "Logging it makes this a rest day, so your streak keeps going." | **Log recovery** |
+| `logged` | a recovery day is logged for `selectedDate` | "Recovery day logged" / "This is a rest day. Two rest days in a row end the streak." | **Undo** |
+| `blocked` | the day before was a rest day, so a second one would end the streak anyway | "Rest day yesterday" / "Two rest days in a row end the streak. A workout keeps it going." | none |
+| `counted` | the day already keeps the streak | "This day counted" / "Nice work. No recovery needed." | none |
+| `locked` | older than yesterday | "Recovery day" / "Recovery days can only be set for today or yesterday." | none |
 
 `POST /recovery` on success refetches the dashboard. Errors show inline text from the API message.
 
@@ -118,14 +119,14 @@ Same slot and roughly the same height in every state. Title and body left, butto
 ### 5.6 Calorie budget card
 - Title "Calorie budget". Three columns: **Eaten** (e.g. `654`), the ring, **Budget** (e.g. `1,853`), with small gray captions above the numbers.
 - **Ring** (plain circle, SVG): ~180px, ~16px stroke, round caps, starts at 12 o'clock, clockwise, flat color, **no glow**. Track: elevated surface. Fill: **green** by `eaten / budget`. Center: large **remaining** number (green) with caption "kcal left".
-- **Over budget:** ring full and **orange**, center shows the overage in orange with caption "kcal over". Non-color cues: the "over" caption, plus a dashed overflow arc inside the ring covering `(eaten - budget) / budget`, capped at 100%.
-- Fill animates ~0.6s ease-out; none under reduced motion. No budget set: empty ring and a "Set your calorie budget" link to Me.
+- **Over budget:** ring full and **orange**, center shows the overage in orange with caption "kcal over" (the non-colour cue). No dashed overflow arc (removed by Rob, Slice 7d).
+- No fill animation: the ring is drawn at its value straight away, also when switching pages (Rob, Slice 7d). No budget set: empty ring and a "Set your calorie budget" link to Me. The ring is centred in the card: the two side columns are always equal.
 
 ### 5.7 Protein card
 Left "Protein" (bold) and "21g, 109g left" (gray); right the percentage (`16%`, nearest whole number). Thin (~8px) full-width rounded bar: elevated-surface track, **green** fill, capped at 100%. The percentage may exceed 100% in text. **Never turns orange.** The percentage is **outside** the bar. No goal set: "Set a protein goal" link to Me.
 
 ### 5.8 Weekly calorie budget card
-Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing `selectedDate`. **Dashed horizontal line at the budget** with a small label at its right end (step line if budgets differ across the week). Bar color from `status`: `within` green; `over` **orange and rising above the dashed line**; `not_set` **neutral gray** (`--neutral`; no budget line segment for that day); `not_logged` and `future` get **no bar**. Y max = `max(1.25 x budget, tallest bar x 1.1)`. Bars ~22px wide with rounded tops. Two-line x labels (`Mo` over `19`); the selected day's label uses the accent color with a 2px underline. Tapping a bar sets `selectedDate`. Today's bar is live.
+Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing `selectedDate`. **Dashed horizontal line at the budget** (step line if budgets differ across the week), with no figure printed on it (Rob, Slice 7d; the budget is in the spoken summary and on the calorie card). Bar color from `status`: `within` green; `over` **orange and rising above the dashed line**; `not_set` **neutral gray** (`--neutral`; no budget line segment for that day); `not_logged` and `future` get **no bar**. Y max = `max(1.25 x budget, tallest bar x 1.1)`. Bars ~22px wide with rounded tops. Two-line x labels (`Mo` over `19`); the selected day's label uses the accent color with a 2px underline. Tapping a bar sets `selectedDate`. Today's bar is live.
 
 ## 6. Other pages (v1)
 
@@ -136,7 +137,7 @@ Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing
 - **Tap an item to expand** (here items are interactive): lifting shows exercises and sets by kind: `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`; bodyweight `Set 1  10 reps`; distance `Set 1  21 km · 1 h`; timed hold `Set 1  1 min 30 s`. Equipment appears as a muted suffix. An exercise note appears as one muted line under the exercise name. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
 - Empty, loading (skeleton), and error states.
 - **Order (Slice 7b):** training trend card, muscle volume card, personal records card, calendar card, then the list.
-- **Muscle volume card:** title "Muscle volume", aside "Last week, Oct 5 – 11". One row per muscle group: name, "6 sets · 1,000 kg" (bodyweight-only: sets alone), a thin white bar for sets (longest = the most sets in either week), and "+2 sets on the week before" in muted text. No colour for more or fewer: it is not a judgement.
+- **Muscle volume card:** title "Muscle volume", aside "Last week, Oct 5 – 11". One row per muscle group: name, "6 sets · 1,000 kg" (bodyweight-only: sets alone), a thin white bar for sets (longest = the most sets in either week), and "+2 sets on the week before" in muted text. No colour for more or fewer: it is not a judgement. Exercises not yet mapped to a muscle group are left out; the word "Unmapped" never appears on a page (the `unmapped_exercises` data-quality check still reports them on Me).
 - **Personal records card:** title "Personal records" with the count. Five rows, then "Show N more" (chevron, `aria-expanded`). A row: exercise name with a "New" chip when set in the last 14 days, the estimated 1-rep max at the right, "From 22.5 kg × 6 on Oct 17 · Chest", and "Up 0.9 kg on the record before" when there was one. The row's accessible name is the whole sentence. Footer: "Estimated one-rep max: weight × (1 + reps ÷ 30), sets of 12 reps or fewer."
 - **Weights follow the unit set on Me** everywhere: sets ("44.1 lb (20 kg) × 8"; a set typed in the chosen unit shows exactly what was typed, "40 lb × 12"), volume, records, the training trend's lifting line, the weight card, last week's average weight.
 - **Calendar card:** title "Calendar" with a **Week / Month** switch (a pill of two buttons, the pressed one filled white; `aria-pressed`). Under it `‹ October 2026 ›` (`Oct 12 – 18` in week view); the arrows go to the server's `previous` and `next` dates and are disabled when those are null. Then `M T W T F S S` and full Monday-Sunday weeks of circles (36px, shrinking with their column at 200% zoom). A day with training: **solid white circle with a dark date number** (numbers, not icons, because in a month grid the numbers are how you find a day). A valid recovery day: the tinted snowflake circle. Today without training: white outline. Days of the neighbouring months: the same at lower opacity. Future days: dim and disabled. The filtered day: a 2px accent ring around its circle and `aria-pressed`. Tapping a day filters the list to it; tapping it again clears the filter. Accessible name: `"Wednesday, October 14: 2 activities, the longest a strength session."`, `"... recovery day."`, `"... no activity."`, `"... not yet."`.
@@ -146,10 +147,12 @@ Title "Weekly calorie budget". One bar per day, Mon-Sun, for the week containing
 ### 6.2 Nutrition
 Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here), then the **calorie trend card** (Slice 7a): title "Calorie trend" with the Week / Month switch; headline "7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days." (the week ending yesterday); a muted line for the last finished period, "Last week: 1,850 kcal a day, 4 of 5 logged days within budget."; one bar per period for the average kcal **per logged day**, coloured like the weekly card (`within` green, `over` orange, `not_set` neutral, nothing logged: no bar), a dashed segment at each period's average budget with the value at the right end, the running period lighter with a dashed edge; footer "Averages count logged days only." The trend card does not follow the day chooser.
 
-**Weight card** (Slice 7b, below the calorie trend): title "Weight"; headline "Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg."; "Down 0.3 kg on last week." (rounded to a tenth); "1.9 kg above your goal of 73.0 kg." (from the average; "Set a weight goal on Me to see how far you are from it." with no goal). The chart: one dot per weigh-in, a solid line for the 7-day average, a dashed line at the goal, first and last dates and the goal under it. Each dot has a title with its day and weight; the screen-reader summary is the three sentences. Days with no weigh-in have no dot. Not affected by the day chooser.
+**Weight card** (Slice 7b, below the calorie trend): title "Weight"; headline "Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg."; "Down 0.3 kg on last week." (rounded to a tenth); "1.9 kg above your goal of 73.0 kg." (from the average; "Set a weight goal on Me to see how far you are from it." with no goal). The chart: one dot per weigh-in, a solid line for the 7-day average, a dashed line at the goal, first and last dates and the goal under it. The chart starts at the first weigh-in in the range, so the first point is always at the left edge (a single weigh-in sits at the left too). Each dot has a title with its day and weight; the screen-reader summary is the three sentences. Days with no weigh-in have no dot. Not affected by the day chooser.
 
 ### 6.3 Me
 - **Profile and targets:** nickname, calorie budget (kcal), protein goal (g), weight goal (one decimal; 30-250 kg or 67-551 lb) with a **kg / lb switch** beside it (Slice 7b). The switch saves the preference at once and converts the goal on screen (72.575 kg reads 160 lb); it never changes stored data. An untouched goal is never saved again from its rounded text. Helper text: "Changes apply from today. Past days keep their old targets." Sanity limits (calories 800-6000, protein 0-400). Save button with inline errors.
+- **How your streak works** (Slice 7d): the rules of 4 and ARCHITECTURE 8 as a bulleted list in plain words, never the internal names S, O, R, M (text in `web/src/lib/streakRules.ts`). The weekend line follows the setting. Under it a **Weekends** row with a **Strict / Relaxed** switch, saved at once, applying from today; help: "Relaxed: on Saturdays and Sundays only a day with nothing logged ends your streak. Changes apply from today."
+- **Vacation or injury** (Slice 7d): help "During a break, only a day with nothing logged ends your streak." Then a **Log break** button that opens the form (a break still running or to come shows it open): a **From** row and a **To** row, each with a date chip showing a calendar icon and **"Choose date"** in the accent colour until a date is picked, then the date ("Mon, Nov 2"). The native date input lies invisibly over the chip, so a tap anywhere opens the phone's picker. **Save break**; **End break** when one is running or to come. Past dates are allowed (a forgotten break). "Last break: Oct 12 – Oct 15" under it once one has ended. Errors from the API inline.
 - **Timezone:** shown read-only ("Asia/Manila") in v1.
 - **Connection:** API key masked, with "Change".
 - **Data and sync** panel (from `/pipeline/health`): per source (Strava, Apple Health) "Last successful sync" as relative time plus clock time, status shown as icon **and** text (OK / Delayed / Failed), failures in the last 7 days; "Quarantined records: N" expandable to a list (source, reason, raw snippet); "Data quality: N passed, N warnings, N failed" expandable to the check list. Under Strava a **Sync now** button (Slice 7c): "Syncing..." while Airflow works, then "Synced. New activities are in." and every page reloads; the API's reason when refused ("Try again in 90 s."). Under Apple Health a **Run Health Push** link (`shortcuts://run-shortcut?name=Health%20Push`): the server cannot reach the phone, so it opens the Shortcut.
@@ -177,7 +180,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 - Each streak circle plus marker is **one** element: `"<Weekday>, <Month> <day>: <state>. <activity or none>. Calories: <not logged | within budget | over budget | logged, no budget set>."` Example: `"Tuesday, October 13: qualifying day. Workout. Calories within budget."`
 - Streak summary: `"Streak: 12 days. Today: workout logged."` plus at-risk status.
 - Ring: `"Calories: 654 eaten of 1,853, 1,199 left."` or `"... 320 over budget."` Protein: `"Protein: 21 of 130 grams, 16 percent."` Chart: summary (`"Weekly calories: 4 days within budget, 1 over, budget 1,853."`) plus per-bar labels.
-- Freeze indicator and every status are text plus icon.
+- Every status is text plus icon or shape (the over-budget ring has its gap and triangle).
 - Respect `prefers-reduced-motion` and `prefers-contrast`. Use rem units and verify at 200% zoom. Checked in Slice 6b at a 197px-wide viewport (a 393px phone at 200%): no horizontal scroll; the streak week wraps to two rows (4 + 3, circles stay 32px), the calorie ring shrinks to the card and its figures stack, weekly bars narrow so they never touch. Slice 7a, same check on Activities, Nutrition, Dashboard and Me: 0px horizontal scroll; card headers wrap so the Week / Month switch drops under the title; the calendar keeps 7 columns and its circles shrink; trend charts keep only the first and last axis labels (every bar keeps its spoken label).
 
 ## 9. Copy (no red, no shame, no exclamation marks, no modals)
@@ -186,8 +189,12 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 |---|---|
 | Yesterday not logged (at risk) | "Yesterday isn't logged. Fill it in to keep your 12-day streak." (action: "Fill in" selects yesterday) |
 | Streak broke at midnight | "Fresh start today. Your best was 12 days." |
-| Today qualified | "Nice. Today's counted." |
-| Over budget | No message; ring/marker/bar convey it; it never affects the streak |
+| Today counted | "Nice. Today's counted." |
+| Yesterday a second rest day (at risk) | "Yesterday was a second rest day in a row. Log its workout to keep your 12-day streak." |
+| Yesterday a second over-budget day (at risk) | "Yesterday was a second day over budget. Check its food log to keep your 12-day streak." |
+| Today would be a second rest day | "Yesterday was a rest day. A workout today keeps your streak going." |
+| Today would be a second over-budget day | "Yesterday was over budget too. Staying within it today keeps your streak going." |
+| Over budget | No message on its own; the ring and bars convey it (only a second day in a row matters) |
 | Recovery states | see 5.4 |
 | Empty exercises | "No exercises logged for this day." |
 | Stale data (Me panel) | "Last sync 9 hours ago" with status text |
@@ -209,7 +216,7 @@ Scenarios:
 2. **fresh_monday**: now Mon 2026-10-19 15:55. Nothing logged today; prior week healthy; recovery card `available`.
 3. **over_budget**: 2,173 of 1,853.
 4. **at_risk**: yesterday not logged; streak shows the unchanged count and the quiet message; recovery card `blocked`.
-5. **freeze_used**: yesterday was the recovery day; today pending; recovery card `no_freeze`.
+5. **rest_yesterday**: yesterday was a rest day; today pending; recovery card `blocked` (Slice 7d; was freeze_used).
 6. **recovery_logged** (today is a valid recovery day) and **counted** (today already qualifies).
 7. **past_day**: `selectedDate` older than yesterday; recovery card `locked`.
 8. **edge_empty**: no targets set; no data this week; empty exercises.
@@ -221,10 +228,10 @@ Scenarios:
 - [ ] Order is exactly: greeting, day chooser, streak card, recovery card, logged exercises, calorie budget, protein, weekly chart, last week (Slice 7b). The greeting has no card.
 - [ ] Bottom nav has 4 tabs with the specified icons and labels; active state is clear; safe-area padding works on iPhone.
 - [ ] Streak card matches the Strava structure: flame + number + "Days"; date numbers inside circles; white circle + black icon for activity days; white outline for today; dark filled circles for missed; dim outline for future; one marker per day (hollow circle / filled green dot / filled orange square / filled gray dot for `not_set`).
-- [ ] Recovery card always visible with constant height, correct state, and the freeze indicator as icon plus text.
+- [ ] Recovery card always visible with constant height and the correct state (no freeze pill since Slice 7d).
 - [ ] Exercises card shows exactly 1 row at launch (most recent first) with a chevron when there are more; rows show icon, title, duration; rows are not clickable; the card opens Activities for the selected date.
 - [ ] Calorie, protein, and weekly cards open Nutrition; the bar tap sets `selectedDate`.
-- [ ] Ring is a plain flat circle (no apple, no glow), green fill, orange when over with "kcal over" and a dashed overflow arc.
+- [ ] Ring is a plain flat circle (no apple, no glow, no animation), centred in its card, green fill, orange when over with "kcal over".
 - [ ] Protein is its own card: label, "Xg, Yg left", percentage at right, thin green bar, percentage outside the bar.
 - [ ] Weekly chart has a visible dashed budget line; over-budget bars are orange and rise above it; selected-day label has accent color and underline.
 - [ ] Day chooser drives every card except the streak and the trend cards; Activities lists only the selected day, with Show all days.

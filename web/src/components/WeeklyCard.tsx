@@ -1,7 +1,7 @@
 import type { WeekBar } from "../api/types";
 import { barLabel, chartMax, chartSummary, hasBar, percentOf, weekdayLetters } from "../lib/chart";
 import { dayOfMonth } from "../lib/dates";
-import { formatNumber, longDate } from "../lib/format";
+import { longDate } from "../lib/format";
 import { Card } from "./Card";
 import cardStyles from "./Card.module.css";
 import styles from "./WeeklyCard.module.css";
@@ -22,13 +22,12 @@ interface Props {
  */
 export function WeeklyCard({ bars, today, selected, onSelect, to }: Props) {
   const max = chartMax(bars);
-  const lastBudget = bars.findLastIndex((bar) => bar.budget !== null && hasBar(bar));
 
   return (
     <Card title="Weekly calorie budget" to={to}>
       <p className="visually-hidden">{chartSummary(bars)}</p>
       <div className={styles.chart}>
-        {bars.map((bar, index) => {
+        {bars.map((bar) => {
           const isFuture = bar.date > today;
           const isSelected = bar.date === selected;
           const budgetLine = bar.budget !== null && bar.status !== "not_set";
@@ -47,13 +46,7 @@ export function WeeklyCard({ bars, today, selected, onSelect, to }: Props) {
                   <span
                     className={styles.budgetLine}
                     style={{ bottom: `${percentOf(bar.budget ?? 0, max)}%` }}
-                  >
-                    {index === lastBudget && (
-                      <span className={`${styles.budgetLabel} num`}>
-                        {formatNumber(bar.budget ?? 0)}
-                      </span>
-                    )}
-                  </span>
+                  />
                 )}
                 {hasBar(bar) && (
                   <span

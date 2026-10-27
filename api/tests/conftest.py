@@ -53,7 +53,8 @@ def engine(migrated_engine: Engine) -> Engine:
         conn.execute(
             text(
                 "TRUNCATE raw.health_batches, raw.strava_activities, core.dim_activity_type, "
-                "app.recovery_day, app.target_history, app.weight_goal_history, ops.quarantine, "
+                "app.recovery_day, app.target_history, app.weight_goal_history, "
+                "app.streak_settings_history, app.vacation, ops.quarantine, "
                 "ops.pipeline_runs CASCADE"
             )
         )

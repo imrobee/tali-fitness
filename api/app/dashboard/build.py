@@ -24,7 +24,6 @@ from app.db import load_sql
 from app.errors import ApiError
 
 WEEKDAY_LETTERS = "MTWTFSS"
-FREEZES_MAX = 1
 
 
 def greeting(now_local: datetime) -> str:
@@ -46,19 +45,29 @@ def week_of(day: date) -> list[date]:
 
 
 def best_streak(days) -> int:
-    """The longest chain so far: most qualifying days in any one island."""
+    """The longest chain so far: most counted days in any one island."""
     per_island: dict[int, int] = {}
     for day in days:
-        if day.qualifying:
+        if day.counted:
             per_island[day.island_id] = per_island.get(day.island_id, 0) + 1
     return max(per_island.values(), default=0)
 
 
-def streak_message(count: int, at_risk: bool, today_counted: bool, best: int) -> str | None:
-    """Quiet one-line copy for the streak card (UI_SPEC.md section 9)."""
-    if at_risk:
+def streak_message(streak, best: int) -> str | None:
+    """Quiet one-line copy for the streak card (UI_SPEC.md section 9), from fn_streak."""
+    count = streak.streak
+    if streak.at_risk:
+        keep = f"to keep your {count}-day streak."
+        if streak.yesterday_kind == "recovery":
+            return f"Yesterday was a second rest day in a row. Log its workout {keep}"
+        if streak.yesterday_kind == "over":
+            return f"Yesterday was a second day over budget. Check its food log {keep}"
         return f"Yesterday isn't logged. Fill it in to keep your {count}-day streak."
-    if today_counted:
+    if streak.today_state == "pending" and streak.today_kind == "recovery":
+        return "Yesterday was a rest day. A workout today keeps your streak going."
+    if streak.today_state == "pending" and streak.today_kind == "over":
+        return "Yesterday was over budget too. Staying within it today keeps your streak going."
+    if streak.today_state == "counted":
         return "Nice. Today's counted."
     if count == 0 and best > 0:
         return f"Fresh start today. Your best was {best} days."
@@ -118,27 +127,26 @@ def build_dashboard(
     week = []
     for index, day in enumerate(current_week):
         if day > today:
-            state = "future"
+            state, kind = "future", None
         elif day in status_by_day:
-            state = status_by_day[day].state
+            state, kind = status_by_day[day].state, status_by_day[day].kind
         else:
-            state = "missed"  # before the first day with any data
+            state, kind = "broken", "miss"  # before the first day with any data
         week.append(
             StreakDay(
                 date=day,
                 weekday=WEEKDAY_LETTERS[index],
                 state=state,
+                kind=kind,
                 primary_activity_type=primary_types.get(day),
                 calorie_status=current_nutrition[day].calorie_status,
             )
         )
-    today_counted = status_by_day.get(today) is not None and status_by_day[today].qualifying
 
     # Everything below follows the selected day.
     recovery_state = conn.execute(
         load_sql("api/recovery_state.sql"), {"today": today, "day": selected}
     ).scalar_one()
-    selected_status = status_by_day.get(selected)
     exercises = [
         Exercise(
             id=row.id,
@@ -171,14 +179,10 @@ def build_dashboard(
         streak=Streak(
             count=streak.streak,
             at_risk=streak.at_risk,
-            message=streak_message(streak.streak, streak.at_risk, today_counted, best_streak(days)),
+            message=streak_message(streak, best_streak(days)),
             week=week,
         ),
-        recovery=Recovery(
-            state=recovery_state,
-            freezes_left=selected_status.freezes_left if selected_status else FREEZES_MAX,
-            freezes_max=FREEZES_MAX,
-        ),
+        recovery=Recovery(state=recovery_state),
         exercises=exercises,
         calories=calories_card(selected_nutrition[selected]),
         protein=protein_card(selected_nutrition[selected]),

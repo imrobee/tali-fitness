@@ -26,7 +26,7 @@ flowchart LR
   API -->|reads marts| PG
 ```
 
-Pattern: **ELT**. Land raw data unchanged (`raw`; one exception: Strava location fields are dropped, DECISIONS D24), transform with SQL and a small Python parser into a star schema (`core`), expose business logic as views/functions (`mart`), serve JSON from FastAPI. All business rules (qualifying day, freeze, streak, calorie status) live **in SQL**, so the logic is testable against a real database and is the interview story. The front end only renders.
+Pattern: **ELT**. Land raw data unchanged (`raw`; one exception: Strava location fields are dropped, DECISIONS D24), transform with SQL and a small Python parser into a star schema (`core`), expose business logic as views/functions (`mart`), serve JSON from FastAPI. All business rules (kinds of day, what breaks the streak, calorie status) live **in SQL**, so the logic is testable against a real database and is the interview story. The front end only renders.
 
 ## 2. Services (Docker Compose, local only)
 
@@ -103,14 +103,16 @@ Seeds are CSV files in `db/seeds/`, upserted by `transform_core` on every run (e
 |---|---|
 | `app.profile` | single row (`id = 1`): `nickname`, `timezone` (default `Asia/Manila`), `weight_unit` (`kg` or `lb`, default `kg`; Slice 7b). Weights are always stored in kg; the unit only changes how the web shows and asks for them, converting with the exact 0.45359237 kg per lb |
 | `app.target_history` | PK `effective_from date`; `calorie_budget int CHECK (> 0)`, `protein_goal int CHECK (>= 0)`. The target "in effect" on date `d` is the row with the greatest `effective_from <= d`. Editing targets inserts a row effective **today**, so history never changes |
-| `app.recovery_day` | PK `day date`; `note text`; `created_at` |
+| `app.recovery_day` | PK `day date`; `note text`; `created_at`. A logged recovery day makes the day a rest day (section 8) |
+| `app.streak_settings_history` | PK `effective_from date`; `lenient_weekends boolean`. Relaxed weekends in effect on `d` = latest row on or before `d`; strict when none (Slice 7d) |
+| `app.vacation` | `id`; `start_date`, `end_date` (`CHECK end >= start`, fewer than 90 days). Vacation or injury: only a missed day breaks the streak. Past periods stay as history; the API keeps periods from overlapping and edits only the one still running or to come (Slice 7d) |
 | `app.weight_goal_history` | PK `effective_from date`; `goal_kg numeric(5,1) CHECK (30-250)`. Its own table, so saving the calorie budget never clears the goal. The goal in effect on `d` is the latest row on or before `d` (Slice 7b) |
 
 ### 5.4 `ops`
 `ops.pipeline_runs` (`run_id`, `source`, `started_at`, `finished_at`, `status` in `running|success|partial|failed`, `rows_read`, `rows_written`, `rows_quarantined`, `error_message`, `airflow_run_id`); `ops.watermarks` (`source`, `value`); `ops.oauth_tokens` (`provider`, `access_token`, `refresh_token`, `expires_at`); `ops.quarantine` (`id`, `source`, `entity_id`, `line_no`, `raw_content`, `reason_code` in (`invalid_sample`, `unknown_type`, `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`, `unparsed_line`, `empty_exercise`), `error`, `first_seen_at`, `resolved_at`); `ops.dq_results` (`id`, `run_id`, `check_name`, `status` in `pass|warn|fail`, `observed_value`, `threshold` (text), `checked_at`). No separate severity: `status` carries it. `ops.sync_requests` (`id`, `source` = `strava`, `requested_at`, `airflow_run_id`): one row per Sync now request (Slice 7c), for the 2-minute cooldown and for following the Airflow run.
 
 ### 5.5 `mart`
-Views/functions: `fn_day_status(p_today date)` (section 8; one row per day with `state`, `island_id`, `freezes_left`), `fn_streak(p_today date)` (`streak`, `at_risk`, `freezes_left`), `fn_daily_nutrition(p_from date, p_to date)` (kcal and protein per local date with the target in effect and `calorie_status`; a function with a date range so days without samples still appear as `not_logged`), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
+Views/functions: `fn_day_status(p_today date)` (section 8; one row per day with `kind`, `lenient`, `breaks`, `state`, `counted`, `island_id`), `fn_streak(p_today date)` (`streak`, `at_risk`, `today_state`, `today_kind`, `yesterday_kind`), `fn_daily_nutrition(p_from date, p_to date)` (kcal and protein per local date with the target in effect and `calorie_status`; a function with a date range so days without samples still appear as `not_logged`), `v_week_calories`, `v_activity_day`. Later: `v_pr`, `v_weekly_summary`, `v_muscle_volume_week`. Anything with a `today` is a **function taking `p_today`** so tests control the clock.
 
 Trends (migration 0008, Slice 7a; functions rather than the planned `v_trends_*` views because they depend on today):
 - `fn_periods(p_today, p_grain, p_count)`: the last `p_count` weeks (Monday-Sunday) or calendar months, ending with the one containing `p_today`.
@@ -122,7 +124,7 @@ Trends (migration 0008, Slice 7a; functions rather than the planned `v_trends_*`
 - `fn_weekly_summary(p_today)` (Slice 7b): the last finished week (Monday to the Sunday before `p_today`'s week) against the week before: qualifying days, sessions, active time, running, volume, average kcal and protein (from the trend functions), and average weight, each with its `LAG`.
 - `fn_nutrition_rolling(p_from, p_to)`: per day the 7-day rolling averages (`AVG ... OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)`) of kcal and protein over logged days, and how many days were logged. It reads six days before `p_from` so the first window is full; one row per calendar day makes 6 rows exactly 6 days. The API asks for the window ending **yesterday**, because today is still being logged.
 
-`fn_recovery_state(p_today date, p_day date)` returns the recovery card's state for a day (`locked`, `counted`, `logged`, `no_freeze`, `blocked`, `available`; UI_SPEC 5.4); `POST /recovery` accepts a day only when it returns `available`.
+`fn_recovery_state(p_today date, p_day date)` returns the recovery card's state for a day (`locked`, `logged`, `counted`, `available`, `blocked`; section 8.3, UI_SPEC 5.4); `POST /recovery` accepts a day only when it returns `available`.
 
 Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` applies one health batch to `core` (section 6.2).
 
@@ -193,92 +195,76 @@ Line grammar (tolerant of blank lines, trailing spaces, extra whitespace, and a 
 
 **Golden test 2** (`docs/samples/hevy_description_02.txt`): 6 exercise entries (Pull Up, Push Up, Cycling, Plank, Plank, Cycling; Plank and Cycling appear twice), 12 sets, 2 exercise notes, `parse_status = ok`. By kind: 4 `reps` sets totalling 55 reps; 4 `distance_duration` sets totalling 52 km (52,000 m) and 8,400 s; 4 `duration` sets totalling 242 s. Total duration 8,642 s; total `volume_kg` = 0.
 
-## 8. Qualifying day, freeze, and streak (all in SQL)
+## 8. Kinds of day and the streak (all in SQL; Slice 7d)
+
+Replaces the single-freeze rule of Slices 5-6 (migration 0006) with migration 0014 (DECISIONS D96-D101). Decided by Rob 2026-10-27.
 
 ### 8.1 Definitions
-- `has_activity(d)`: at least one `core.fact_activity` on local date `d`. No minimum duration (config `MIN_ACTIVITY_MINUTES = 0`).
+- `has_activity(d)`: at least one `core.fact_activity` on local date `d`. No minimum duration.
 - `has_calories(d)`: at least one `energy` sample on `d`.
-- `qualifying(d) = has_activity(d) AND has_calories(d)`. Workout length and over/under budget are irrelevant.
-- `recovery_logged(d)`: row in `app.recovery_day`.
-- `calorie_status(d)`, first match wins: `not_logged` (no energy sample), `not_set` (calories logged but no budget in effect on `d`; never marked over), `within` (`kcal <= budget in effect on d`), `over`.
+- `calorie_status(d)`, first match wins: `not_logged`, `not_set` (logged, no budget in effect; never over), `within` (`kcal <= budget in effect on d`), `over`.
+- `recovery_logged(d)`: a row in `app.recovery_day` (the dashboard's recovery card; a manual override).
+- `kind(d)`, first match wins:
 
-### 8.2 The freeze rule (plain English)
-Rob has **one freeze**. Logging a recovery day uses it. The freeze **resets on the next day that has both a workout and logged calories**. Consequence: a recovery day is valid only if the **previous calendar day qualified** (or it is the first day of data). Two non-qualifying days in a row therefore break the streak.
-- A valid recovery day is **transparent**: it does not add to the streak and does not break it.
-- A recovery day logged when the previous day did not qualify is **invalid** and treated like a missed day.
-- A day that qualifies is `qualifying` even if a recovery day was logged for it (the freeze is released).
-- Recovery days can be created only for **today or yesterday** (backfill window).
-- v1 supports exactly one freeze. If Rob wants more later, the rule needs a running counter (recursive CTE or PL/pgSQL), not a `LAG`.
-- `freezes_left(d)` for display: `1` if `d` qualifies, or `d` is not a recovery day and the previous day qualified (or first day); `0` if `d` is a valid recovery day, or the previous day did not qualify.
+| kind | Rule | Rob's name |
+|---|---|---|
+| `recovery` | `recovery_logged(d)` (even with a workout or no food) | R |
+| `over` | `calorie_status = over`, with or without a workout | O |
+| `success` | calories logged (`within` or `not_set`) AND a workout | S |
+| `recovery` | calories logged (`within` or `not_set`) without a workout, or a workout without calories | R |
+| `miss` | nothing logged | M |
+
+- `lenient(d)`: `d` is in an `app.vacation` period, or `d` is a Saturday or Sunday while relaxed weekends are in effect on `d` (`app.streak_settings_history`, latest `effective_from <= d`; strict when never set).
+
+### 8.2 What breaks the streak (plain English)
+- A **missed** day (nothing logged) always breaks it, weekend or vacation included.
+- On a day that is not lenient, an **over** day right after an over day breaks it, and a **rest** day right after a rest day breaks it. "In a row" means consecutive calendar days, so a third over day in a row breaks it again.
+- On a lenient day only a missed day breaks it. A lenient day also never sets up a pair: Sunday over (relaxed) then Monday over does not break.
+- Over and rest days alternating never break it.
+- **Today never breaks the streak before midnight**: a day that would break is `pending` (a workout or food can still change it). **Yesterday** that would break is `at_risk` until today ends (food and late workouts still sync), then `broken`.
+- The count is **every day that kept the streak** (success, over and rest days alike), like a Strava streak.
+- The recovery card logs a rest day for today or yesterday. It helps only on a day that would break, and is `blocked` when the day before was a rest day (two in a row would break anyway) unless the day is lenient.
 
 ### 8.3 Day states and streak
-States for each day up to `today`:
+`mart.fn_day_status(p_today)`: one row per day from the first day with any data to `p_today`, with `kind`, `lenient`, `breaks` (the rule above, using `LAG(kind)` and `LAG(lenient)`), and:
 
-| State | Rule (first match wins) |
+| State | Rule |
 |---|---|
-| `qualifying` | `qualifying(d)` |
-| `recovery` | `recovery_logged(d)` AND previous day qualified (or first day) |
-| `today_pending` | `d = today` |
-| `at_risk` | `d = today - 1` (healable until midnight; **does not break the chain yet**) |
-| `missed` | everything else (breaks the chain) |
+| `counted` | the day does not break |
+| `pending` | `d = today` and it would break |
+| `at_risk` | `d = today - 1` and it would break (does not break the chain yet) |
+| `broken` | older and breaks |
 | `future` | `d > today` (only for the 7-day grid) |
 
-Streak = number of `qualifying` days in the chain that contains `today`. Chains are separated by `missed` days (gaps-and-islands). `at_risk` flag = yesterday is `at_risk` AND the chain has at least one qualifying day. While `at_risk` is true the UI shows the unchanged count plus a quiet message; healing yesterday (workout + calories, or a valid recovery day) clears it; at midnight an unhealed yesterday becomes `missed`.
-
-SQL sketch (the real function must pass 8.4):
-```sql
--- mart.fn_day_status(p_today date): one row per day from first data day to p_today
-WITH days AS (
-  SELECT d::date AS day
-  FROM generate_series((SELECT first_day FROM bounds), p_today, interval '1 day') AS d
-), flags AS (
-  SELECT day,
-    EXISTS (SELECT 1 FROM core.fact_activity a WHERE a.date_key = to_char(day,'YYYYMMDD')::int) AS has_activity,
-    EXISTS (SELECT 1 FROM core.fact_dietary_sample s WHERE s.local_date = day AND s.sample_type = 'energy') AS has_calories,
-    EXISTS (SELECT 1 FROM app.recovery_day r WHERE r.day = days.day) AS recovery_logged
-  FROM days
-), q AS (
-  SELECT *, (has_activity AND has_calories) AS qualifying,
-         LAG(has_activity AND has_calories) OVER (ORDER BY day) AS prev_qualifying
-  FROM flags
-), st AS (
-  SELECT *, CASE
-      WHEN qualifying                                        THEN 'qualifying'
-      WHEN recovery_logged AND COALESCE(prev_qualifying,true) THEN 'recovery'
-      WHEN day = p_today                                     THEN 'today_pending'
-      WHEN day = p_today - 1                                 THEN 'at_risk'
-      ELSE 'missed' END AS state
-  FROM q
-)
-SELECT *, SUM((state = 'missed')::int) OVER (ORDER BY day) AS island_id FROM st;
-
--- streak: qualifying days in the island that contains p_today
-```
+`island_id = SUM(state = 'broken') OVER (ORDER BY day)` (gaps and islands). `mart.fn_streak(p_today)`: `streak` = counted days in the island containing today; `at_risk` = yesterday `at_risk` AND `streak > 0`; plus `today_state`, `today_kind`, `yesterday_kind` so the card can say why. `mart.fn_recovery_state(p_today, p_day)`: `locked` (not today or yesterday), `logged`, `counted` (does not break), `available` (would break, and a rest day would help), `blocked` (the day before was a non-lenient rest day).
 
 ### 8.4 Mandatory SQL integration tests (real Postgres)
-Notation: oldest to newest, last item is today. `Q` qualifying, `R` valid recovery, `M` nothing, `A` activity only, `C` calories only, `T` today with nothing yet, `Tq` today qualifying, `Rq` recovery logged on a day that also qualifies.
+Notation (`pipeline/tests/day_builder.py`), oldest to newest, last item is today: `S` success, `O` over with a workout, `Ov` over without, `R` food within budget and no workout, `A` a workout and no food, `L` a logged recovery day only, `Lw` a logged recovery day on a success day, `M` nothing, `T`/`Ts`/`To`/`Tr` today nothing/success/over/rest.
 
 | # | Sequence | Streak | `at_risk` | Notes |
 |---|---|---|---|---|
-| 1 | `Q Q Q T` | 3 | false | today pending never breaks |
-| 2 | `Q Q Q Tq` | 4 | false | |
-| 3 | `Q R Q T` | 2 | false | `R` transparent |
-| 4 | `Q R R Q Q T` | 2 | false | second `R` invalid, acts as `missed` |
-| 5 | `Q M Q Q T` | 2 | false | older `M` breaks |
-| 6 | `Q Q M T` | 2 | true | yesterday is `at_risk` |
-| 7 | `Q Q M Tq` | 3 | true | today counts on top of the pre-miss chain |
-| 8 | `Q Q M T` then backfill yesterday as `Q` | 3 | false | heal with workout + calories |
-| 9 | `Q Q M T` then log yesterday as recovery (day before it was `Q`) | 2 | false | heal with the freeze |
-| 10 | `Q Q R(today)` | 2 | false | `freezes_left(today) = 0` |
-| 11 | `M M T` | 0 | false | no chain to protect |
-| 12 | `R Q T` | 1 | false | first-day recovery valid |
-| 13 | `Q Rq Q T` | 3 | false | qualifying wins over recovery |
-| 14 | `Q Q(over budget) Q T` | 3 | false | over budget never affects the streak |
-| 15 | `Q A T` | 1 | true | activity without calories does not qualify |
-| 16 | `Q R M Q T` | 1 | false | recovery then a miss breaks |
-| 17 | `Q C T` | 1 | true | calories without activity does not qualify |
+| 1 | `S S S T` | 3 | false | today pending never breaks |
+| 2 | `S S S Ts` | 4 | false | |
+| 3 | `S O S T` | 3 | false | over once is fine |
+| 4 | `S O O S T` | 1 | false | two over in a row break |
+| 5 | `S R S T` | 3 | false | one rest day is fine |
+| 6 | `S R R S T` | 1 | false | two rest days in a row break |
+| 7 | `S A R S T` | 1 | false | a workout without food is a rest day |
+| 8 | `S M S S T` | 2 | false | a missed day breaks |
+| 9 | `S S M T` | 2 | true | yesterday missed: at risk |
+| 10 | `S S M Ts` | 3 | true | today counts on top |
+| 11 | `S R R T` | 2 | true | yesterday a second rest day |
+| 12 | `S S R Tr` | 3 | false | today a second rest day: pending |
+| 13 | `S S S To` | 4 | false | over today after a success counts |
+| 14 | `S O O T` | 2 | true | yesterday a second over day |
+| 15 | `M M T` | 0 | false | nothing to protect |
+| 16 | `S O R O R T` | 5 | false | alternating never pairs |
+| 17 | `S Ov Ov S T` | 1 | false | over without a workout is over |
+| 18 | `S S L T` | 3 | false | a logged recovery day is a rest day |
+| 19 | `S R Lw S T` | 1 | false | ... even on a day with a workout |
+| 20 | `R S T` | 2 | false | a rest day on the first day counts |
 
-Also test: sample at 23:59 local counts for that date; target history (budget changed mid-week does not rewrite past `calorie_status`).
+Also tested: healing yesterday with a workout and food, or with a recovery day; an unhealed yesterday breaks at midnight; strict weekends by default; relaxed weekends (only a miss breaks; a relaxed Sunday does not pair with Monday; relaxing today does not rewrite last weekend); vacation (rest and over never break, a miss does, a vacation set afterwards covers past days); the recovery card states; a sample at 23:59 counts for that date.
 
 ## 9. Data-quality checks (run after loads; write `ops.dq_results`)
 
@@ -319,7 +305,9 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 | GET | `/activities?from=&to=` | day-grouped summaries, newest first; default last 30 days, at most 366 days per request (`date_out_of_range`); each item carries `duration_s`, `moving_s`, `distance_m`, `parse_status`, and exercise, set and volume totals |
 | GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok`; 404 `not_found` for an unknown id |
 | GET | `/me` | nickname, timezone, current targets, earliest data date |
-| PUT | `/me` | `{nickname?, targets?: {calorie_budget 800-6000, protein_goal 0-400}, weight_goal_kg?: 30-250, weight_unit?: kg|lb}`; `weight_goal_kg` inserts a `weight_goal_history` row effective today (same-day replace), and the response carries `weight_goal_kg`; only fields present change; targets insert a `target_history` row effective today (saving again the same day replaces it) |
+| PUT | `/me` | `{nickname?, targets?: {calorie_budget 800-6000, protein_goal 0-400}, weight_goal_kg?: 30-250, weight_unit?: kg|lb, lenient_weekends?: bool}`; `lenient_weekends` inserts a `streak_settings_history` row effective today; the response also carries `lenient_weekends` (in effect today), `vacation` and `last_vacation` (`{from, to}` or null); `weight_goal_kg` inserts a `weight_goal_history` row effective today (same-day replace), and the response carries `weight_goal_kg`; only fields present change; targets insert a `target_history` row effective today (saving again the same day replaces it) |
+| PUT | `/vacation` | `{from, to}`: replaces the vacation still running or to come, or adds one (past dates allowed). 422 `invalid_payload` (backwards, 90 days or more), `date_out_of_range` (more than a year ahead), `vacation_overlap`. Returns `/me` |
+| DELETE | `/vacation` | ends the vacation still running or to come; 204. Past ones stay |
 | POST | `/recovery` | `{date, note?}`; 201 when logged, 200 if already logged, 422 `recovery_not_allowed` unless `mart.fn_recovery_state` says `available` |
 | DELETE | `/recovery/{date}` | undo; 204; today or yesterday only |
 | POST | `/ingest/health` | Shortcut push (section 6.2) |
@@ -350,7 +338,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
        "primary_activity_type": null, "calorie_status": "not_logged"}
     ]
   },
-  "recovery": {"state": "available", "freezes_left": 1, "freezes_max": 1},
+  "recovery": {"state": "available"},
   "exercises": [
     {"id": 123, "type": "strength", "title": "Afternoon Weight Training",
      "started_at": "2026-10-19T15:02:00+08:00", "duration_s": 3480}
@@ -364,7 +352,7 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 }
 ```
 `calorie_status` (streak week), `calories.status`, and `week_chart.bars[].status` take the values in section 8.1: `not_logged`, `not_set`, `within`, `over` (bars also `future`). With `not_set`, `budget`, `remaining`, and `over` are `null`.
-`recovery.state` is one of `available`, `logged`, `no_freeze`, `blocked`, `counted`, `locked` (definitions in `UI_SPEC.md`). `exercises` are ordered **most recent first** by `started_at`. `week[].primary_activity_type` is the type of the **longest-duration** activity that day (it drives the circle icon). `week_chart` covers the Monday-Sunday week containing `selected_date`; the streak `week` is always the current week. `selected_date` must be between `earliest_date` (the first day with any data) and `today`, else 422 `date_out_of_range`. Streak-week days before the first data day show `missed`. Bars have `kcal: null` for `not_logged` and `future` days. `streak.message` is the quiet line from UI_SPEC 9 (at risk, then today counted, then fresh start with the best streak). Implementation: `api/app/dashboard/`.
+`recovery.state` is one of `available`, `logged`, `blocked`, `counted`, `locked` (section 8.3; copy in `UI_SPEC.md` 5.4). `streak.week[]` carries `state` (`counted`, `pending`, `at_risk`, `broken`, `future`) and `kind` (`success`, `over`, `recovery`, `miss`; null for future days). `exercises` are ordered **most recent first** by `started_at`. `week[].primary_activity_type` is the type of the **longest-duration** activity that day (it drives the circle icon). `week_chart` covers the Monday-Sunday week containing `selected_date`; the streak `week` is always the current week. `selected_date` must be between `earliest_date` (the first day with any data) and `today`, else 422 `date_out_of_range`. Streak-week days before the first data day show `missed`. Bars have `kcal: null` for `not_logged` and `future` days. `streak.message` is the quiet line from UI_SPEC 9 (at risk, then today counted, then fresh start with the best streak). Implementation: `api/app/dashboard/`.
 
 ## 12. Security
 

@@ -54,18 +54,19 @@ describe("ring", () => {
   it("fills by eaten over budget and shows what is left", () => {
     expect(ringContent(654, 1853, "within")).toEqual({
       fill: 654 / 1853,
-      overflow: 0,
       tone: "within",
       figure: 1199,
       caption: "kcal left",
     });
   });
 
-  it("is full and orange over budget, with the overflow capped at one turn", () => {
-    const over = ringContent(2173, 1853, "over");
-    expect([over.fill, over.tone, over.figure, over.caption]).toEqual([1, "over", 320, "kcal over"]);
-    expect(over.overflow).toBeCloseTo(320 / 1853);
-    expect(ringContent(5000, 1853, "over").overflow).toBe(1);
+  it("is full and orange over budget, saying how much over", () => {
+    expect(ringContent(2173, 1853, "over")).toEqual({
+      fill: 1,
+      tone: "over",
+      figure: 320,
+      caption: "kcal over",
+    });
   });
 
   it("is empty with no budget or nothing eaten", () => {
@@ -92,25 +93,25 @@ describe("accessible names", () => {
     expect(
       streakDayLabel({
         date: "2026-10-13",
-        state: "qualifying",
-        primary_activity_type: "run",
-        calorie_status: "within",
+        state: "counted",
+        kind: "over",
+        calorie_status: "over",
       }),
-    ).toBe("Tuesday, October 13: qualifying day. Workout. Calories: within budget.");
+    ).toBe("Tuesday, October 13: over budget, streak kept. Calories: over budget.");
     expect(
       streakDayLabel({
         date: "2026-10-18",
         state: "future",
-        primary_activity_type: null,
+        kind: null,
         calorie_status: "not_logged",
       }),
     ).toBe("Sunday, October 18: upcoming.");
   });
 
   it("summarises the streak", () => {
-    expect(streakSummary(12, "qualifying", false)).toBe("Streak: 12 days. Today: counted.");
-    expect(streakSummary(1, "today_pending", true)).toBe(
-      "Streak: 1 day. Today: not counted yet. Yesterday isn't logged yet.",
+    expect(streakSummary(12, "counted", false)).toBe("Streak: 12 days. Today: counted.");
+    expect(streakSummary(1, "pending", true)).toBe(
+      "Streak: 1 day. Today: not counted yet. Yesterday can still be filled in.",
     );
   });
 

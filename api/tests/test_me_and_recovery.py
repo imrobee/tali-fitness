@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 import pytest
-from builders import TODAY, add_recovery, qualify
+from builders import TODAY, add_food, add_recovery, qualify
 from conftest import TEST_API_KEY
 from sqlalchemy import text
 
@@ -23,6 +23,9 @@ def test_me_starts_without_nickname_or_targets(client):
         "targets": None,
         "weight_goal_kg": None,
         "weight_unit": "kg",
+        "lenient_weekends": False,
+        "vacation": None,
+        "last_vacation": None,
         "earliest_date": "2026-10-20",
     }
 
@@ -120,7 +123,7 @@ def test_log_a_recovery_day_when_the_previous_day_counted(client, engine):
     assert response.status_code == 201
     assert response.json() == {"date": "2026-10-20", "state": "logged"}
     dashboard = client.get("/api/v1/dashboard", headers=HEADERS).json()
-    assert dashboard["recovery"] == {"state": "logged", "freezes_left": 0, "freezes_max": 1}
+    assert dashboard["recovery"] == {"state": "logged"}
 
 
 def test_logging_the_same_day_twice_is_fine(client, engine):
@@ -130,16 +133,17 @@ def test_logging_the_same_day_twice_is_fine(client, engine):
     assert post_recovery(client, TODAY).status_code == 200
 
 
-def test_blocked_when_the_previous_day_did_not_count(client, engine):
-    qualify(engine, TODAY - timedelta(days=2))  # yesterday has nothing
+def test_blocked_when_the_day_before_was_a_rest_day(client, engine):
+    qualify(engine, TODAY - timedelta(days=2))
+    add_food(engine, YESTERDAY)  # food, no workout: a rest day
 
-    response = post_recovery(client, TODAY)
+    response = post_recovery(client, TODAY)  # a second rest day in a row would break it
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "recovery_not_allowed"
 
 
-def test_heal_yesterday_with_the_freeze(client, engine):
+def test_heal_yesterday_with_a_recovery_day(client, engine):
     qualify(engine, TODAY - timedelta(days=3))
     qualify(engine, TODAY - timedelta(days=2))
     assert client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]["at_risk"] is True
@@ -147,7 +151,7 @@ def test_heal_yesterday_with_the_freeze(client, engine):
     assert post_recovery(client, YESTERDAY).status_code == 201
 
     streak = client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]
-    assert (streak["count"], streak["at_risk"]) == (2, False)
+    assert (streak["count"], streak["at_risk"]) == (3, False)  # a rest day counts
 
 
 @pytest.mark.parametrize("days_ago", [2, -1])
@@ -181,3 +185,85 @@ def test_undo_is_limited_to_today_or_yesterday(client):
     response = client.delete("/api/v1/recovery/2026-10-01", headers=HEADERS)
 
     assert response.json()["error"]["code"] == "recovery_not_allowed"
+
+
+def test_a_recovery_day_after_a_missed_day_is_allowed(client, engine):
+    qualify(engine, TODAY - timedelta(days=2))  # yesterday has nothing: already broken
+
+    assert post_recovery(client, TODAY).status_code == 201
+
+
+# --- relaxed weekends and vacation ---------------------------------------------------------
+
+
+def test_relaxed_weekends_apply_from_today(client, engine):
+    me = client.put("/api/v1/me", headers=HEADERS, json={"lenient_weekends": True}).json()
+
+    assert me["lenient_weekends"] is True
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT effective_from, lenient_weekends FROM app.streak_settings_history")
+        ).all()
+    assert [(str(r.effective_from), r.lenient_weekends) for r in rows] == [("2026-10-20", True)]
+
+
+def test_a_vacation_can_be_set_changed_and_ended(client):
+    me = client.put(
+        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-24", "to": "2026-11-01"}
+    ).json()
+    assert me["vacation"] == {"from": "2026-10-24", "to": "2026-11-01"}
+
+    me = client.put(
+        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-25", "to": "2026-11-02"}
+    ).json()
+    assert me["vacation"] == {"from": "2026-10-25", "to": "2026-11-02"}  # changed, not added
+
+    assert client.delete("/api/v1/vacation", headers=HEADERS).status_code == 204
+    assert client.get("/api/v1/me", headers=HEADERS).json()["vacation"] is None
+
+
+def test_a_forgotten_vacation_in_the_past_is_kept_as_history(client):
+    me = client.put(
+        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-12", "to": "2026-10-15"}
+    ).json()
+
+    assert (me["vacation"], me["last_vacation"]) == (
+        None,
+        {"from": "2026-10-12", "to": "2026-10-15"},
+    )
+
+
+def test_a_vacation_heals_the_days_it_covers(client, engine):
+    qualify(engine, TODAY - timedelta(days=3))
+    add_food(engine, TODAY - timedelta(days=2))
+    add_food(engine, YESTERDAY)  # a second rest day in a row: at risk
+    assert client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]["at_risk"] is True
+
+    client.put("/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-18", "to": "2026-10-19"})
+
+    streak = client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]
+    assert (streak["count"], streak["at_risk"]) == (3, False)
+
+
+@pytest.mark.parametrize(
+    ("period", "code"),
+    [
+        ({"from": "2026-10-25", "to": "2026-10-24"}, "invalid_payload"),  # backwards
+        ({"from": "2026-10-01", "to": "2026-12-31"}, "invalid_payload"),  # over 90 days
+        ({"from": "2027-12-01", "to": "2027-12-02"}, "date_out_of_range"),  # over a year ahead
+    ],
+)
+def test_vacation_limits(client, period, code):
+    response = client.put("/api/v1/vacation", headers=HEADERS, json=period)
+
+    assert (response.status_code, response.json()["error"]["code"]) == (422, code)
+
+
+def test_vacations_cannot_overlap(client):
+    client.put("/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-12", "to": "2026-10-15"})
+
+    response = client.put(
+        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-14", "to": "2026-10-22"}
+    )
+
+    assert response.json()["error"]["code"] == "vacation_overlap"

@@ -8,6 +8,7 @@ from datetime import date
 
 from builders import add_activity, add_food
 from conftest import TEST_API_KEY
+from sqlalchemy import text
 from test_activities import add_set, strava_id_for
 
 HEADERS = {"X-API-Key": TEST_API_KEY}
@@ -70,10 +71,26 @@ def test_the_weekly_summary_compares_last_week_with_the_week_before(client, engi
     body = get(client, "summary/week")
 
     assert (body["week_start"], body["sessions"], body["prev_sessions"]) == ("2026-10-12", 2, 1)
-    assert (body["qualifying_days"], body["prev_qualifying_days"]) == (1, 1)
+    # Counted days: Oct 13 (success) and Oct 14 (a workout without food: a rest day).
+    assert (body["qualifying_days"], body["prev_qualifying_days"]) == (2, 1)
     assert (body["avg_kcal"], body["prev_avg_kcal"], body["avg_protein_g"]) == (1900, 1700, 120)
 
 
 def test_progress_needs_the_api_key(client):
     for path in ("records", "muscle-volume", "summary/week"):
         assert client.get(f"/api/v1/{path}").status_code == 401
+
+
+def test_unmapped_exercises_are_left_out_of_muscle_volume_and_unnamed_in_records(client, engine):
+    session = lifting(engine, date(2026, 10, 14))
+    add_set(engine, session, 1, 1, "weight_reps", weight_kg=100, reps=10)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE core.dim_exercise SET muscle_group = 'Unmapped' "
+                "WHERE exercise_name = 'Exercise 1'"
+            )
+        )
+
+    assert get(client, "muscle-volume")["groups"] == []
+    assert get(client, "records")["records"][0]["muscle_group"] is None

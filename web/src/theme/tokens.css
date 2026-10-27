@@ -48,13 +48,6 @@
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ring-duration: 600ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --ring-duration: 0ms;
-  }
 }
 
 @media (prefers-contrast: more) {

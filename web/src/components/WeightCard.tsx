@@ -4,6 +4,7 @@ import { parseIsoDate } from "../lib/dates";
 import { bodyWeight } from "../lib/units";
 import {
   changeLine,
+  chartDays,
   chartDomain,
   goalLine,
   weightDayLabel,
@@ -21,7 +22,7 @@ const HEIGHT = 140;
 /** Weight and the goal: each weigh-in as a dot, the 7-day average as a line, the goal dashed. */
 export function WeightCard({ weight }: { weight: Weight }) {
   const unit = useWeightUnit();
-  const days = weight.days;
+  const days = chartDays(weight.days);
   const domain = chartDomain(
     days.map((day) => day.weight_kg),
     weight.goal_kg,
@@ -53,7 +54,7 @@ export function WeightCard({ weight }: { weight: Weight }) {
         className={styles.chart}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
-        aria-label={`Weight over ${days.length} days`}
+        aria-label={`Weight since the first weigh-in, over ${days.length} days`}
       >
         {weight.goal_kg !== null && (
           <line

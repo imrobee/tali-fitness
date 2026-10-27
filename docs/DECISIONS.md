@@ -337,3 +337,27 @@ Guards: one request per 2 minutes (`ops.sync_requests`), none while a Strava run
 **D95. Sync now's tests run a real local HTTP server as Airflow.**
 Why: the client's real requests (path, body, bearer token, URL-encoded run id) are checked at the HTTP boundary, as the 7c acceptance asks. Rejected: replacing the client with a Python fake (would never test the HTTP code). Cut: refresh-if-stale on app open (first on the 7c cut line).
 
+**D96. The streak rule is four kinds of day: success, over budget, rest day, missed (Rob, 2026-10-27; replaces the single freeze, D38).**
+A missed day breaks the streak; so do two over-budget days or two rest days in a row. Rob's choices: a workout without food is a rest day; over budget without a workout is an over-budget day; the count is every day that kept the streak; a logged recovery day stays as a manual override and marks the day a rest day. Defaults I chose: "in a row" means consecutive days (a third over day breaks again), food logged without a budget counts as within (nothing to be over), and two kinds alternating never break. Why: LAG of the day's kind is enough, so the rule stays one readable SQL function. Rejected: a running counter (recursive CTE), only needed if a break did not reset the pair.
+
+**D97. Relaxed weekends are a setting with history (`app.streak_settings_history`); a change applies from today.**
+Why: turning it on must not quietly rewrite last month's streaks. Default strict. Rejected: one flag on the profile (would change past weekends).
+
+**D98. Vacation or injury periods may cover past days; the Me page edits only the one still running or to come, at most 90 days, no overlaps.**
+Why: a forgotten vacation should still protect those days, and a past break must not be moved away from the days it protected. A relaxed day never sets up a pair for the next day. Rejected: future-only periods; one period that is always overwritten.
+
+**D99. Today never breaks the streak before midnight, and yesterday stays "at risk" until today ends.**
+Why: food arrives from the Shortcut and workouts from Strava with a delay, and a rest day can still become a success later today. The card says why ("Yesterday was a rest day. A workout today keeps your streak going."). Rejected: judging today as it stands (a 9 am rest day would end the streak).
+
+**D100. The calorie marker becomes a ring around each streak circle: grey not logged, green within (or no budget), orange over with a gap at the bottom and a mark in it (Rob, 2026-10-27; the mark is a small triangle since D102).**
+Why: the shape (the gap and the mark) carries "over" without colour (UI_SPEC 8). The "!" is a deliberate exception to UI_SPEC 9's "no exclamation marks", which is about copy. Circles stay 32px inside a 40px ring, so on phones the flame moves above the week (UI_SPEC 5.3 already allowed it). Rejected: keeping the square marker beside a ring.
+
+**D101. The recovery card keeps logging a rest day (today or yesterday), offered only when it helps.**
+States `available`, `logged`, `blocked` (the day before was a rest day, so a second would end it anyway), `counted`, `locked`; the freeze pill is gone. `app.recovery_day` keeps its data. Rejected: removing the card (Rob chose to keep it as an override).
+
+**D102. Polish round (Rob, 2026-10-27): the streak ring sits 2.5px clear of its circle and marks "over" with a small triangle instead of "!"; the calorie card's dashed overflow arc and fill animation are gone; the weekly card prints no budget figure; the weight chart starts at the first weigh-in; the vacation dates open from a "Log break" button with "Choose date" chips.**
+Why: Rob's review of the iPhone build. The triangle keeps a shape cue for "over" without breaking UI_SPEC 9's no-exclamation rule; "kcal over" remains the calorie card's non-colour cue. Also fixed: the calorie ring sat left of centre when within budget, because a percentage width inside an `auto` grid column let the column grow past the ring; the side columns are now `minmax(0, 1fr)` and the ring is centred. Rejected: keeping the animation only on first load (Rob asked for none).
+
+**D103. "Unmapped" never appears on a page; the data-quality check that reports unmapped exercises stays.**
+Muscle volume leaves unmapped exercises out and records show no muscle for them; Leg Press is mapped to Quads in the seed file. Why: the word is pipeline jargon, but the check is how a new exercise gets noticed (it caught Leg Press), and data-quality checks are on the never-cut list. Rejected: deleting the check or the `Unmapped` default.
+

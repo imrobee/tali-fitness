@@ -42,7 +42,8 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
                   <span className={`${styles.value} num`}>{recordValue(record, unit)}</span>
                 </span>
                 <span className={`${styles.muted} num`} aria-hidden="true">
-                  {recordSet(record, unit)} · {record.muscle_group}
+                  {recordSet(record, unit)}
+                  {record.muscle_group && ` · ${record.muscle_group}`}
                 </span>
                 {gain && (
                   <span className={`${styles.muted} num`} aria-hidden="true">

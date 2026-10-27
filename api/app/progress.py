@@ -19,6 +19,14 @@ router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 # A record set in the last 14 days is marked "New" on the page.
 RECENT_DAYS = 14
 
+# The muscle group of an exercise not yet in db/seeds/exercise_muscle_map.csv. The
+# unmapped_exercises data-quality check reports those; the pages never show the word.
+UNMAPPED = "Unmapped"
+
+
+def _muscle(group: str) -> str | None:
+    return None if group == UNMAPPED else group
+
 
 def _float(value) -> float | None:
     return None if value is None else float(value)
@@ -27,7 +35,7 @@ def _float(value) -> float | None:
 class PersonalRecord(BaseModel):
     exercise: str
     equipment: str | None
-    muscle_group: str
+    muscle_group: str | None  # None until the exercise is mapped to a muscle group
     e1rm_kg: float  # estimated one-rep max (Epley)
     weight_kg: float
     reps: int
@@ -85,7 +93,7 @@ def personal_records(engine: Annotated[Engine, Depends(get_engine)]) -> Personal
             PersonalRecord(
                 exercise=row.exercise_name,
                 equipment=row.equipment,
-                muscle_group=row.muscle_group,
+                muscle_group=_muscle(row.muscle_group),
                 e1rm_kg=float(row.best_e1rm_kg),
                 weight_kg=float(row.weight_kg),
                 reps=row.reps,
@@ -121,7 +129,7 @@ def muscle_volume(engine: Annotated[Engine, Depends(get_engine)]) -> MuscleVolum
                 prev_volume_kg=float(row.prev_volume_kg or 0),
             )
             for row in rows
-            if row.sets > 0 or (row.prev_sets or 0) > 0
+            if (row.sets > 0 or (row.prev_sets or 0) > 0) and row.muscle_group != UNMAPPED
         ],
     )
 

@@ -54,19 +54,20 @@ function day(date: string, weekday: string, state: StreakDay["state"], extra: Pa
     date,
     weekday,
     state,
-    primary_activity_type: state === "qualifying" ? "run" : null,
+    kind: state === "future" ? null : "success",
+    primary_activity_type: state === "counted" ? "run" : null,
     calorie_status: state === "future" ? "not_logged" : "within",
     ...extra,
   } as StreakDay;
 }
 
 const WEEK: StreakDay[] = [
-  day("2026-10-12", "M", "qualifying"),
-  day("2026-10-13", "T", "qualifying", { primary_activity_type: "strength", calorie_status: "over" }),
-  day("2026-10-14", "W", "recovery", { calorie_status: "not_logged" }),
-  day("2026-10-15", "T", "qualifying"),
-  day("2026-10-16", "F", "at_risk", { calorie_status: "not_logged" }),
-  day("2026-10-17", "S", "today_pending"),
+  day("2026-10-12", "M", "counted"),
+  day("2026-10-13", "T", "counted", { kind: "over", primary_activity_type: "strength", calorie_status: "over" }),
+  day("2026-10-14", "W", "counted", { kind: "recovery", calorie_status: "within" }),
+  day("2026-10-15", "T", "counted"),
+  day("2026-10-16", "F", "at_risk", { kind: "miss", calorie_status: "not_logged" }),
+  day("2026-10-17", "S", "pending", { kind: "miss", calorie_status: "not_logged" }),
   day("2026-10-18", "S", "future"),
 ];
 
@@ -78,10 +79,29 @@ describe("StreakCard", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Tuesday, October 13: qualifying day. Workout. Calories: over budget.",
+        name: "Tuesday, October 13: over budget, streak kept. Calories: over budget.",
       }),
     ).toBeTruthy();
-    expect(screen.getByText("Streak: 6 days. Today: not counted yet. Yesterday isn't logged yet.")).toBeTruthy();
+    expect(screen.getByText("Streak: 6 days. Today: not counted yet. Yesterday can still be filled in.")).toBeTruthy();
+  });
+
+  it("draws the calorie ring: grey, green, or orange with a gap and a triangle", () => {
+    const { container } = wrap(<StreakCard streak={streak} today={TODAY} selectedDate={TODAY} onSelect={() => {}} />);
+
+    const rings = [...container.querySelectorAll("svg circle")];
+    expect(rings).toHaveLength(6); // no ring on the future Sunday
+    const over = rings[1];
+    expect(over.getAttribute("stroke-dasharray")).not.toBeNull();
+    expect(rings[0].getAttribute("stroke-dasharray")).toBeNull(); // a full ring when within
+    expect(container.querySelectorAll("svg polygon")).toHaveLength(1); // only the over day
+    expect(container.querySelectorAll("svg text")).toHaveLength(0); // no "!" any more
+  });
+
+  it("shows a rest day without a workout as the snowflake, not the date", () => {
+    wrap(<StreakCard streak={streak} today={TODAY} selectedDate={TODAY} onSelect={() => {}} />);
+
+    const wednesday = screen.getByRole("button", { name: /^Wednesday, October 14: rest day/ });
+    expect(wednesday.textContent).not.toContain("14");
   });
 
   it("lets past days and today be selected, but not future days", () => {
@@ -108,44 +128,21 @@ describe("StreakCard", () => {
 });
 
 describe("RecoveryCard", () => {
-  const cases: [RecoveryState, string, string | null, string | null][] = [
-    ["available", "Taking a recovery day?", "1 freeze available", "Log recovery"],
-    ["logged", "Recovery day logged", "Freeze used", "Undo"],
-    ["no_freeze", "No freezes left", "0 freezes", null],
-    ["blocked", "Fill in yesterday first", "0 freezes", "Go to yesterday"],
-    ["counted", "This day counted", "1 freeze available", null],
-    ["locked", "Recovery day", null, null],
+  const cases: [RecoveryState, string, string | null][] = [
+    ["available", "Taking a recovery day?", "Log recovery"],
+    ["logged", "Recovery day logged", "Undo"],
+    ["blocked", "Rest day yesterday", null],
+    ["counted", "This day counted", null],
+    ["locked", "Recovery day", null],
   ];
 
-  it.each(cases)("shows the %s state", (state, title, pill, button) => {
-    const freezes = state === "logged" || state === "no_freeze" || state === "blocked" ? 0 : 1;
-    wrap(
-      <RecoveryCard
-        recovery={{ state, freezes_left: freezes, freezes_max: 1 }}
-        selectedDate={TODAY}
-        onSelect={() => {}}
-      />,
-    );
+  it.each(cases)("shows the %s state", (state, title, button) => {
+    wrap(<RecoveryCard recovery={{ state }} selectedDate={TODAY} />);
 
     expect(screen.getByRole("heading", { name: title })).toBeTruthy();
-    if (pill) expect(screen.getByText(pill)).toBeTruthy();
     if (button) expect(screen.getByRole("button", { name: button })).toBeTruthy();
     else expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("goes to yesterday when blocked", () => {
-    const onSelect = vi.fn();
-    wrap(
-      <RecoveryCard
-        recovery={{ state: "blocked", freezes_left: 0, freezes_max: 1 }}
-        selectedDate={TODAY}
-        onSelect={onSelect}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Go to yesterday" }));
-
-    expect(onSelect).toHaveBeenCalledWith("2026-10-16");
+    expect(screen.queryByText(/freeze/i)).toBeNull(); // the single freeze is gone (Slice 7d)
   });
 });
 

@@ -1,0 +1,125 @@
+/* The streak rules, the weekend switch and the vacation dates on Me. */
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settingLabel {
+  font-weight: 600;
+}
+
+.help {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.error {
+  margin: 0;
+  color: var(--over-budget); /* no red anywhere (UI_SPEC.md 9) */
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A label row with a date chip at the right: tapping the chip opens the phone's picker. */
+.dateRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--touch);
+}
+
+/* The chip: an icon and "Choose date" (or the date), with the date input over it. */
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chipEmpty {
+  color: var(--accent); /* "Choose date": an invitation to tap, like the other links */
+}
+
+.chipIcon {
+  font-size: 18px;
+}
+
+.chip:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dateInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+/* Chrome opens its picker from this icon: stretch it over the whole chip. */
+.dateInput::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+
+.primary,
+.secondary {
+  align-self: flex-start;
+  min-height: var(--touch);
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.secondary {
+  background: var(--card-elevated);
+  color: var(--text);
+}

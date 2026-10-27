@@ -13,6 +13,9 @@ const ME = {
   targets: { calorie_budget: 1853, protein_goal: 130, effective_from: "2026-10-01" },
   weight_goal_kg: 72.575, // 160 lb as the database stores it
   weight_unit: "kg",
+  lenient_weekends: false,
+  vacation: null,
+  last_vacation: { from: "2026-10-05", to: "2026-10-07" },
   earliest_date: "2026-10-01",
 };
 
@@ -26,6 +29,11 @@ function fakeApi() {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/v1/vacation" && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body));
+        puts.push({ vacation: body });
+        return new Response(JSON.stringify({ ...ME, vacation: body }), { status: 200 });
+      }
       if (url === "/api/v1/me" && init?.method === "PUT") {
         const body = JSON.parse(String(init.body));
         puts.push(body);
@@ -75,5 +83,55 @@ describe("Me page weight unit", () => {
 
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]).toEqual({ nickname: "Rob" });
+  });
+});
+
+function renderMe() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <MePage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("Me page streak settings", () => {
+  it("explains the streak and saves relaxed weekends at once", async () => {
+    const puts = fakeApi();
+    renderMe();
+
+    expect(await screen.findByText("Weekends follow the same rules as weekdays.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("group", { name: "Weekends" }).querySelectorAll("button")[1]);
+
+    await waitFor(() => expect(puts).toEqual([{ lenient_weekends: true }]));
+  });
+
+  it("saves a vacation from its From and To dates, and shows the last one", async () => {
+    const puts = fakeApi();
+    renderMe();
+
+    expect(await screen.findByText("Last break: Oct 5 – Oct 7")).toBeTruthy();
+    expect(screen.queryByLabelText("From")).toBeNull(); // closed until "Log break"
+    fireEvent.click(screen.getByRole("button", { name: "Log break" }));
+    expect(screen.getAllByText("Choose date")).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-11-02" } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-11-06" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save break" }));
+
+    expect(screen.getByText("Mon, Nov 2")).toBeTruthy();
+    await waitFor(() => expect(puts).toEqual([{ vacation: { from: "2026-11-02", to: "2026-11-06" } }]));
+  });
+
+  it("asks for both dates before saving", async () => {
+    const puts = fakeApi();
+    renderMe();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Log break" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save break" }));
+
+    expect(screen.getByText("Pick both dates.")).toBeTruthy();
+    expect(puts).toEqual([]);
   });
 });

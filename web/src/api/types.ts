@@ -3,20 +3,19 @@
 
 import type { CalorieStatus } from "../lib/ring";
 
-export type DayState =
-  | "qualifying"
-  | "recovery"
-  | "today_pending"
-  | "at_risk"
-  | "missed"
-  | "future";
+/** Whether a day kept the streak (ARCHITECTURE.md 8.3). */
+export type DayState = "counted" | "pending" | "at_risk" | "broken" | "future";
 
-export type RecoveryState = "available" | "logged" | "no_freeze" | "blocked" | "counted" | "locked";
+/** What kind of day it was: success, over budget, a rest day, or nothing logged. */
+export type DayKind = "success" | "over" | "recovery" | "miss";
+
+export type RecoveryState = "available" | "logged" | "blocked" | "counted" | "locked";
 
 export interface StreakDay {
   date: string;
   weekday: string;
   state: DayState;
+  kind: DayKind | null; // null for future days
   primary_activity_type: string | null;
   calorie_status: CalorieStatus;
 }
@@ -36,7 +35,7 @@ export interface Dashboard {
   greeting: string;
   nickname: string | null;
   streak: { count: number; at_risk: boolean; message: string | null; week: StreakDay[] };
-  recovery: { state: RecoveryState; freezes_left: number; freezes_max: number };
+  recovery: { state: RecoveryState };
   exercises: Exercise[];
   calories: {
     eaten: number;
@@ -73,7 +72,15 @@ export interface Me {
   targets: (Targets & { effective_from: string }) | null;
   weight_goal_kg: number | null;
   weight_unit: "kg" | "lb";
+  lenient_weekends: boolean;
+  vacation: Period | null; // still running or still to come
+  last_vacation: Period | null; // the latest one that has ended
   earliest_date: string;
+}
+
+export interface Period {
+  from: string;
+  to: string;
 }
 
 export interface MeUpdate {
@@ -81,6 +88,7 @@ export interface MeUpdate {
   targets?: Targets;
   weight_goal_kg?: number;
   weight_unit?: "kg" | "lb";
+  lenient_weekends?: boolean;
 }
 
 // GET /api/v1/pipeline/health (api/app/pipeline.py).
@@ -276,7 +284,7 @@ export interface Weight {
 export interface PersonalRecord {
   exercise: string;
   equipment: string | null;
-  muscle_group: string;
+  muscle_group: string | null; // null until the exercise is mapped to a muscle group
   e1rm_kg: number;
   weight_kg: number;
   reps: number;

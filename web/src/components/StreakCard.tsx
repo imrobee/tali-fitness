@@ -2,6 +2,7 @@ import type { Dashboard, StreakDay } from "../api/types";
 import { ActivityIcon, FlameIcon, SnowflakeIcon } from "../icons";
 import { streakDayLabel, streakSummary } from "../lib/a11y";
 import { addDays, dayOfMonth } from "../lib/dates";
+import { RING_RADIUS, RING_SIZE, ringArc, ringTone, trianglePoints } from "../lib/streakRing";
 import { Card } from "./Card";
 import styles from "./StreakCard.module.css";
 
@@ -12,18 +13,44 @@ interface Props {
   onSelect: (date: string) => void;
 }
 
-/** Days where the marker shows: past days and today, except recovery and future days
-    with no calories logged (UI_SPEC.md 5.3). */
-function showMarker(day: StreakDay): boolean {
-  if (day.state === "future") return false;
-  if (day.state === "recovery") return day.calorie_status !== "not_logged";
-  return true;
+/** The circle's look: a workout is a white circle with its icon, a rest day without a
+    workout the snowflake, today an outline, everything else a dark circle with the date. */
+function circleClass(day: StreakDay, today: string): string {
+  if (day.state === "future") return styles.future;
+  if (day.primary_activity_type !== null) return styles.active;
+  if (day.kind === "recovery") return styles.recovery;
+  if (day.state === "at_risk") return styles.at_risk;
+  if (day.date === today) return styles.today;
+  return styles.missed;
 }
 
 function CircleContent({ day }: { day: StreakDay }) {
-  if (day.state === "qualifying") return <ActivityIcon kind={day.primary_activity_type} />;
-  if (day.state === "recovery") return <SnowflakeIcon />;
+  if (day.state !== "future" && day.primary_activity_type !== null) {
+    return <ActivityIcon kind={day.primary_activity_type} />;
+  }
+  if (day.state !== "future" && day.kind === "recovery") return <SnowflakeIcon />;
   return <>{dayOfMonth(day.date)}</>;
+}
+
+/** The calorie ring around a circle (UI_SPEC.md 5.3). None on future days. */
+function CalorieRing({ day }: { day: StreakDay }) {
+  if (day.state === "future") return null;
+  const tone = ringTone(day.calorie_status);
+  const { dasharray, rotate } = ringArc(tone);
+  const centre = RING_SIZE / 2;
+  return (
+    <svg className={styles.ring} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} aria-hidden="true">
+      <circle
+        className={styles[`ring_${tone}`]}
+        cx={centre}
+        cy={centre}
+        r={RING_RADIUS}
+        strokeDasharray={dasharray ?? undefined}
+        transform={rotate ? `rotate(${rotate} ${centre} ${centre})` : undefined}
+      />
+      {tone === "orange" && <polygon className={styles.overMark} points={trianglePoints(centre)} />}
+    </svg>
+  );
 }
 
 export function StreakCard({ streak, today, selectedDate, onSelect }: Props) {
@@ -46,9 +73,6 @@ export function StreakCard({ streak, today, selectedDate, onSelect }: Props) {
           {streak.week.map((day) => {
             const isFuture = day.state === "future";
             const isSelected = day.date === selectedDate;
-            const marker = showMarker(day)
-              ? styles[`marker_${day.calorie_status}`]
-              : styles.marker_hidden;
             return (
               <li key={day.date}>
                 <button
@@ -59,10 +83,12 @@ export function StreakCard({ streak, today, selectedDate, onSelect }: Props) {
                   aria-label={streakDayLabel(day)}
                   onClick={() => onSelect(day.date)}
                 >
-                  <span className={`${styles.circle} ${styles[day.state]} num`}>
-                    <CircleContent day={day} />
+                  <span className={styles.ringWrap}>
+                    <CalorieRing day={day} />
+                    <span className={`${styles.circle} ${circleClass(day, today)} num`}>
+                      <CircleContent day={day} />
+                    </span>
                   </span>
-                  <span className={`${styles.marker} ${marker}`} />
                   <span className={`${styles.letter} ${isSelected ? styles.selected : ""}`}>
                     {day.weekday}
                   </span>

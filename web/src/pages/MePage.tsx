@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { UNAUTHORIZED_EVENT, isOffline } from "../api/client";
 import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
+import { StreakRulesCard, VacationCard } from "../components/StreakSettings";
 import { Toggle } from "../components/Toggle";
 import { toKg, type WeightUnit, weightNumber } from "../lib/units";
 import { getApiKey, maskKey } from "../api/key";
@@ -28,6 +29,8 @@ export function MePage() {
           </Card>
         ))}
       {query.data && <ProfileForm me={query.data} />}
+      {query.data && <StreakRulesCard me={query.data} />}
+      {query.data && <VacationCard me={query.data} />}
       {query.data && (
         <Card title="Time zone">
           <div className={styles.row}>

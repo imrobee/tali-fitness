@@ -1,31 +1,35 @@
 """Build test days straight into core/app tables, for the business-rule tests.
 
 Notation from ARCHITECTURE.md 8.4, oldest to newest, the last item is today:
-  Q  qualifying (workout + calories)    R   recovery day logged
-  M  nothing                            A   workout only
-  C  calories only                      T   today, nothing yet
-  Tq today qualifying                   Rq  recovery logged on a day that also qualifies
-  Qo qualifying, over the budget        R(today)  recovery logged today
+  S   success: a workout and food within budget      M   nothing logged
+  O   over budget, with a workout                    Ov  over budget, no workout
+  R   rest: food within budget, no workout           A   rest: a workout, no food logged
+  L   a logged recovery day and nothing else         Lw  a logged recovery day on a day
+                                                         that was a success
+  T   today, nothing yet      Ts  today success      To  today over      Tr  today rest
+Any O token adds a 2,000 kcal budget; over days eat 2,500, the others 1,500.
 """
 
 from datetime import date, timedelta
 
 from sqlalchemy import Engine, text
 
-TODAY = date(2026, 10, 21)
+TODAY = date(2026, 10, 21)  # a Wednesday: Oct 17 and 18 are the weekend before
 
 TOKENS = {
-    #            activity, calories, recovery
-    "Q": (True, True, False),
-    "Qo": (True, True, False),  # same flags; tests add a budget below its calories
-    "R": (False, False, True),
-    "M": (False, False, False),
-    "A": (True, False, False),
-    "C": (False, True, False),
-    "T": (False, False, False),
-    "Tq": (True, True, False),
-    "Rq": (True, True, True),
-    "R(today)": (False, False, True),
+    #       activity, kcal,  recovery logged
+    "S": (True, 1500, False),
+    "O": (True, 2500, False),
+    "Ov": (False, 2500, False),
+    "R": (False, 1500, False),
+    "A": (True, None, False),
+    "L": (False, None, True),
+    "Lw": (True, 1500, True),
+    "M": (False, None, False),
+    "T": (False, None, False),
+    "Ts": (True, 1500, False),
+    "To": (True, 2500, False),
+    "Tr": (False, 1500, False),
 }
 
 
@@ -110,18 +114,39 @@ def add_target(engine: Engine, effective_from: date, budget: int, protein: int =
 
 
 def build(engine: Engine, sequence: str, today: date = TODAY) -> list[date]:
-    """Insert a sequence like "Q R Q T" ending on `today`. Returns the dates used."""
+    """Insert a sequence like "S O R T" ending on `today`. Returns the dates used."""
     tokens = sequence.split()
     days = [today - timedelta(days=len(tokens) - 1 - i) for i in range(len(tokens))]
+    if any(token.startswith(("O", "To")) for token in tokens):
+        add_target(engine, days[0] - timedelta(days=30), budget=2000)
     for token, day in zip(tokens, days, strict=True):
-        activity, calories, recovery = TOKENS[token]
+        activity, kcal, recovery = TOKENS[token]
         if activity:
             add_activity(engine, day)
-        if calories:
-            add_calories(engine, day, kcal=2500 if token == "Qo" else 1500)
+        if kcal is not None:
+            add_calories(engine, day, kcal=kcal)
         if recovery:
             add_recovery(engine, day)
     return days
+
+
+def relax_weekends(engine: Engine, effective_from: date, lenient: bool = True) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO app.streak_settings_history (effective_from, lenient_weekends) "
+                "VALUES (:day, :lenient)"
+            ),
+            {"day": effective_from, "lenient": lenient},
+        )
+
+
+def add_vacation(engine: Engine, start: date, end: date) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO app.vacation (start_date, end_date) VALUES (:start, :end)"),
+            {"start": start, "end": end},
+        )
 
 
 def streak(engine: Engine, today: date = TODAY):

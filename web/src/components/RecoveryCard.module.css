@@ -5,12 +5,10 @@
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 12px;
-  /* Constant height: room for the tallest state (title, a two-line body, the pill), built
-     from the type tokens so it scales with text size. 18px = the two gaps, the pill's
-     top margin and its padding. A three-line body on a very narrow screen still grows. */
-  min-height: calc(
-    (var(--fs-card) + 2 * var(--fs-body) + var(--fs-small)) * 1.45 + 18px
-  );
+  /* Constant height: room for the tallest state (title and a two-line body), built from
+     the type tokens so it scales with text size; 4px is the gap. A three-line body on a
+     very narrow screen still grows. */
+  min-height: calc((var(--fs-card) + 2 * var(--fs-body)) * 1.45 + 4px);
 }
 
 .text {
@@ -26,26 +24,6 @@
 
 .body {
   color: var(--text-secondary);
-}
-
-.pill {
-  display: inline-flex;
-  align-self: start;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 3px 10px 3px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--card-elevated);
-  color: var(--text-secondary);
-  font-size: var(--fs-small);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pillIcon {
-  color: var(--accent);
-  font-size: 14px;
 }
 
 /* The primary control, made primary by inversion (white pill, black label). */

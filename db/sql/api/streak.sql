@@ -1,2 +1,2 @@
-SELECT streak, at_risk, freezes_left
+SELECT streak, at_risk, today_state, today_kind, yesterday_kind
 FROM mart.fn_streak(:today);

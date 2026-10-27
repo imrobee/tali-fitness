@@ -14,7 +14,7 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done. Update this fil
 | 5 Marts, streak, DQ | `[x]` done | `GET /pipeline/health` moved to 6b. 5 of 15 DQ checks (rest in 6b). `fn_daily_nutrition` is a function, not a view (D37). `ops.dq_results` has no severity column (D39). `data_quality` at minute 30 (D40). |
 | 6a API + web + dashboard (**M1**) | `[x]` done (PR #6; iPhone check passed 2026-10-21) | API: `GET /dashboard`, `GET/PUT /me`, `POST/DELETE /recovery`, migration 0007, 32 tests (D41-D44). Web: bottom nav, key gate, dashboard greeting through protein, Me targets form, minimal Activities/Nutrition reusing cards (D65), 47 new web tests. Separate demo stack and 3 iPhone screenshots (D66). Icons inline instead of `react-icons` (D59); flame colour changed (D62). |
 | 6b Pages + rest (**M2 UI**) | `[x]` done (PR #7) | All 15 DQ checks (D69, D70); `/pipeline/health` and the Me panel (D71); `/activities` and the Activities page with set detail (D73, D74); weekly calorie card on Dashboard and Nutrition (D75); Nutrition reuses `/dashboard`, no `/nutrition` endpoint (D72); 14 screenshots, 3 scenarios at iPhone and desktop plus Activities, Nutrition and Me (D76); 200% zoom fixed (D77). Nothing from the cut line was cut. |
-| 7 Leftovers + Next | `[~]` 7a merged (PR #8); 7b and 7c built and green on one branch, waiting on Rob's iPhone check | 7a: trends with `LAG` and a 7-day rolling average, calendar with a day filter (D79-D84). 7b: weight trend vs goal (D85-D88); kg / lb preference added at Rob's request (D89, D90); personal records by Epley (D91); weekly muscle volume (D92); "Last week" summary on the dashboard (D93). 7c: Sync now through Airflow's REST API, Run Health Push link (D94, D95). Cut: 7c refresh-if-stale on app open. Open: "small manual-entry forms" (7b) has no definition yet; Rob to say which forms. |
+| 7 Leftovers + Next | `[~]` 7a-7c merged (PRs #8, #9); 7d built and green, waiting on Rob's iPhone check | 7a: trends and calendar (D79-D84). 7b: weight, kg/lb, records, muscle volume, Last week (D85-D93). 7c: Sync now (D94, D95). 7d: new streak rules with relaxed weekends, vacation breaks and the calorie ring (D96-D101). Open: "small manual-entry forms" (7b) undefined. |
 | 8 Hosting + README | `[ ]` not started | Includes evaluating Strava webhooks. GPS privacy already done (D24). |
 
 Plan-level changes: all deadlines and time gates removed (D45); Rob runs every git command (D46); interview notes live in `docs/INTERVIEW_NOTES.md` (D57). See `docs/HANDOFF.md` for the exact next step.
@@ -46,7 +46,7 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 2. Slice 7c Sync now
 3. Slice 7a trends (monthly first, then weekly)
 4. Calendar view (week/month)
-5. Weekly calorie card polish and the dashed overflow arc
+5. Weekly calorie card polish
 6. Activities page set-by-set detail (fall back to raw description text)
 
 **Never cut:** tests, idempotency, data-quality checks, quarantine, CI, README with diagram.
@@ -141,6 +141,10 @@ Slices 0 and 1 share one branch, `slice-1-foundation` (exception to one branch p
   **Acceptance:** API tests for the trigger, the cooldown, and an Airflow error (Airflow's API mocked at the HTTP boundary); one live run triggered from the button lands a new activity; the Airflow credentials live only in `.env`.
   **Cut line:** refresh-if-stale on app open first, then the Sync Health button.
 
+- **7d Streak rules (Rob, 2026-10-27):** four kinds of day (success, over budget, rest, missed); a missed day, two over days or two rest days in a row end the streak; relaxed weekends (setting on Me, from today) and vacation or injury periods where only a missed day ends it; a "How your streak works" card on Me; the calorie marker becomes a ring (grey, green, orange with a "!" gap). The recovery card stays as a manual rest day.
+  **Acceptance:** ARCHITECTURE 8 rewritten and its 20 mandatory scenarios plus weekend, vacation and recovery-card tests pass in CI; each rule proven by breaking it; `/me` saves relaxed weekends from today; `/vacation` sets, changes and ends a break, refuses overlaps, keeps past ones; the ring in screenshots; 200% zoom with no horizontal scroll.
+  **Cut line (first to go):** the at-risk and pending messages that name the reason; then the "Last break" line.
+
 ### Slice 8: Hosting decision, deploy, README `[ ]`
 Research free hosting options (current pricing and limits, from official pages); include **Strava webhooks** (push on create/update/delete instead of hourly polling; needs a public HTTPS callback URL, so only possible once hosted); present options with trade-offs; Rob approves; deploy only after approval. **Privacy before hosting:** `raw.strava_activities` payloads contain GPS (`map`, `start_latlng`, `end_latlng`), which reveals where runs start; done early in Slice 2 (DECISIONS D24): stripped at load and from existing rows by migration 0003. Re-check before deploying that no other location data has appeared. Finish README (framing line, architecture and ERD diagrams, screenshots, how to run, DQ list, design decisions, limitations, interview notes).
 
@@ -152,7 +156,7 @@ Research free hosting options (current pricing and limits, from official pages);
 | Parser turning free-text workouts into set-level records | Golden tests (22 sets, 3490.90 kg; 12 mixed-kind sets) in CI; parse-coverage metric | partial: parser and both golden tests built (Slice 4); parse-coverage DQ check in Slice 5 |
 | Idempotent incremental loads | Run-twice tests for Strava and health; watermark + lookback | built: run-twice tests in CI for Strava (Slice 2, watermark + 7-day lookback) and health (Slice 3, replace per day and type, canonical duplicate check) |
 | Data-quality checks and CI | `ops.dq_results` populated; CI badge | partial: CI built (Slice 1); all 15 DQ checks built with pass and fail tests, run hourly by `data_quality` into `ops.dq_results` (Slices 5 and 6b); `ops.dq_results` fills once Rob switches the DAG on |
-| SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend functions | built: streak with the freeze rule (`LAG` + gaps-and-islands running `SUM`), all 17 scenarios in CI (Slice 5); weekly/monthly trends with `LAG` and a 7-day rolling `AVG ... ROWS 6 PRECEDING`, 19 SQL tests in CI (Slice 7a) |
+| SQL window-function streaks and trends | `mart.fn_day_status`/`fn_streak` tests; trend functions | built: streak rules with `LAG` of the day's kind and leniency + gaps-and-islands running `SUM`, 20 mandatory scenarios plus weekend and vacation cases in CI (Slice 5, rewritten in 7d); weekly/monthly trends with `LAG` and a 7-day rolling `AVG ... ROWS 6 PRECEDING`, 19 SQL tests in CI (Slice 7a) |
 
 ## 7. Risks
 

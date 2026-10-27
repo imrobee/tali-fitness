@@ -2,7 +2,9 @@
 
 .columns {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* minmax(0, 1fr): the two side columns stay equal whatever their numbers, so the ring
+     sits in the middle of the card ("654" is narrower than "1,853"). */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -40,6 +42,7 @@
   position: relative;
   width: min(176px, 100%);
   aspect-ratio: 1;
+  justify-self: center;
 }
 
 .ring svg {
@@ -57,21 +60,11 @@
   stroke-linecap: round;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .arc {
-    transition: stroke-dasharray var(--ring-duration) var(--ease-out);
-  }
-}
-
 .within {
   stroke: var(--within-budget);
 }
 
 .over {
-  stroke: var(--over-budget);
-}
-
-.overflow {
   stroke: var(--over-budget);
 }
 

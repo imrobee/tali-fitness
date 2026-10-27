@@ -16,6 +16,7 @@ import type {
   MuscleVolume,
   PersonalRecord,
   NutritionTrend,
+  Period,
   PipelineHealth,
   SyncStatus,
   TrainingTrend,
@@ -151,6 +152,28 @@ export function useSaveMe() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
+}
+
+/** Set or end the vacation or injury break; the streak and the Me page both change. */
+export function useVacation() {
+  const queryClient = useQueryClient();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  const save = useMutation({
+    mutationFn: (period: Period) =>
+      apiFetch<Me>("/vacation", { method: "PUT", body: JSON.stringify(period) }),
+    onSuccess: (me) => {
+      queryClient.setQueryData(["me"], me);
+      refresh();
+    },
+  });
+  const end = useMutation({
+    mutationFn: () => apiFetch("/vacation", { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      refresh();
+    },
+  });
+  return { save, end };
 }
 
 export function useRecovery() {

@@ -1,33 +1,27 @@
 import { useRecovery } from "../api/hooks";
 import type { Dashboard, RecoveryState } from "../api/types";
-import { SnowflakeIcon } from "../icons";
-import { addDays } from "../lib/dates";
 import cardStyles from "./Card.module.css";
 import styles from "./RecoveryCard.module.css";
 
-type Action = "log" | "undo" | "yesterday" | null;
+type Action = "log" | "undo" | null;
 
-// Copy and controls per state, word for word from UI_SPEC.md 5.4.
+// Copy and controls per state (UI_SPEC.md 5.4). A logged recovery day makes the day a rest
+// day: it helps on a day that would end the streak, unless the day before was a rest day.
 const STATES: Record<RecoveryState, { title: string; body: string; action: Action }> = {
   available: {
     title: "Taking a recovery day?",
-    body: "Rest counts. Your freeze keeps the streak on hold.",
+    body: "Logging it makes this a rest day, so your streak keeps going.",
     action: "log",
   },
   logged: {
     title: "Recovery day logged",
-    body: "Your streak is on hold. A workout and logged calories reset your freeze.",
+    body: "This is a rest day. Two rest days in a row end the streak.",
     action: "undo",
   },
-  no_freeze: {
-    title: "No freezes left",
-    body: "Log a workout and calories to reset your freeze.",
-    action: null,
-  },
   blocked: {
-    title: "Fill in yesterday first",
-    body: "A freeze needs yesterday to be counted.",
-    action: "yesterday",
+    title: "Rest day yesterday",
+    body: "Two rest days in a row end the streak. A workout keeps it going.",
+    action: null,
   },
   counted: {
     title: "This day counted",
@@ -41,25 +35,14 @@ const STATES: Record<RecoveryState, { title: string; body: string; action: Actio
   },
 };
 
-function pillText(state: RecoveryState, freezesLeft: number): string | null {
-  if (state === "locked") return null;
-  if (state === "logged") return "Freeze used";
-  if (state === "available" || state === "counted") {
-    return freezesLeft === 1 ? "1 freeze available" : `${freezesLeft} freezes available`;
-  }
-  return "0 freezes";
-}
-
 interface Props {
   recovery: Dashboard["recovery"];
   selectedDate: string;
-  onSelect: (date: string) => void;
 }
 
-export function RecoveryCard({ recovery, selectedDate, onSelect }: Props) {
+export function RecoveryCard({ recovery, selectedDate }: Props) {
   const { log, undo } = useRecovery();
   const { title, body, action } = STATES[recovery.state];
-  const pill = pillText(recovery.state, recovery.freezes_left);
   const busy = log.isPending || undo.isPending;
   const error = log.error ?? undo.error;
 
@@ -73,12 +56,6 @@ export function RecoveryCard({ recovery, selectedDate, onSelect }: Props) {
             {title}
           </h2>
           <p className={styles.body}>{body}</p>
-          {pill && (
-            <span className={styles.pill}>
-              <SnowflakeIcon className={styles.pillIcon} />
-              {pill}
-            </span>
-          )}
           {error && (
             <p className={styles.error} role="alert">
               {error.message}
@@ -104,15 +81,6 @@ export function RecoveryCard({ recovery, selectedDate, onSelect }: Props) {
             onClick={() => undo.mutate(selectedDate)}
           >
             Undo
-          </button>
-        )}
-        {action === "yesterday" && (
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={() => onSelect(addDays(selectedDate, -1))}
-          >
-            Go to yesterday
           </button>
         )}
       </div>

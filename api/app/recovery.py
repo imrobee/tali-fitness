@@ -1,4 +1,5 @@
-"""POST/DELETE /api/v1/recovery: log or undo a recovery day (the single freeze).
+"""POST/DELETE /api/v1/recovery: log or undo a recovery day, which makes that day a rest day
+(ARCHITECTURE.md 8; Rob kept it as a manual override in Slice 7d).
 
 The rule lives in SQL (mart.fn_recovery_state): a day can be logged only when the
 recovery card for it says 'available', so the card and the endpoint never disagree.
@@ -21,9 +22,8 @@ router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 # Why a day cannot be logged, by recovery-card state (copy follows UI_SPEC.md 5.4).
 NOT_ALLOWED = {
     "locked": "Recovery days can only be set for today or yesterday.",
-    "counted": "This day already counts: it has a workout and logged calories.",
-    "no_freeze": "No freezes left: the previous day was a recovery day.",
-    "blocked": "A freeze needs the previous day to be counted. Fill it in first.",
+    "counted": "This day already keeps your streak going.",
+    "blocked": "The day before was a rest day too. Two in a row end the streak.",
 }
 
 

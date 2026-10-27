@@ -51,11 +51,7 @@ export function DashboardPage() {
         selectedDate={date}
         onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
       />
-      <RecoveryCard
-        recovery={dashboard.recovery}
-        selectedDate={date}
-        onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
-      />
+      <RecoveryCard recovery={dashboard.recovery} selectedDate={date} />
       <ExercisesCard exercises={dashboard.exercises} to={`/activities?date=${date}`} />
       <CalorieCard calories={dashboard.calories} to={`/nutrition?date=${date}`} />
       <ProteinCard protein={dashboard.protein} to={`/nutrition?date=${date}`} />
