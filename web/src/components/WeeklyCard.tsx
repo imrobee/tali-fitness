@@ -1,5 +1,5 @@
 import type { WeekBar } from "../api/types";
-import { barLabel, chartMax, chartSummary, hasBar, percentOf, weekdayLetters } from "../lib/chart";
+import { barLabel, chartMax, chartSummary, chartWeekLabel, hasBar, percentOf, weekdayLetters } from "../lib/chart";
 import { dayOfMonth } from "../lib/dates";
 import { longDate } from "../lib/format";
 import { Card } from "./Card";
@@ -17,14 +17,14 @@ interface Props {
 }
 
 /**
- * The Monday-to-Sunday calorie chart (UI_SPEC.md 5.8): one bar per day, a dashed line at
+ * Calories by day, Monday to Sunday (UI_SPEC.md 5.8): one bar per day, a dashed line at
  * each day's budget, over-budget bars rising above it, and shape-and-text for every state.
  */
 export function WeeklyCard({ bars, today, selected, onSelect, to }: Props) {
   const max = chartMax(bars);
 
   return (
-    <Card title="Weekly calorie budget" to={to}>
+    <Card title="Calories by day" to={to} aside={chartWeekLabel(bars[0].date, today)}>
       <p className="visually-hidden">{chartSummary(bars)}</p>
       <div className={styles.chart}>
         {bars.map((bar) => {
@@ -56,10 +56,13 @@ export function WeeklyCard({ bars, today, selected, onSelect, to }: Props) {
                   />
                 )}
               </span>
-              <span className={`${styles.weekday} ${isSelected ? styles.selectedText : ""}`} aria-hidden="true">
+              <span className={`${styles.weekday} ${isSelected ? styles.selected : ""}`} aria-hidden="true">
                 {weekdayLetters(bar.date)}
               </span>
-              <span className={`${styles.number} num ${isSelected ? styles.selectedText : ""}`} aria-hidden="true">
+              <span
+                className={`${styles.number} num ${isSelected ? `${styles.selected} ${styles.underlined}` : ""}`}
+                aria-hidden="true"
+              >
                 {dayOfMonth(bar.date)}
               </span>
             </button>

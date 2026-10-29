@@ -25,13 +25,15 @@ services:
     environment:
       # Sync now asks Airflow to run strava_sync; the login comes from .env.
       AIRFLOW_URL: http://airflow:8080
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # --factory: Uvicorn calls create_app(), which runs the startup guards first.
+    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
     ports:
       - "0.0.0.0:8000:8000" # all interfaces, so the iPhone can reach it on the LAN
     volumes:
       - ./api:/app
       - ./db:/db # Alembic migrations and SQL files
       - ./docs/samples:/samples:ro # recorded payloads used as test fixtures
+      - ./scripts:/scripts:ro # make_ingest_token.py, tested here
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,9 +96,14 @@ services:
     environment:
       WAREHOUSE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/app_demo
       API_KEY: demo-key # not a secret: it only opens the demo database
-      APP_ENV: test
+      # dev on this Mac only: key sign-in for the screenshots. dev refuses a public
+      # PUBLIC_BASE_URL; the hosted demo gets its own APP_ENV=demo in Slice 8.
+      APP_ENV: dev
+      AUTH_MODE: key
+      DEV_LOGIN_KEY: demo-key
+      PUBLIC_BASE_URL: http://web-demo:5173
       NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
     volumes:
       - ./api:/app
       - ./db:/db

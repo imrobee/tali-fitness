@@ -1,7 +1,8 @@
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useSaveMe, useVacation } from "../api/hooks";
 import type { Me } from "../api/types";
 import { CalendarIcon } from "../icons";
+import { openPicker } from "../lib/picker";
 import { chipText, periodText, streakRules, vacationError } from "../lib/streakRules";
 import { Card } from "./Card";
 import styles from "./StreakSettings.module.css";
@@ -60,7 +61,6 @@ function DateChip({
   min?: string;
   onChange: (value: string) => void;
 }) {
-  const input = useRef<HTMLInputElement>(null);
   return (
     <div className={styles.dateRow}>
       <label htmlFor={id}>{label}</label>
@@ -68,21 +68,13 @@ function DateChip({
         <CalendarIcon className={styles.chipIcon} />
         <span aria-hidden="true">{chipText(value)}</span>
         <input
-          ref={input}
           id={id}
           type="date"
           className={styles.dateInput}
           value={value}
           min={min}
           onChange={(event) => onChange(event.target.value)}
-          // Desktop browsers open the picker only from their own icon; ask for it on click.
-          onClick={() => {
-            try {
-              input.current?.showPicker?.();
-            } catch {
-              // Not allowed here (or not supported): the input still takes typing.
-            }
-          }}
+          onClick={openPicker}
         />
       </span>
     </div>

@@ -1,6 +1,7 @@
 // The "How your streak works" card on Me (UI_SPEC.md 6.3), in plain words. It says the same
 // as ARCHITECTURE.md section 8 without its internal names, and follows the weekend setting.
 
+import type { RecoveryState } from "../api/types";
 import { parseIsoDate } from "./dates";
 
 export function streakRules(lenientWeekends: boolean): string[] {
@@ -42,4 +43,10 @@ export function vacationError(from: string, to: string): string | null {
   if (!from || !to) return "Pick both dates.";
   if (from > to) return "From must be on or before To.";
   return null;
+}
+
+/** The dashboard's recovery card: hidden on a day with an activity, which needs no rest day,
+    unless a recovery day was logged anyway, so it can still be undone. */
+export function showRecoveryCard(activityCount: number, state: RecoveryState): boolean {
+  return activityCount === 0 || state === "logged";
 }

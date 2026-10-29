@@ -1,6 +1,7 @@
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from "../icons";
-import { addDays } from "../lib/dates";
+import { addDays, isIsoDate } from "../lib/dates";
 import { dayLabel } from "../lib/format";
+import { openPicker } from "../lib/picker";
 import styles from "./DayChooser.module.css";
 
 interface Props {
@@ -27,16 +28,26 @@ export function DayChooser({ selected, today, earliest, onChange }: Props) {
       >
         <ChevronLeftIcon />
       </button>
-      <button
-        type="button"
-        className={styles.label}
-        aria-label={isToday ? "Today" : `${dayLabel(selected, today)}. Jump to today`}
-        disabled={isToday}
-        onClick={() => onChange(null)}
-      >
+      {/* The middle opens the phone's date picker, like the vacation chips: an invisible
+          date input lies over the icon and label. */}
+      <span className={styles.label}>
         <CalendarIcon className={styles.calendar} />
-        {dayLabel(selected, today)}
-      </button>
+        <span aria-hidden="true">{dayLabel(selected, today)}</span>
+        <input
+          type="date"
+          className={styles.dateInput}
+          aria-label={`Choose a day. Showing ${dayLabel(selected, today)}`}
+          value={selected}
+          min={earliest}
+          max={today}
+          onChange={(event) => {
+            // A cleared picker ("Reset" on iPhone) gives "": keep the day as it is.
+            const value = event.target.value;
+            if (isIsoDate(value) && value >= earliest && value <= today) go(value);
+          }}
+          onClick={openPicker}
+        />
+      </span>
       <button
         type="button"
         className={styles.arrow}

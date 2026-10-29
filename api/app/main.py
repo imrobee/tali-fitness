@@ -1,4 +1,9 @@
-"""FastAPI application: routes and the shared error format."""
+"""FastAPI application: routes and the shared error format.
+
+Built by create_app(), an application factory: Uvicorn calls it at startup
+(`uvicorn app.main:create_app --factory`), so the startup guards run before the server
+accepts a request, and tests build an app from their own settings.
+"""
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,12 +20,10 @@ from app import (
     trends,
     weight,
 )
+from app.config import Settings, check_startup, load_settings
 from app.dashboard.router import router as dashboard_router
 from app.errors import ApiError, handle_api_error
 from app.ingest.router import router as ingest_router
-
-app = FastAPI(title="fitness-tracker API")
-app.add_exception_handler(ApiError, handle_api_error)
 
 
 async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
@@ -32,8 +35,6 @@ async def handle_validation_error(request: Request, error: RequestValidationErro
         content={"error": {"code": "invalid_payload", "message": f"{where}: {first['msg']}"}},
     )
 
-
-app.add_exception_handler(RequestValidationError, handle_validation_error)
 
 # Why a router with a prefix: every endpoint lives under /api/v1 (ARCHITECTURE.md
 # section 11), so the web dev server can forward /api/* here unchanged, and a
@@ -47,15 +48,28 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.include_router(router)
-app.include_router(ingest_router)
-app.include_router(dashboard_router)
-app.include_router(me.router)
-app.include_router(recovery.router)
-app.include_router(pipeline.router)
-app.include_router(activities.router)
-app.include_router(activity_calendar.router)
-app.include_router(trends.router)
-app.include_router(weight.router)
-app.include_router(progress.router)
-app.include_router(sync.router)
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Check the configuration, then build the app. A bad config raises ConfigError."""
+    if settings is None:
+        settings = load_settings()
+    check_startup(settings)
+
+    app = FastAPI(title="fitness-tracker API")
+    # Routes read the settings through the get_settings dependency, not os.environ.
+    app.state.settings = settings
+    app.add_exception_handler(ApiError, handle_api_error)
+    app.add_exception_handler(RequestValidationError, handle_validation_error)
+
+    app.include_router(router)
+    app.include_router(ingest_router)
+    app.include_router(dashboard_router)
+    app.include_router(me.router)
+    app.include_router(recovery.router)
+    app.include_router(pipeline.router)
+    app.include_router(activities.router)
+    app.include_router(activity_calendar.router)
+    app.include_router(trends.router)
+    app.include_router(weight.router)
+    app.include_router(progress.router)
+    app.include_router(sync.router)
+    return app

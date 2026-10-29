@@ -126,10 +126,11 @@ def build_dashboard(
     }
     week = []
     for index, day in enumerate(current_week):
+        row = status_by_day.get(day)
         if day > today:
             state, kind = "future", None
-        elif day in status_by_day:
-            state, kind = status_by_day[day].state, status_by_day[day].kind
+        elif row is not None:
+            state, kind = row.state, row.kind
         else:
             state, kind = "broken", "miss"  # before the first day with any data
         week.append(
@@ -138,6 +139,7 @@ def build_dashboard(
                 weekday=WEEKDAY_LETTERS[index],
                 state=state,
                 kind=kind,
+                recovery_logged=row is not None and day <= today and row.recovery_logged,
                 primary_activity_type=primary_types.get(day),
                 calorie_status=current_nutrition[day].calorie_status,
             )

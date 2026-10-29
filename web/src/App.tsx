@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router";
 import { BottomNav } from "./components/BottomNav";
 import { KeyGate } from "./components/KeyGate";
+import { ScrollToTop } from "./components/ScrollToTop";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { NutritionPage } from "./pages/DayPages";
@@ -11,6 +12,7 @@ import { MePage } from "./pages/MePage";
 export default function App() {
   return (
     <KeyGate>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/activities" element={<ActivitiesPage />} />

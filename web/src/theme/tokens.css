@@ -22,9 +22,10 @@
   --over-budget: #e39a3b; /* over ring, bars, marker (one token for all three) */
   --flame: #fc4c02; /* streak flame and "Days": Strava's own orange, as in the reference
                        widget (UI_SPEC's ~#e8622a read as terracotta); 4.7:1 on --card */
-  --accent: #409cff; /* selected day, active tab (iOS blue lifted for 4.5:1) */
+  --accent: #67a2e4; /* selected day, active tab: iOS blue at 70% saturation so it sits
+                       with the green and orange; 6.4:1 on --card, 5.2:1 on --card-elevated */
   --neutral: #6e6e73; /* not_logged ring, not_set marker and bar */
-  --freeze-tint: rgba(64, 156, 255, 0.22); /* recovery circle: the accent, pale */
+  --freeze-tint: rgba(103, 162, 228, 0.22); /* recovery circle: the accent, pale */
 
   /* Type: the system face (SF Pro on iPhone) */
   --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;

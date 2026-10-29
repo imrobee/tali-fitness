@@ -1,4 +1,4 @@
-/* The weekly calorie chart (UI_SPEC.md 5.8). Bars are 22px with rounded tops; the dashed
+/* Calories by day (UI_SPEC.md 5.8). Bars are 22px with rounded tops; the dashed
    budget line runs across each day's column, so a changing budget reads as a step. The
    budget figure is not printed on it (Rob); it is in the spoken summary. */
 
@@ -73,9 +73,12 @@
   color: var(--text);
 }
 
-/* The selected day: accent colour with a 2px underline under the weekday letters. */
-.selectedText {
+/* The selected day: both lines in the accent colour, a 2px underline under the date only. */
+.selected {
   color: var(--accent);
+}
+
+.underlined {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;

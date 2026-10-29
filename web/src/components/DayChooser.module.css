@@ -30,20 +30,46 @@
 }
 
 .label {
+  position: relative; /* holds the date input */
   gap: 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-card);
   font-weight: 600;
-}
-
-.label:disabled {
-  cursor: default;
 }
 
 .calendar {
   color: var(--text-secondary);
-  font-size: 18px;
+  font-size: 22px;
+}
+
+/* The invisible date input over the label: a tap anywhere on it opens the picker. */
+.dateInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+/* Chrome opens its picker from this icon: stretch it over the whole label. */
+.dateInput::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  cursor: pointer;
+}
+
+.label:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .arrow:not(:disabled):active,
-.label:not(:disabled):active {
+.label:active {
   background: var(--card-elevated);
 }

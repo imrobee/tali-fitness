@@ -1,34 +1,22 @@
 import type { Dashboard, StreakDay } from "../api/types";
 import { ActivityIcon, FlameIcon, SnowflakeIcon } from "../icons";
 import { streakDayLabel, streakSummary } from "../lib/a11y";
-import { addDays, dayOfMonth } from "../lib/dates";
-import { RING_RADIUS, RING_SIZE, ringArc, ringTone, trianglePoints } from "../lib/streakRing";
+import { dayOfMonth } from "../lib/dates";
+import { circleLook, RING_RADIUS, RING_SIZE, ringArc, ringTone, trianglePoints } from "../lib/streakRing";
 import { Card } from "./Card";
 import styles from "./StreakCard.module.css";
 
 interface Props {
   streak: Dashboard["streak"];
   today: string;
-  selectedDate: string;
-  onSelect: (date: string) => void;
 }
 
-/** The circle's look: a workout is a white circle with its icon, a rest day without a
-    workout the snowflake, today an outline, everything else a dark circle with the date. */
-function circleClass(day: StreakDay, today: string): string {
-  if (day.state === "future") return styles.future;
-  if (day.primary_activity_type !== null) return styles.active;
-  if (day.kind === "recovery") return styles.recovery;
-  if (day.state === "at_risk") return styles.at_risk;
-  if (day.date === today) return styles.today;
-  return styles.missed;
-}
-
-function CircleContent({ day }: { day: StreakDay }) {
-  if (day.state !== "future" && day.primary_activity_type !== null) {
+function CircleContent({ day, today }: { day: StreakDay; today: string }) {
+  const look = circleLook(day, today);
+  if (look === "active" && day.primary_activity_type !== null) {
     return <ActivityIcon kind={day.primary_activity_type} />;
   }
-  if (day.state !== "future" && day.kind === "recovery") return <SnowflakeIcon />;
+  if (look === "recovery") return <SnowflakeIcon />;
   return <>{dayOfMonth(day.date)}</>;
 }
 
@@ -53,62 +41,57 @@ function CalorieRing({ day }: { day: StreakDay }) {
   );
 }
 
-export function StreakCard({ streak, today, selectedDate, onSelect }: Props) {
+/** Flame, count and "Days". Large beside the week; small in the header on a phone. */
+function FlameCount({ count, compact }: { count: number; compact?: boolean }) {
+  const unit = count === 1 ? "Day" : "Days";
+  if (compact) {
+    return (
+      <span className={styles.compact} aria-hidden="true">
+        <FlameIcon className={styles.compactFlame} />
+        <span className="num">{count}</span> {unit}
+      </span>
+    );
+  }
+  return (
+    <div className={styles.flameBlock} aria-hidden="true">
+      <div className={styles.flame}>
+        <FlameIcon />
+        <span className={`${styles.count} num`}>{count}</span>
+      </div>
+      <span className={styles.unit}>{unit}</span>
+    </div>
+  );
+}
+
+// The week is for reading only: the day chooser above picks the dashboard's day.
+export function StreakCard({ streak, today }: Props) {
   const todayState = streak.week.find((day) => day.date === today)?.state;
-  const yesterday = addDays(today, -1);
 
   return (
-    <Card title="Your streak" quietTitle>
+    <Card title="Your streak" aside={<FlameCount count={streak.count} compact />}>
       <p className="visually-hidden">{streakSummary(streak.count, todayState, streak.at_risk)}</p>
       <div className={styles.body}>
-        <div className={styles.flameBlock} aria-hidden="true">
-          <div className={styles.flame}>
-            <FlameIcon />
-            <span className={`${styles.count} num`}>{streak.count}</span>
-          </div>
-          <span className={styles.unit}>{streak.count === 1 ? "Day" : "Days"}</span>
-        </div>
+        <FlameCount count={streak.count} />
 
         <ol className={styles.week} aria-label="This week">
-          {streak.week.map((day) => {
-            const isFuture = day.state === "future";
-            const isSelected = day.date === selectedDate;
-            return (
-              <li key={day.date}>
-                <button
-                  type="button"
-                  className={styles.day}
-                  disabled={isFuture}
-                  aria-pressed={isFuture ? undefined : isSelected}
-                  aria-label={streakDayLabel(day)}
-                  onClick={() => onSelect(day.date)}
-                >
-                  <span className={styles.ringWrap}>
-                    <CalorieRing day={day} />
-                    <span className={`${styles.circle} ${circleClass(day, today)} num`}>
-                      <CircleContent day={day} />
-                    </span>
-                  </span>
-                  <span className={`${styles.letter} ${isSelected ? styles.selected : ""}`}>
-                    {day.weekday}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {streak.week.map((day) => (
+            <li key={day.date} className={styles.day}>
+              <span className="visually-hidden">{streakDayLabel(day)}</span>
+              <span className={styles.ringWrap} aria-hidden="true">
+                <CalorieRing day={day} />
+                <span className={`${styles.circle} ${styles[circleLook(day, today)]} num`}>
+                  <CircleContent day={day} today={today} />
+                </span>
+              </span>
+              <span className={styles.letter} aria-hidden="true">
+                {day.weekday}
+              </span>
+            </li>
+          ))}
         </ol>
       </div>
 
-      {streak.message && (
-        <p className={styles.message}>
-          {streak.message}
-          {streak.at_risk && (
-            <button type="button" className={styles.fillIn} onClick={() => onSelect(yesterday)}>
-              Fill in
-            </button>
-          )}
-        </p>
-      )}
+      {streak.message && <p className={styles.message}>{streak.message}</p>}
     </Card>
   );
 }

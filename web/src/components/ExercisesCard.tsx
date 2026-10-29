@@ -24,7 +24,7 @@ export function ExercisesCard({ exercises, to, startExpanded = false }: Props) {
   const visible = expanded ? exercises : exercises.slice(0, COLLAPSED_EXERCISE_COUNT);
 
   return (
-    <Card title="Logged exercises" to={to} aside={<span className="num">{exercises.length}</span>}>
+    <Card title="Activities" to={to} aside={<span className="num">{exercises.length}</span>}>
       {exercises.length === 0 ? (
         <p className={styles.empty}>No exercises logged for this day.</p>
       ) : (

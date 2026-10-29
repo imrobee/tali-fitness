@@ -21,7 +21,6 @@ import type {
   SyncStatus,
   TrainingTrend,
   Weight,
-  WeeklySummary,
 } from "./types";
 
 /** `date` null means "today, as the server sees it". */
@@ -103,10 +102,6 @@ export function useRecords() {
 
 export function useMuscleVolume() {
   return useQuery({ queryKey: ["muscle-volume"], queryFn: () => apiFetch<MuscleVolume>("/muscle-volume") });
-}
-
-export function useWeeklySummary() {
-  return useQuery({ queryKey: ["summary-week"], queryFn: () => apiFetch<WeeklySummary>("/summary/week") });
 }
 
 /** The last "Sync now" run. Polled every 3 s while Airflow is still working on it. */

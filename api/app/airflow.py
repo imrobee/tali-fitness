@@ -8,9 +8,14 @@ its state. Python's urllib, so no new dependency.
 """
 
 import json
-import os
 import urllib.error
 import urllib.request
+from typing import Annotated
+
+from fastapi import Depends
+from pydantic import SecretStr
+
+from app.config import Settings, get_settings
 
 TIMEOUT_S = 10
 
@@ -20,7 +25,7 @@ class AirflowError(Exception):
 
 
 class AirflowClient:
-    def __init__(self, base_url: str, username: str, password: str) -> None:
+    def __init__(self, base_url: str, username: str, password: SecretStr) -> None:
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
@@ -43,7 +48,7 @@ class AirflowClient:
             raise AirflowError(f"Airflow could not be reached ({error}).") from None
 
     def _token(self) -> str:
-        body = {"username": self.username, "password": self.password}
+        body = {"username": self.username, "password": self.password.get_secret_value()}
         return self._request("POST", "/auth/token", body, None)["access_token"]
 
     def trigger(self, dag_id: str) -> str:
@@ -59,11 +64,11 @@ class AirflowClient:
         return self._request("GET", path, None, self._token())["state"]
 
 
-def get_airflow() -> AirflowClient | None:
+def get_airflow(settings: Annotated[Settings, Depends(get_settings)]) -> AirflowClient | None:
     """The client, or None where Airflow is not part of the stack (the demo)."""
-    url = os.environ.get("AIRFLOW_URL")
-    user = os.environ.get("AIRFLOW_ADMIN_USER")
-    password = os.environ.get("AIRFLOW_ADMIN_PASSWORD")
+    url = settings.airflow_url
+    user = settings.airflow_admin_user
+    password = settings.airflow_admin_password
     if not (url and user and password):
         return None
     return AirflowClient(url, user, password)

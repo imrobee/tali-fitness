@@ -1,4 +1,4 @@
-/* Personal records, muscle volume and the "Last week" table: quiet rows of text, one
+/* Personal records and muscle volume: quiet rows of text, one
    white bar per muscle group, no colour for better or worse (nothing here is a judgement). */
 
 .list {
@@ -89,63 +89,5 @@
 @media (prefers-reduced-motion: no-preference) {
   .chevron {
     transition: transform 150ms var(--ease-out);
-  }
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table tr + tr th,
-.table tr + tr td {
-  padding-top: 8px;
-}
-
-.rowLabel {
-  padding: 0;
-  color: var(--text-secondary);
-  font-weight: 400;
-  text-align: left;
-}
-
-.rowValue {
-  padding: 0 8px;
-  font-weight: 600;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.rowChange {
-  width: 1%;
-  padding: 0;
-  color: var(--text-secondary);
-  text-align: right;
-  white-space: nowrap;
-}
-
-/* 200% zoom on a phone: three columns do not fit, so each row stacks: the label on its
-   own line, the value and the change under it. */
-@media (max-width: 240px) {
-  .table tr {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    column-gap: 8px;
-  }
-
-  .rowLabel {
-    width: 100%;
-  }
-
-  .rowValue {
-    padding: 0;
-    text-align: left;
-  }
-
-  /* width: 1% shrinks a table column to fit; in a stacked row it would be a 1px box
-     with its text spilling past the card. */
-  .rowChange {
-    width: auto;
   }
 }

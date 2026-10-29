@@ -1,12 +1,13 @@
-# Handoff (2026-10-22)
+# Handoff (2026-10-27)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D84).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D104).
 
 ## Where we are
 
 - **Slices 0-7c are done and merged** (PRs #1-#9).
-- **Slice 7d (new streak rules) is built and green**, not yet committed: migration 0014 (four kinds of day, relaxed weekends, vacation periods, new recovery-card rule), `PUT/DELETE /vacation`, `lenient_weekends` on `/me`, the calorie ring on the streak card, "How your streak works" and "Vacation or injury" on Me. Applied to the live database.
-- Tests: 155 API + 214 pipeline + 155 web, all green with `make -k check`.
+- **Slice 7d (new streak rules) is committed** on `slice-7c-rule-change`: migration 0014 (four kinds of day, relaxed weekends, vacation periods, new recovery-card rule), `PUT/DELETE /vacation`, `lenient_weekends` on `/me`, the calorie ring on the streak card, "How your streak works" and "Vacation or injury" on Me. Applied to the live database.
+- **Dashboard polish (D104) is built and green, not yet committed:** today's circle stays open until it counts, the streak week is read-only, the Last week card is off the dashboard, one card-title style, the day chooser's middle opens a date picker, "Activities" and "Calories by day" titles, the week label, a softer blue, the recovery card hidden on a day with an activity, pages open at the top.
+- Tests: 157 API + 214 pipeline + 164 web, all green with `make -k check`.
 - The live streak read 0 on 2026-10-27 because Docker had been stopped: nothing synced on Oct 26-27. Sync now and Run Health Push fill them in.
 
 ## What works, and how to run it
@@ -25,7 +26,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 
 | What | Where | State |
 |---|---|---|
-| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
+| Web app | http://localhost:5173, iPhone `http://192.168.100.127:5173 (the Mac's address on the current Wi-Fi; check with `ipconfig getifaddr en0`)`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
 | API | http://localhost:8000/api/v1/health; every other endpoint needs `X-API-Key` (value in `.env`) | Working |
 | Airflow UI | http://localhost:8080, login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` in `.env` | Working |
 | Postgres | `127.0.0.1:5433`, user `fitness`, databases `app` and `airflow` | Working |

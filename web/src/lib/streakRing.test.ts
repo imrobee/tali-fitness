@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
+import { circleLook, RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
 
 describe("calorie ring", () => {
   it("leaves a visible gap around the 32px circle and stays inside its square", () => {
@@ -30,5 +30,24 @@ describe("calorie ring", () => {
     expect(gap / (drawn + gap)).toBeCloseTo(50 / 360, 2);
     // The gap runs from rotate - 50 to rotate degrees: its middle is 90, six o'clock.
     expect(rotate - 50 / 2).toBe(90);
+  });
+});
+
+describe("streak circle", () => {
+  const TODAY = "2026-10-27";
+  const base = { date: TODAY, state: "pending", kind: "recovery", recovery_logged: false, primary_activity_type: null };
+
+  it("draws today as an open day, not a rest day, until a recovery day is logged", () => {
+    expect(circleLook(base, TODAY)).toBe("today");
+    expect(circleLook({ ...base, recovery_logged: true }, TODAY)).toBe("recovery");
+    expect(circleLook({ ...base, primary_activity_type: "run" }, TODAY)).toBe("active");
+  });
+
+  it("keeps the snowflake for a past rest day and the dashed edge for an at-risk one", () => {
+    const yesterday = { ...base, date: "2026-10-26", state: "counted" };
+    expect(circleLook(yesterday, TODAY)).toBe("recovery");
+    expect(circleLook({ ...yesterday, state: "at_risk", kind: "miss" }, TODAY)).toBe("at_risk");
+    expect(circleLook({ ...yesterday, state: "broken", kind: "miss" }, TODAY)).toBe("missed");
+    expect(circleLook({ ...yesterday, date: "2026-10-28", state: "future", kind: null }, TODAY)).toBe("future");
   });
 });

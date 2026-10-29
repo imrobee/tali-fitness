@@ -48,3 +48,23 @@ export function ringArc(tone: RingTone): RingArc {
     rotate: 90 + GAP_DEGREES / 2,
   };
 }
+
+export type CircleLook = "future" | "active" | "recovery" | "today" | "at_risk" | "missed";
+
+/**
+ * The circle inside the ring (UI_SPEC.md 5.3): a workout is a white circle with its icon, a
+ * rest day the snowflake, everything else a dark circle with the date. Today is still open,
+ * so it is drawn like the days to come but in white, and shows the snowflake only when a
+ * recovery day was logged by hand (food without a workout so far is not a rest day yet).
+ */
+export function circleLook(
+  day: { date: string; state: string; kind: string | null; recovery_logged: boolean; primary_activity_type: string | null },
+  today: string,
+): CircleLook {
+  if (day.state === "future") return "future";
+  if (day.primary_activity_type !== null) return "active";
+  if (day.date === today) return day.recovery_logged ? "recovery" : "today";
+  if (day.kind === "recovery") return "recovery";
+  if (day.state === "at_risk") return "at_risk";
+  return "missed";
+}

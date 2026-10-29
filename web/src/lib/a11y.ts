@@ -30,12 +30,17 @@ export function streakDayLabel(day: {
   date: string;
   state: string;
   kind: string | null;
+  recovery_logged: boolean;
   calorie_status: string;
 }): string {
   if (day.state === "future") return `${longDate(day.date)}: upcoming.`;
+  const calories = CALORIE_WORDS[day.calorie_status] ?? day.calorie_status;
+  // Today is still open: no kind until it counts, except a recovery day logged by hand.
+  if (day.state === "pending" && !day.recovery_logged) {
+    return `${longDate(day.date)}: today, not counted yet. Calories: ${calories}.`;
+  }
   const kind = KIND_WORDS[day.kind ?? "miss"] ?? day.kind;
   const state = STATE_WORDS[day.state] ?? day.state;
-  const calories = CALORIE_WORDS[day.calorie_status] ?? day.calorie_status;
   return `${longDate(day.date)}: ${kind}, ${state}. Calories: ${calories}.`;
 }
 

@@ -95,6 +95,7 @@ describe("accessible names", () => {
         date: "2026-10-13",
         state: "counted",
         kind: "over",
+        recovery_logged: false,
         calorie_status: "over",
       }),
     ).toBe("Tuesday, October 13: over budget, streak kept. Calories: over budget.");
@@ -103,9 +104,19 @@ describe("accessible names", () => {
         date: "2026-10-18",
         state: "future",
         kind: null,
+        recovery_logged: false,
         calorie_status: "not_logged",
       }),
     ).toBe("Sunday, October 18: upcoming.");
+    expect(
+      streakDayLabel({
+        date: "2026-10-17",
+        state: "pending",
+        kind: "recovery",
+        recovery_logged: false,
+        calorie_status: "within",
+      }),
+    ).toBe("Saturday, October 17: today, not counted yet. Calories: within budget.");
   });
 
   it("summarises the streak", () => {

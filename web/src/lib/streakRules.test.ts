@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipText, periodText, streakRules, vacationError } from "./streakRules";
+import { chipText, periodText, showRecoveryCard, streakRules, vacationError } from "./streakRules";
 
 describe("how the streak works", () => {
   it("explains the rules in plain words, without internal names", () => {
@@ -34,5 +34,14 @@ describe("date chips", () => {
   it("invite a choice until a date is picked", () => {
     expect(chipText("")).toBe("Choose date");
     expect(chipText("2026-11-02")).toBe("Mon, Nov 2");
+  });
+});
+
+describe("the dashboard's recovery card", () => {
+  it("hides on a day with an activity, unless a recovery day was logged", () => {
+    expect(showRecoveryCard(0, "available")).toBe(true);
+    expect(showRecoveryCard(1, "counted")).toBe(false);
+    expect(showRecoveryCard(2, "available")).toBe(false);
+    expect(showRecoveryCard(1, "logged")).toBe(true); // still undoable
   });
 });

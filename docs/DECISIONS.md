@@ -361,3 +361,20 @@ Why: Rob's review of the iPhone build. The triangle keeps a shape cue for "over"
 **D103. "Unmapped" never appears on a page; the data-quality check that reports unmapped exercises stays.**
 Muscle volume leaves unmapped exercises out and records show no muscle for them; Leg Press is mapped to Quads in the seed file. Why: the word is pipeline jargon, but the check is how a new exercise gets noticed (it caught Leg Press), and data-quality checks are on the never-cut list. Rejected: deleting the check or the `Unmapped` default.
 
+**D104. Dashboard polish (Rob, 2026-10-27): today's streak circle is open (white outline) until it counts; the streak week is read-only; the Last week card leaves the dashboard; one card-title style; the day chooser's middle opens a date picker; the accent blue is desaturated to `#67a2e4`.**
+Why: food without a workout made today a "rest day" by the rules, so today showed the snowflake all day; the day is not judged until it ends, so the circle now waits, and only a hand-logged recovery day (`recovery_logged`, already in `fn_day_status`, no migration) shows it. Two ways to pick a day was one too many: the day chooser is the one control. The blue at 70% saturation sits with the green and orange and still passes 4.5:1 (6.4:1 on the card). Rejected: deleting `GET /summary/week` with the card (its SQL is tested and cheap to keep); a light accent tint for today (Rob asked for white).
+
+
+## Slice 8a: sign-in and ingest token (`docs/AUTH_SPEC.md`)
+
+**D105. Settings come from one `Settings` model (`api/app/config.py`) with every secret a `SecretStr`, and the app is built by `create_app(settings)`, started with `uvicorn --factory`.**
+Why: the startup guards run before the server accepts a request, their errors name variables and never values, and an accidental `print` of the settings shows asterisks. Tests build the app from their own settings, so they never read (or print) Rob's `.env`. A plain Pydantic model needs no new dependency. Rejected: `pydantic-settings` (one more dependency for what a 15-line loop does); a module-level `app` (guards would run at import, and every test would need valid auth variables).
+
+**D106. `APP_ENV=dev` is local only: the API refuses to start in dev when `PUBLIC_BASE_URL` is not localhost, a private or loopback IP, or a one-word Compose service name. `NOW_OVERRIDE` refuses to start in production.**
+Why: dev relaxes the guards (plain cookies, docs routes, key sign-in), so a deployed dev config would be a real hole. The local demo stack reuses dev for screenshots (`PUBLIC_BASE_URL=http://web-demo:5173`); the hosted public demo gets its own `APP_ENV=demo` in Slice 8 (Rob, 2026-10-28). Slice 8 adds a test that the host's deploy config never declares `APP_ENV=dev`. Rejected: relying on documentation alone.
+
+**D107. Rate limits are in-process, keyed by client IP; in dev they behave as one shared limit.**
+Why: one API instance, so a dictionary of recent request times is enough and easy to explain. In dev every browser request reaches the API through the Vite proxy from one container address, so all browsers share each limit; the Shortcut posts straight to port 8000 and keeps its own. In production the client IP comes from proxy headers trusted only from the configured proxy (`FORWARDED_ALLOW_IPS`). Rejected: Redis or a rate-limit library (a second service or dependency for one instance).
+
+**D108. The page's Content-Security-Policy is checked against the production build on `vite preview`, not the dev server.**
+Why: the Vite dev server injects an inline React-refresh script, which a strict `script-src 'self'` blocks; loosening the policy to `unsafe-inline` for dev would hide real violations. The API sets the policy on its own responses; whatever serves the static files in Slice 8 sets the same header (Rob, 2026-10-28). Rejected: a looser dev-only policy.

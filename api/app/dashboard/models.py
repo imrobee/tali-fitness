@@ -13,6 +13,7 @@ class StreakDay(BaseModel):
     weekday: str  # single letter, Monday first: M T W T F S S
     state: str  # counted | pending | at_risk | broken | future (ARCHITECTURE.md 8)
     kind: str | None  # success | over | recovery | miss; None for future days
+    recovery_logged: bool  # a recovery day logged by hand: today shows the snowflake only then
     primary_activity_type: str | None  # longest activity that day; drives the icon
     calorie_status: str  # not_logged | not_set | within | over: drives the ring
 

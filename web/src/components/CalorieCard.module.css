@@ -9,15 +9,17 @@
   gap: 8px;
 }
 
+/* Each caption sits centred over its number; the pair hugs the card's left or right edge. */
 .stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
+  justify-self: start;
 }
 
 .stat:last-child {
-  align-items: flex-end;
-  text-align: right;
+  justify-self: end;
 }
 
 .caption {
@@ -125,7 +127,6 @@
   }
 
   .stat:last-child {
-    align-items: flex-start;
-    text-align: left;
+    justify-self: start;
   }
 }

@@ -129,6 +129,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Provisional days.** Today never ends the streak before midnight and yesterday stays at risk until today ends, because food and workouts arrive late; the card says exactly why a day is at stake.
 - **Shape before colour, measured at 200% zoom.** The calorie ring's over-budget state is a gap with a "!", not just orange; the bigger ringed circles forced the flame above the week on phones and three circles a row at 200% zoom, checked by measuring scroll width.
 
+## Slice 8a: sign-in and ingest token
+
+- **Fail fast on a bad config.** The API refuses to start in production without HTTPS, Google sign-in, every credential, or with a dev key or a frozen clock still set. A misconfiguration is a boot error you see at deploy time, not a hole someone finds later. One test per guard, and two guards broken on purpose to see their tests fail.
+- **Errors name variables, never values.** Pydantic's own validation message includes the rejected input, which could be a secret, so the loader reports only which variables are wrong. Every secret is a `SecretStr`, so printing the settings shows asterisks. The tests use fake "canary" values and assert they never appear in an error or a repr.
+- **An app factory.** `create_app(settings)` (started with `uvicorn --factory`) runs the guards before the first request and lets tests build an app from their own settings, so a test run never reads the developer's real `.env`. Trade-off: the dependency on settings is explicit (`get_settings`) instead of reading `os.environ` anywhere.
+- **"Dev" must not be deployable.** Dev relaxes the guards (plain cookies, key sign-in), so it refuses to start unless the public URL is localhost, a private LAN address, or a Compose service name. Defense in depth: it assumes someone will copy the wrong config one day.
+- **Store a hash of the token, not the token.** The ingest token is 256 random bits; the server keeps only its SHA-256. A database or environment leak doesn't hand over a working credential. No salt or slow hash is needed, because the token is random, not a guessable password.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |

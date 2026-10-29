@@ -16,6 +16,7 @@ export interface StreakDay {
   weekday: string;
   state: DayState;
   kind: DayKind | null; // null for future days
+  recovery_logged: boolean; // logged by hand: only then does today show the snowflake
   primary_activity_type: string | null;
   calorie_status: CalorieStatus;
 }
@@ -280,7 +281,7 @@ export interface Weight {
   days: WeightDay[];
 }
 
-// GET /records, /muscle-volume, /summary/week
+// GET /records, /muscle-volume
 export interface PersonalRecord {
   exercise: string;
   equipment: string | null;
@@ -307,25 +308,6 @@ export interface MuscleVolume {
   week_start: string;
   week_end: string;
   groups: MuscleWeek[];
-}
-
-export interface WeeklySummary {
-  week_start: string;
-  week_end: string;
-  qualifying_days: number;
-  prev_qualifying_days: number | null;
-  sessions: number;
-  prev_sessions: number | null;
-  active_s: number;
-  prev_active_s: number | null;
-  run_m: number;
-  volume_kg: number;
-  days_logged: number;
-  avg_kcal: number | null;
-  prev_avg_kcal: number | null;
-  avg_protein_g: number | null;
-  avg_weight_kg: number | null;
-  prev_avg_weight_kg: number | null;
 }
 
 // POST/GET /sync/strava

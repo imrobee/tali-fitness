@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MuscleWeek, PersonalRecord, WeeklySummary } from "../api/types";
-import { muscleAmount, muscleChange, recordGain, recordLabel, recordSet, recordValue, summaryRows, weekRange } from "./progress";
+import type { MuscleWeek, PersonalRecord } from "../api/types";
+import { muscleAmount, muscleChange, recordGain, recordLabel, recordSet, recordValue, weekRange } from "./progress";
 
 const record: PersonalRecord = {
   exercise: "Incline Bench Press",
@@ -14,25 +14,6 @@ const record: PersonalRecord = {
   prev_e1rm_kg: 25.33,
   sessions: 3,
   recent: true,
-};
-
-const summary: WeeklySummary = {
-  week_start: "2026-10-12",
-  week_end: "2026-10-18",
-  qualifying_days: 5,
-  prev_qualifying_days: 4,
-  sessions: 4,
-  prev_sessions: 4,
-  active_s: 11400,
-  prev_active_s: 9500,
-  run_m: 12500,
-  volume_kg: 0,
-  days_logged: 6,
-  avg_kcal: 1850,
-  prev_avg_kcal: 1900,
-  avg_protein_g: 118,
-  avg_weight_kg: 74.8,
-  prev_avg_weight_kg: 75.1,
 };
 
 describe("personal records", () => {
@@ -65,22 +46,9 @@ describe("muscle volume", () => {
   });
 });
 
-describe("weekly summary", () => {
-  it("lists what happened with the change, leaving out what is 0", () => {
-    expect(summaryRows(summary, "kg")).toEqual([
-      { label: "Days counted", value: "5 of 7", change: "+1" },
-      { label: "Sessions", value: "4", change: "same" },
-      { label: "Active time", value: "3 h 10 min", change: "up 20%" },
-      { label: "Running", value: "12.5 km", change: null },
-      { label: "Calories a day", value: "1,850 kcal", change: "−50 kcal" },
-      { label: "Protein a day", value: "118 g", change: null },
-      { label: "Average weight", value: "74.8 kg", change: "−0.3 kg" },
-    ]);
-  });
-
-  it("shows weight in pounds and names the week", () => {
-    const weight = summaryRows(summary, "lb").at(-1);
-    expect(weight).toEqual({ label: "Average weight", value: "164.9 lb", change: "−0.7 lb" });
+describe("week range", () => {
+  it("names a week that crosses a month", () => {
     expect(weekRange("2026-09-28", "2026-10-04")).toBe("Sep 28 – Oct 4");
+    expect(weekRange("2026-10-19", "2026-10-25")).toBe("Oct 19 – 25");
   });
 });

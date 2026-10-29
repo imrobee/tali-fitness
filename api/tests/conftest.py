@@ -8,15 +8,27 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+from app.config import Settings
 from app.db import get_engine
-from app.main import app
+from app.main import create_app
 
 ALEMBIC_INI = "/db/alembic.ini"
 SAMPLES = Path("/samples")
 TEST_API_KEY = "test-api-key"
+
+# Tests never read .env for auth settings: the app is built from these, so a test run
+# cannot depend on (or print) Rob's real values.
+TEST_SETTINGS = Settings(
+    app_env="test",
+    auth_mode="google",
+    public_base_url="http://testserver",
+    warehouse_url=SecretStr(os.environ["WAREHOUSE_URL"]),
+)
+app = create_app(TEST_SETTINGS)
 
 
 @pytest.fixture(scope="session")

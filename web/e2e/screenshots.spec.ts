@@ -24,7 +24,7 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: /^Good / })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Calorie budget", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Last week" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Calories by day" })).toBeVisible();
     // Optional: save the rendered page for the design-taste inspector, which cannot get past
     // the key gate on its own. Written once, at the iPhone size.
     if (process.env.SNAPSHOT_DIR && viewport.name === "iphone") {
@@ -45,7 +45,7 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
       await capture(page, `midweek-activities-${viewport.name}.png`);
 
       await page.goto("/nutrition?date=2026-10-17");
-      await expect(page.getByRole("heading", { name: "Weekly calorie budget" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Calories by day" })).toBeVisible();
       await expect(page.getByText(/^7-day average: /)).toBeVisible();
       await expect(page.getByRole("heading", { name: "Weight" })).toBeVisible();
       await capture(page, `midweek-nutrition-${viewport.name}.png`);
