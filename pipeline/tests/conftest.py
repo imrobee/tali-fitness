@@ -52,6 +52,7 @@ def engine(migrated_engine: Engine) -> Engine:
                 "ops.pipeline_runs, ops.quarantine, core.dim_exercise, "
                 "core.dim_activity_type, core.exercise_muscle_map, raw.health_batches, "
                 "app.recovery_day, app.target_history, app.weight_goal_history, "
+                "app.streak_settings_history, app.vacation, "
                 "ops.dq_results CASCADE"
             )
         )

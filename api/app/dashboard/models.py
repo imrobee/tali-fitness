@@ -11,9 +11,11 @@ from pydantic import BaseModel
 class StreakDay(BaseModel):
     date: date
     weekday: str  # single letter, Monday first: M T W T F S S
-    state: str  # qualifying | recovery | today_pending | at_risk | missed | future
+    state: str  # counted | pending | at_risk | broken | future (ARCHITECTURE.md 8)
+    kind: str | None  # success | over | recovery | miss; None for future days
+    recovery_logged: bool  # a recovery day logged by hand: today shows the snowflake only then
     primary_activity_type: str | None  # longest activity that day; drives the icon
-    calorie_status: str  # not_logged | not_set | within | over
+    calorie_status: str  # not_logged | not_set | within | over: drives the ring
 
 
 class Streak(BaseModel):
@@ -24,9 +26,7 @@ class Streak(BaseModel):
 
 
 class Recovery(BaseModel):
-    state: str  # available | logged | no_freeze | blocked | counted | locked
-    freezes_left: int
-    freezes_max: int
+    state: str  # available | logged | blocked | counted | locked
 
 
 class Exercise(BaseModel):

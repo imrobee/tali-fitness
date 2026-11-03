@@ -88,5 +88,15 @@ export function yFor(value: number, domain: Domain, height: number): number {
 
 /** Day `index` of `count` spread across the width, first day at the left edge. */
 export function xFor(index: number, count: number, width: number): number {
-  return count <= 1 ? width / 2 : (index / (count - 1)) * width;
+  return count <= 1 ? 0 : (index / (count - 1)) * width;
+}
+
+/**
+ * The days the chart draws: from the first weigh-in to the end of the range. Days before
+ * the first weigh-in are left out, so the first point is always at the left edge; with
+ * only a few weigh-ins it would otherwise sit at the far right of a 90-day chart.
+ */
+export function chartDays(days: WeightDay[]): WeightDay[] {
+  const first = days.findIndex((day) => day.weight_kg !== null);
+  return first === -1 ? [] : days.slice(first);
 }

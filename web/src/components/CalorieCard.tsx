@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { Dashboard } from "../api/types";
 import { calorieLabel } from "../lib/a11y";
 import { formatNumber } from "../lib/format";
-import { arc, dashedArc, ringContent } from "../lib/ring";
+import { arc, ringContent } from "../lib/ring";
 import { Card } from "./Card";
 import cardStyles from "./Card.module.css";
 import styles from "./CalorieCard.module.css";
@@ -11,26 +10,14 @@ import styles from "./CalorieCard.module.css";
 const SIZE = 176;
 const STROKE = 16;
 const RADIUS = (SIZE - STROKE) / 2;
-const OVERFLOW_RADIUS = RADIUS - STROKE / 2 - 6; // just inside the main ring
 
 interface Props {
   calories: Dashboard["calories"];
   to?: string;
 }
 
-/** Grows from 0 to `target` once after mounting, so the ring fills in (CSS transition). */
-function useGrowIn(target: number): number {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setValue(target));
-    return () => cancelAnimationFrame(frame);
-  }, [target]);
-  return value;
-}
-
 export function CalorieCard({ calories, to }: Props) {
   const ring = ringContent(calories.eaten, calories.budget, calories.status);
-  const fill = useGrowIn(ring.fill);
   const answerClass =
     ring.tone === "over"
       ? styles.answerOver
@@ -73,18 +60,7 @@ export function CalorieCard({ calories, to }: Props) {
                 r={RADIUS}
                 fill="none"
                 strokeWidth={STROKE}
-                strokeDasharray={arc(RADIUS, fill).dashArray}
-              />
-            )}
-            {ring.overflow > 0 && (
-              <circle
-                className={styles.overflow}
-                cx={SIZE / 2}
-                cy={SIZE / 2}
-                r={OVERFLOW_RADIUS}
-                fill="none"
-                strokeWidth={3}
-                strokeDasharray={dashedArc(OVERFLOW_RADIUS, ring.overflow).dashArray}
+                strokeDasharray={arc(RADIUS, ring.fill).dashArray}
               />
             )}
           </svg>

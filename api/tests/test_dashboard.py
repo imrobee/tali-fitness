@@ -25,7 +25,7 @@ def test_an_empty_database_still_returns_a_full_dashboard(client):
     assert body["greeting"] == "Good evening"  # 20:00 local
     assert body["streak"]["count"] == 0
     assert [d["weekday"] for d in body["streak"]["week"]] == list("MTWTFSS")
-    assert body["recovery"] == {"state": "available", "freezes_left": 1, "freezes_max": 1}
+    assert body["recovery"] == {"state": "available"}
     assert body["exercises"] == []
     assert body["calories"] == {
         "eaten": 0,
@@ -48,11 +48,13 @@ def test_streak_week_states_icons_and_markers(client, engine):
     assert week[0] == {
         "date": "2026-10-19",
         "weekday": "M",
-        "state": "qualifying",
+        "state": "counted",
+        "kind": "over",  # a workout, over budget: fine once
+        "recovery_logged": False,
         "primary_activity_type": "strength",  # the longest activity that day
         "calorie_status": "over",
     }
-    assert week[1]["state"] == "today_pending"
+    assert (week[1]["state"], week[1]["kind"]) == ("pending", "miss")
     assert {d["state"] for d in week[2:]} == {"future"}
 
 
@@ -163,12 +165,47 @@ def test_recovery_card_states(client, engine):
     add_recovery(engine, YESTERDAY)
 
     assert get(client, "?date=2026-10-19").json()["recovery"]["state"] == "logged"
-    today = get(client).json()["recovery"]
-    # The freeze is in use until a day counts again (ARCHITECTURE.md 8.2): "0 freezes".
-    assert (today["state"], today["freezes_left"]) == ("no_freeze", 0)
+    # Yesterday is a rest day, so a rest day today would be a second one in a row.
+    assert get(client).json()["recovery"]["state"] == "blocked"
+
+
+def test_the_week_tells_a_logged_recovery_day_from_a_day_without_a_workout(client, engine):
+    add_target(engine, TODAY - timedelta(days=30), budget=1853)
+    add_food(engine, YESTERDAY, kcal=1500)  # food, no workout: a rest day by the rules
+    add_recovery(engine, TODAY)  # logged by hand
+
+    week = get(client).json()["streak"]["week"]
+
+    assert (week[0]["kind"], week[0]["recovery_logged"]) == ("recovery", False)
+    assert (week[1]["kind"], week[1]["recovery_logged"]) == ("recovery", True)
 
 
 def test_nickname_shows_once_set(client):
     client.put("/api/v1/me", json={"nickname": "Rob"}, headers=HEADERS)
 
     assert get(client).json()["nickname"] == "Rob"
+
+
+def test_the_streak_card_says_why_today_is_not_counted_yet(client, engine):
+    qualify(engine, TODAY - timedelta(days=2))
+    add_food(engine, YESTERDAY)  # a rest day
+    add_food(engine, TODAY)  # food so far, no workout: a second rest day if it stays so
+
+    streak = get(client).json()["streak"]
+
+    assert streak["count"] == 2
+    assert streak["message"] == "Yesterday was a rest day. A workout today keeps your streak going."
+
+
+def test_the_streak_card_names_a_second_over_day_yesterday(client, engine):
+    add_target(engine, TODAY - timedelta(days=30), budget=1853)
+    qualify(engine, TODAY - timedelta(days=3))
+    add_activity(engine, TODAY - timedelta(days=2))
+    add_food(engine, TODAY - timedelta(days=2), kcal=2200)
+    add_activity(engine, YESTERDAY)
+    add_food(engine, YESTERDAY, kcal=2300)
+
+    streak = get(client).json()["streak"]
+
+    assert (streak["count"], streak["at_risk"]) == (2, True)
+    assert streak["message"].startswith("Yesterday was a second day over budget.")

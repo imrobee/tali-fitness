@@ -337,3 +337,44 @@ Guards: one request per 2 minutes (`ops.sync_requests`), none while a Strava run
 **D95. Sync now's tests run a real local HTTP server as Airflow.**
 Why: the client's real requests (path, body, bearer token, URL-encoded run id) are checked at the HTTP boundary, as the 7c acceptance asks. Rejected: replacing the client with a Python fake (would never test the HTTP code). Cut: refresh-if-stale on app open (first on the 7c cut line).
 
+**D96. The streak rule is four kinds of day: success, over budget, rest day, missed (Rob, 2026-10-27; replaces the single freeze, D38).**
+A missed day breaks the streak; so do two over-budget days or two rest days in a row. Rob's choices: a workout without food is a rest day; over budget without a workout is an over-budget day; the count is every day that kept the streak; a logged recovery day stays as a manual override and marks the day a rest day. Defaults I chose: "in a row" means consecutive days (a third over day breaks again), food logged without a budget counts as within (nothing to be over), and two kinds alternating never break. Why: LAG of the day's kind is enough, so the rule stays one readable SQL function. Rejected: a running counter (recursive CTE), only needed if a break did not reset the pair.
+
+**D97. Relaxed weekends are a setting with history (`app.streak_settings_history`); a change applies from today.**
+Why: turning it on must not quietly rewrite last month's streaks. Default strict. Rejected: one flag on the profile (would change past weekends).
+
+**D98. Vacation or injury periods may cover past days; the Me page edits only the one still running or to come, at most 90 days, no overlaps.**
+Why: a forgotten vacation should still protect those days, and a past break must not be moved away from the days it protected. A relaxed day never sets up a pair for the next day. Rejected: future-only periods; one period that is always overwritten.
+
+**D99. Today never breaks the streak before midnight, and yesterday stays "at risk" until today ends.**
+Why: food arrives from the Shortcut and workouts from Strava with a delay, and a rest day can still become a success later today. The card says why ("Yesterday was a rest day. A workout today keeps your streak going."). Rejected: judging today as it stands (a 9 am rest day would end the streak).
+
+**D100. The calorie marker becomes a ring around each streak circle: grey not logged, green within (or no budget), orange over with a gap at the bottom and a mark in it (Rob, 2026-10-27; the mark is a small triangle since D102).**
+Why: the shape (the gap and the mark) carries "over" without colour (UI_SPEC 8). The "!" is a deliberate exception to UI_SPEC 9's "no exclamation marks", which is about copy. Circles stay 32px inside a 40px ring, so on phones the flame moves above the week (UI_SPEC 5.3 already allowed it). Rejected: keeping the square marker beside a ring.
+
+**D101. The recovery card keeps logging a rest day (today or yesterday), offered only when it helps.**
+States `available`, `logged`, `blocked` (the day before was a rest day, so a second would end it anyway), `counted`, `locked`; the freeze pill is gone. `app.recovery_day` keeps its data. Rejected: removing the card (Rob chose to keep it as an override).
+
+**D102. Polish round (Rob, 2026-10-27): the streak ring sits 2.5px clear of its circle and marks "over" with a small triangle instead of "!"; the calorie card's dashed overflow arc and fill animation are gone; the weekly card prints no budget figure; the weight chart starts at the first weigh-in; the vacation dates open from a "Log break" button with "Choose date" chips.**
+Why: Rob's review of the iPhone build. The triangle keeps a shape cue for "over" without breaking UI_SPEC 9's no-exclamation rule; "kcal over" remains the calorie card's non-colour cue. Also fixed: the calorie ring sat left of centre when within budget, because a percentage width inside an `auto` grid column let the column grow past the ring; the side columns are now `minmax(0, 1fr)` and the ring is centred. Rejected: keeping the animation only on first load (Rob asked for none).
+
+**D103. "Unmapped" never appears on a page; the data-quality check that reports unmapped exercises stays.**
+Muscle volume leaves unmapped exercises out and records show no muscle for them; Leg Press is mapped to Quads in the seed file. Why: the word is pipeline jargon, but the check is how a new exercise gets noticed (it caught Leg Press), and data-quality checks are on the never-cut list. Rejected: deleting the check or the `Unmapped` default.
+
+**D104. Dashboard polish (Rob, 2026-10-27): today's streak circle is open (white outline) until it counts; the streak week is read-only; the Last week card leaves the dashboard; one card-title style; the day chooser's middle opens a date picker; the accent blue is desaturated to `#67a2e4`.**
+Why: food without a workout made today a "rest day" by the rules, so today showed the snowflake all day; the day is not judged until it ends, so the circle now waits, and only a hand-logged recovery day (`recovery_logged`, already in `fn_day_status`, no migration) shows it. Two ways to pick a day was one too many: the day chooser is the one control. The blue at 70% saturation sits with the green and orange and still passes 4.5:1 (6.4:1 on the card). Rejected: deleting `GET /summary/week` with the card (its SQL is tested and cheap to keep); a light accent tint for today (Rob asked for white).
+
+
+## Slice 8a: sign-in and ingest token (`docs/AUTH_SPEC.md`)
+
+**D105. Settings come from one `Settings` model (`api/app/config.py`) with every secret a `SecretStr`, and the app is built by `create_app(settings)`, started with `uvicorn --factory`.**
+Why: the startup guards run before the server accepts a request, their errors name variables and never values, and an accidental `print` of the settings shows asterisks. Tests build the app from their own settings, so they never read (or print) Rob's `.env`. A plain Pydantic model needs no new dependency. Rejected: `pydantic-settings` (one more dependency for what a 15-line loop does); a module-level `app` (guards would run at import, and every test would need valid auth variables).
+
+**D106. `APP_ENV=dev` is local only: the API refuses to start in dev when `PUBLIC_BASE_URL` is not localhost, a private or loopback IP, or a one-word Compose service name. `NOW_OVERRIDE` refuses to start in production.**
+Why: dev relaxes the guards (plain cookies, docs routes, key sign-in), so a deployed dev config would be a real hole. The local demo stack reuses dev for screenshots (`PUBLIC_BASE_URL=http://web-demo:5173`); the hosted public demo gets its own `APP_ENV=demo` in Slice 8 (Rob, 2026-10-28). Slice 8 adds a test that the host's deploy config never declares `APP_ENV=dev`. Rejected: relying on documentation alone.
+
+**D107. Rate limits are in-process, keyed by client IP; in dev they behave as one shared limit.**
+Why: one API instance, so a dictionary of recent request times is enough and easy to explain. In dev every browser request reaches the API through the Vite proxy from one container address, so all browsers share each limit; the Shortcut posts straight to port 8000 and keeps its own. In production the client IP comes from proxy headers trusted only from the configured proxy (`FORWARDED_ALLOW_IPS`). Rejected: Redis or a rate-limit library (a second service or dependency for one instance).
+
+**D108. The page's Content-Security-Policy is checked against the production build on `vite preview`, not the dev server.**
+Why: the Vite dev server injects an inline React-refresh script, which a strict `script-src 'self'` blocks; loosening the policy to `unsafe-inline` for dev would hide real violations. The API sets the policy on its own responses; whatever serves the static files in Slice 8 sets the same header (Rob, 2026-10-28). Rejected: a looser dev-only policy.

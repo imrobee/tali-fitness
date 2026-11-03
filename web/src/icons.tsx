@@ -2,7 +2,7 @@
 // better-icons tool and pasted here, so there is no icon library at runtime. Outline icons
 // are 24x24 at a 2px stroke; size and colour come from the parent (1em, currentColor).
 // Active tabs need filled versions; Tabler has some (apple). For bar chart and user
-// circle they are drawn here from the same shapes; the runner gets a heavier stroke.
+// circle they are drawn here; the runner gets a heavier stroke.
 
 import type { SVGProps } from "react";
 
@@ -50,9 +50,20 @@ const BAR_CHART =
 // --- Bottom navigation (UI_SPEC.md section 1) ---------------------------------------------
 
 export function DashboardIcon({ filled, ...props }: IconProps & { filled?: boolean }) {
+  // Filling the outline's three touching bars made one solid block, so the active icon is
+  // three separate solid bars with a 2px gap between them.
+  if (filled) {
+    return (
+      <Solid {...props}>
+        <rect x="3" y="12" width="4.5" height="8" rx="1" />
+        <rect x="9.75" y="4" width="4.5" height="16" rx="1" />
+        <rect x="16.5" y="8" width="4.5" height="12" rx="1" />
+      </Solid>
+    );
+  }
   return (
     <Outline {...props}>
-      <path d={BAR_CHART} fill={filled ? "currentColor" : "none"} />
+      <path d={BAR_CHART} />
       <path d="M4 20h14" />
     </Outline>
   );

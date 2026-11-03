@@ -5,16 +5,16 @@ import { Bar, Card, CardError } from "../components/Card";
 import { DayChooser } from "../components/DayChooser";
 import { ExercisesCard } from "../components/ExercisesCard";
 import { OfflineBanner, Page } from "../components/Page";
-import { WeeklySummarySection } from "../components/ProgressCards";
 import { ProteinCard } from "../components/ProteinCard";
 import { RecoveryCard } from "../components/RecoveryCard";
 import { StreakCard } from "../components/StreakCard";
 import { WeeklyCard } from "../components/WeeklyCard";
 import { greetingLine } from "../lib/format";
 import { useSelectedDate } from "../lib/selectedDate";
+import { showRecoveryCard } from "../lib/streakRules";
 
 // Order is fixed by UI_SPEC.md section 2: greeting, day chooser, streak, recovery,
-// exercises, calories, protein, weekly calorie chart.
+// activities, calories, protein, calories by day.
 export function DashboardPage() {
   const [selected, setSelected] = useSelectedDate();
   const query = useDashboard(selected);
@@ -45,17 +45,10 @@ export function DashboardPage() {
         earliest={dashboard.earliest_date}
         onChange={setSelected}
       />
-      <StreakCard
-        streak={dashboard.streak}
-        today={dashboard.today}
-        selectedDate={date}
-        onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
-      />
-      <RecoveryCard
-        recovery={dashboard.recovery}
-        selectedDate={date}
-        onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
-      />
+      <StreakCard streak={dashboard.streak} today={dashboard.today} />
+      {showRecoveryCard(dashboard.exercises.length, dashboard.recovery.state) && (
+        <RecoveryCard recovery={dashboard.recovery} selectedDate={date} />
+      )}
       <ExercisesCard exercises={dashboard.exercises} to={`/activities?date=${date}`} />
       <CalorieCard calories={dashboard.calories} to={`/nutrition?date=${date}`} />
       <ProteinCard protein={dashboard.protein} to={`/nutrition?date=${date}`} />
@@ -66,7 +59,6 @@ export function DashboardPage() {
         onSelect={(day) => setSelected(day === dashboard.today ? null : day)}
         to={`/nutrition?date=${date}`}
       />
-      <WeeklySummarySection />
     </Page>
   );
 }
@@ -76,13 +68,13 @@ function DashboardSkeleton() {
   return (
     <Page title={<Bar width="70%" height={32} />}>
       <Bar width="100%" height={44} />
-      <Card title="Your streak" quietTitle>
+      <Card title="Your streak">
         <Bar width="100%" height={84} />
       </Card>
-      <Card title="Recovery day" quietTitle>
+      <Card title="Recovery day">
         <Bar width="100%" height={92} />
       </Card>
-      <Card title="Logged exercises">
+      <Card title="Activities">
         <Bar width="100%" height={60} />
       </Card>
       <Card title="Calorie budget">
@@ -91,7 +83,7 @@ function DashboardSkeleton() {
       <Card title="Protein">
         <Bar width="100%" height={36} />
       </Card>
-      <Card title="Weekly calorie budget">
+      <Card title="Calories by day">
         <Bar width="100%" height={180} />
       </Card>
     </Page>

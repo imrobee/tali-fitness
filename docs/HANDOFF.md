@@ -1,13 +1,14 @@
-# Handoff (2026-10-22)
+# Handoff (2026-10-27)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D84).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D104).
 
 ## Where we are
 
-- **Slices 0-6b are done and merged into `main`** (PRs #1-#7).
-- **Slice 7a is merged** (PR #8). **Slices 7b and 7c are built and green on one branch** (Rob's call: no separate 7c branch), not yet committed: weight trend and goal, kg / lb unit on Me, personal records, muscle volume, the dashboard's "Last week", and Sync now (Me page) through Airflow's REST API. Migrations 0009-0013 are applied to the live database; Sync now was tried live (run 101, success in 6 s; the cooldown answered the second press).
-- Tests: 144 API + 195 pipeline + 145 web, all green with `make -k check`.
-- `data_quality` is switched on and writing `ops.dq_results` hourly.
+- **Slices 0-7c are done and merged** (PRs #1-#9).
+- **Slice 7d (new streak rules) is committed** on `slice-7c-rule-change`: migration 0014 (four kinds of day, relaxed weekends, vacation periods, new recovery-card rule), `PUT/DELETE /vacation`, `lenient_weekends` on `/me`, the calorie ring on the streak card, "How your streak works" and "Vacation or injury" on Me. Applied to the live database.
+- **Dashboard polish (D104) is built and green, not yet committed:** today's circle stays open until it counts, the streak week is read-only, the Last week card is off the dashboard, one card-title style, the day chooser's middle opens a date picker, "Activities" and "Calories by day" titles, the week label, a softer blue, the recovery card hidden on a day with an activity, pages open at the top.
+- Tests: 157 API + 214 pipeline + 164 web, all green with `make -k check`.
+- The live streak read 0 on 2026-10-27 because Docker had been stopped: nothing synced on Oct 26-27. Sync now and Run Health Push fill them in.
 
 ## What works, and how to run it
 
@@ -15,7 +16,7 @@ Needs Docker Desktop and make. All commands from the repo root.
 
 ```bash
 make up            # start postgres, api, airflow, web
-make migrate       # apply migrations (now at 0013)
+make migrate       # apply migrations (now at 0014)
 make -k check      # lint, typecheck, all tests (what CI runs)
 make strava-auth   # one-time Strava login (already done; only if tokens are lost)
 make logs          # follow container logs
@@ -25,7 +26,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 
 | What | Where | State |
 |---|---|---|
-| Web app | http://localhost:5173, iPhone `http://192.168.100.120:5173`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
+| Web app | http://localhost:5173, iPhone `http://192.168.100.127:5173 (the Mac's address on the current Wi-Fi; check with `ipconfig getifaddr en0`)`; asks once for `API_KEY` from `.env` | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
 | API | http://localhost:8000/api/v1/health; every other endpoint needs `X-API-Key` (value in `.env`) | Working |
 | Airflow UI | http://localhost:8080, login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` in `.env` | Working |
 | Postgres | `127.0.0.1:5433`, user `fitness`, databases `app` and `airflow` | Working |
@@ -68,15 +69,14 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Waiting on Rob
 
-1. **Commit 7b and 7c** (suggested split in the chat).
-2. **Your weight goal and unit** on Me (the switch is beside the goal).
-3. **"Small manual-entry forms"** (the last 7b item) has no definition: say which forms, or drop it.
-4. **iPhone check:** Me (kg / lb switch, Sync now, Run Health Push opens the Shortcut), Activities (muscle volume, records), Dashboard (Last week), Nutrition (weight in lb).
-5. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
+1. **Commit 7d** on a new branch (suggested `slice-7d-streak-rules`).
+2. **iPhone check:** the streak card's rings (an over-budget day shows the gap and "!"), the recovery card, and on Me the streak explanation, the Weekends switch and a vacation (the date chips open the picker).
+3. **"Small manual-entry forms"** (7b) still has no definition: say which forms, or drop it.
+4. Optional: delete the old `slice-1-foundation` branch; change `POSTGRES_PASSWORD` (needs `ALTER USER`, see D52).
 
 ## Exact next step
 
-After the iPhone check and merging: finish 7b's "small forms" once Rob defines them, or move to Slice 8 (hosting decision, deploy, README; webhooks evaluated there). Re-read `PROJECT_PLAN.md` Slice 8 first; hosting needs Rob's approval before anything is deployed.
+After the iPhone check and merging 7d: Slice 8 (hosting decision, deploy, README; webhooks evaluated there). Re-read `PROJECT_PLAN.md` Slice 8 first; hosting needs Rob's approval before anything is deployed.
 
 ## Working agreements to keep
 

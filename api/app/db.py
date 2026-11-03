@@ -1,10 +1,11 @@
 """Database access for the API: SQLAlchemy Core with text() queries from db/sql/*.sql."""
 
-import os
 from functools import cache
 from pathlib import Path
 
 from sqlalchemy import Engine, TextClause, create_engine, text
+
+from app.config import load_settings
 
 # db/ is mounted into the api container at /db (docker-compose.yml).
 SQL_DIR = Path("/db/sql")
@@ -18,7 +19,8 @@ def get_engine() -> Engine:
     """
     # pool_pre_ping checks a pooled connection before using it, so the API survives a
     # Postgres restart (or the demo database being recreated) without a failed request.
-    return create_engine(os.environ["WAREHOUSE_URL"], pool_pre_ping=True)
+    url = load_settings().warehouse_url.get_secret_value()
+    return create_engine(url, pool_pre_ping=True)
 
 
 def load_sql(name: str) -> TextClause:

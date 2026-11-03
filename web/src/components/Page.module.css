@@ -12,7 +12,7 @@
 }
 
 .title {
-  margin-bottom: 4px;
+  margin-bottom: 12px; /* with the gap, 24px between the title (or greeting) and what follows */
   font-size: var(--fs-title);
   font-weight: 700;
   line-height: 1.15;

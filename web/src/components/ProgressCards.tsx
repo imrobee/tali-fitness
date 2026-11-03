@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMuscleVolume, useRecords, useWeeklySummary, useWeightUnit } from "../api/hooks";
-import type { MuscleVolume, PersonalRecord, WeeklySummary } from "../api/types";
+import { useMuscleVolume, useRecords, useWeightUnit } from "../api/hooks";
+import type { MuscleVolume, PersonalRecord } from "../api/types";
 import { ChevronDownIcon } from "../icons";
 import {
   muscleAmount,
@@ -9,7 +9,6 @@ import {
   recordLabel,
   recordSet,
   recordValue,
-  summaryRows,
   weekRange,
 } from "../lib/progress";
 import type { WeightUnit } from "../lib/units";
@@ -42,7 +41,8 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
                   <span className={`${styles.value} num`}>{recordValue(record, unit)}</span>
                 </span>
                 <span className={`${styles.muted} num`} aria-hidden="true">
-                  {recordSet(record, unit)} · {record.muscle_group}
+                  {recordSet(record, unit)}
+                  {record.muscle_group && ` · ${record.muscle_group}`}
                 </span>
                 {gain && (
                   <span className={`${styles.muted} num`} aria-hidden="true">
@@ -107,41 +107,6 @@ export function MuscleVolumeSection() {
   if (query.isError) return <ErrorCard title="Muscle volume" retry={() => query.refetch()} message={query.error.message} />;
   if (!query.data) return <Bar width="100%" height={160} />;
   return <MuscleVolumeCard data={query.data} unit={unit} />;
-}
-
-// --- weekly summary ------------------------------------------------------------------------
-
-export function WeeklySummaryCard({ summary, unit }: { summary: WeeklySummary; unit: WeightUnit }) {
-  return (
-    <Card title="Last week" aside={weekRange(summary.week_start, summary.week_end)}>
-      <table className={styles.table}>
-        {/* No hidden column headers: inside a table they still take width and push the
-            page sideways at 200% zoom. The caption says what the last column means. */}
-        <caption className="visually-hidden">
-          Last week, each measure with its change against the week before
-        </caption>
-        <tbody>
-          {summaryRows(summary, unit).map((row) => (
-            <tr key={row.label}>
-              <th scope="row" className={styles.rowLabel}>
-                {row.label}
-              </th>
-              <td className={`${styles.rowValue} num`}>{row.value}</td>
-              <td className={`${styles.rowChange} num`}>{row.change ?? ""}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
-export function WeeklySummarySection() {
-  const query = useWeeklySummary();
-  const unit = useWeightUnit();
-  if (query.isError) return <ErrorCard title="Last week" retry={() => query.refetch()} message={query.error.message} />;
-  if (!query.data) return <Bar width="100%" height={220} />;
-  return <WeeklySummaryCard summary={query.data} unit={unit} />;
 }
 
 function ErrorCard({ title, message, retry }: { title: string; message: string; retry: () => void }) {

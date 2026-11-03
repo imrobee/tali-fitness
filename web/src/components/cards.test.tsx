@@ -28,7 +28,7 @@ import { KeyGate } from "./KeyGate";
 import { ProteinCard } from "./ProteinCard";
 import { RecoveryCard } from "./RecoveryCard";
 import { StreakCard } from "./StreakCard";
-import { RecordsCard, WeeklySummaryCard } from "./ProgressCards";
+import { RecordsCard } from "./ProgressCards";
 import { NutritionTrendCard, TrainingTrendCard } from "./TrendCards";
 import { WeightCard } from "./WeightCard";
 import { WeeklyCard } from "./WeeklyCard";
@@ -54,19 +54,21 @@ function day(date: string, weekday: string, state: StreakDay["state"], extra: Pa
     date,
     weekday,
     state,
-    primary_activity_type: state === "qualifying" ? "run" : null,
+    kind: state === "future" ? null : "success",
+    recovery_logged: false,
+    primary_activity_type: state === "counted" ? "run" : null,
     calorie_status: state === "future" ? "not_logged" : "within",
     ...extra,
   } as StreakDay;
 }
 
 const WEEK: StreakDay[] = [
-  day("2026-10-12", "M", "qualifying"),
-  day("2026-10-13", "T", "qualifying", { primary_activity_type: "strength", calorie_status: "over" }),
-  day("2026-10-14", "W", "recovery", { calorie_status: "not_logged" }),
-  day("2026-10-15", "T", "qualifying"),
-  day("2026-10-16", "F", "at_risk", { calorie_status: "not_logged" }),
-  day("2026-10-17", "S", "today_pending"),
+  day("2026-10-12", "M", "counted"),
+  day("2026-10-13", "T", "counted", { kind: "over", primary_activity_type: "strength", calorie_status: "over" }),
+  day("2026-10-14", "W", "counted", { kind: "recovery", calorie_status: "within" }),
+  day("2026-10-15", "T", "counted"),
+  day("2026-10-16", "F", "at_risk", { kind: "miss", calorie_status: "not_logged" }),
+  day("2026-10-17", "S", "pending", { kind: "miss", calorie_status: "not_logged" }),
   day("2026-10-18", "S", "future"),
 ];
 
@@ -74,78 +76,58 @@ describe("StreakCard", () => {
   const streak = { count: 6, at_risk: true, message: "Yesterday isn't logged. Fill it in to keep your 6-day streak.", week: WEEK };
 
   it("reads each circle and its marker as one sentence", () => {
-    wrap(<StreakCard streak={streak} today={TODAY} selectedDate={TODAY} onSelect={() => {}} />);
+    wrap(<StreakCard streak={streak} today={TODAY} />);
 
-    expect(
-      screen.getByRole("button", {
-        name: "Tuesday, October 13: qualifying day. Workout. Calories: over budget.",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByText("Streak: 6 days. Today: not counted yet. Yesterday isn't logged yet.")).toBeTruthy();
+    expect(screen.getByText("Tuesday, October 13: over budget, streak kept. Calories: over budget.")).toBeTruthy();
+    expect(screen.getByText("Streak: 6 days. Today: not counted yet. Yesterday can still be filled in.")).toBeTruthy();
   });
 
-  it("lets past days and today be selected, but not future days", () => {
-    const onSelect = vi.fn();
-    wrap(<StreakCard streak={streak} today={TODAY} selectedDate={TODAY} onSelect={onSelect} />);
+  it("draws the calorie ring: grey, green, or orange with a gap and a triangle", () => {
+    const { container } = wrap(<StreakCard streak={streak} today={TODAY} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Monday, October 12/ }));
-    expect(onSelect).toHaveBeenCalledWith("2026-10-12");
-    expect(screen.getByRole("button", { name: "Sunday, October 18: upcoming." })).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", { name: /^Saturday, October 17/ }).getAttribute("aria-pressed")).toBe("true");
+    const rings = [...container.querySelectorAll("svg circle")];
+    expect(rings).toHaveLength(6); // no ring on the future Sunday
+    const over = rings[1];
+    expect(over.getAttribute("stroke-dasharray")).not.toBeNull();
+    expect(rings[0].getAttribute("stroke-dasharray")).toBeNull(); // a full ring when within
+    expect(container.querySelectorAll("svg polygon")).toHaveLength(1); // only the over day
+    expect(container.querySelectorAll("svg text")).toHaveLength(0); // no "!" any more
   });
 
-  it("offers Fill in for an at-risk yesterday", () => {
-    const onSelect = vi.fn();
-    wrap(<StreakCard streak={streak} today={TODAY} selectedDate={TODAY} onSelect={onSelect} />);
+  it("shows a past rest day without a workout as the snowflake, and today as its date", () => {
+    const week = WEEK.map((d) => (d.date === TODAY ? { ...d, kind: "recovery" as const } : d));
+    const { container } = wrap(<StreakCard streak={{ ...streak, week }} today={TODAY} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    // The visible circles only; each day's spoken label is in a hidden span beside them.
+    const circles = [...container.querySelectorAll("ol li > [aria-hidden] > span")];
+    expect(circles[2].textContent).toBe(""); // Wednesday: the snowflake
+    expect(circles[5].textContent).toBe("17"); // today: still open, not a rest day yet
+  });
 
-    expect(onSelect).toHaveBeenCalledWith("2026-10-16");
+  it("is for reading only: no buttons or links to pick a day", () => {
+    wrap(<StreakCard streak={streak} today={TODAY} />);
+
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });
 
 describe("RecoveryCard", () => {
-  const cases: [RecoveryState, string, string | null, string | null][] = [
-    ["available", "Taking a recovery day?", "1 freeze available", "Log recovery"],
-    ["logged", "Recovery day logged", "Freeze used", "Undo"],
-    ["no_freeze", "No freezes left", "0 freezes", null],
-    ["blocked", "Fill in yesterday first", "0 freezes", "Go to yesterday"],
-    ["counted", "This day counted", "1 freeze available", null],
-    ["locked", "Recovery day", null, null],
+  const cases: [RecoveryState, string, string | null][] = [
+    ["available", "Taking a recovery day?", "Log recovery"],
+    ["logged", "Recovery day logged", "Undo"],
+    ["blocked", "Rest day yesterday", null],
+    ["counted", "This day counted", null],
+    ["locked", "Recovery day", null],
   ];
 
-  it.each(cases)("shows the %s state", (state, title, pill, button) => {
-    const freezes = state === "logged" || state === "no_freeze" || state === "blocked" ? 0 : 1;
-    wrap(
-      <RecoveryCard
-        recovery={{ state, freezes_left: freezes, freezes_max: 1 }}
-        selectedDate={TODAY}
-        onSelect={() => {}}
-      />,
-    );
+  it.each(cases)("shows the %s state", (state, title, button) => {
+    wrap(<RecoveryCard recovery={{ state }} selectedDate={TODAY} />);
 
     expect(screen.getByRole("heading", { name: title })).toBeTruthy();
-    if (pill) expect(screen.getByText(pill)).toBeTruthy();
     if (button) expect(screen.getByRole("button", { name: button })).toBeTruthy();
     else expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("goes to yesterday when blocked", () => {
-    const onSelect = vi.fn();
-    wrap(
-      <RecoveryCard
-        recovery={{ state: "blocked", freezes_left: 0, freezes_max: 1 }}
-        selectedDate={TODAY}
-        onSelect={onSelect}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Go to yesterday" }));
-
-    expect(onSelect).toHaveBeenCalledWith("2026-10-16");
+    expect(screen.queryByText(/freeze/i)).toBeNull(); // the single freeze is gone (Slice 7d)
   });
 });
 
@@ -172,7 +154,7 @@ describe("ExercisesCard", () => {
   it("links the whole card to Activities", () => {
     wrap(<ExercisesCard exercises={exercises} to="/activities?date=2026-10-17" />);
 
-    expect(screen.getByRole("link", { name: "Logged exercises" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: "Activities" }).getAttribute("href")).toBe(
       "/activities?date=2026-10-17",
     );
   });
@@ -239,14 +221,28 @@ describe("DayChooser", () => {
     expect(screen.getByRole("button", { name: "Previous day" })).toHaveProperty("disabled", true);
   });
 
-  it("steps a day at a time and jumps back to today", () => {
+  it("steps a day at a time", () => {
     const onChange = vi.fn();
     wrap(<DayChooser selected="2026-10-15" today={TODAY} earliest="2026-07-30" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
-    fireEvent.click(screen.getByRole("button", { name: "Thu, Oct 15. Jump to today" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next day" }));
 
-    expect(onChange.mock.calls).toEqual([["2026-10-14"], [null]]);
+    expect(onChange.mock.calls).toEqual([["2026-10-14"], ["2026-10-16"]]);
+  });
+
+  it("picks a day from the date picker in the middle, today as null", () => {
+    const onChange = vi.fn();
+    wrap(<DayChooser selected="2026-10-15" today={TODAY} earliest="2026-07-30" onChange={onChange} />);
+    const picker = screen.getByLabelText("Choose a day. Showing Thu, Oct 15");
+
+    expect(picker.getAttribute("min")).toBe("2026-07-30");
+    expect(picker.getAttribute("max")).toBe(TODAY);
+    fireEvent.change(picker, { target: { value: "2026-09-01" } });
+    fireEvent.change(picker, { target: { value: TODAY } });
+    fireEvent.change(picker, { target: { value: "" } }); // a cleared picker changes nothing
+
+    expect(onChange.mock.calls).toEqual([["2026-09-01"], [null]]);
   });
 });
 
@@ -408,7 +404,7 @@ describe("Activities rows", () => {
   });
 });
 
-describe("Weekly calorie budget card", () => {
+describe("Calories by day card", () => {
   // Monday 12 October to Sunday 18 October. Saturday 17 is today; Sunday 18 is in the future.
   const bars: WeekBar[] = [
     { date: "2026-10-12", kcal: 1700, budget: 1853, status: "within" },
@@ -426,6 +422,15 @@ describe("Weekly calorie budget card", () => {
     expect(screen.getByRole("button", { name: /2,173 kcal, over budget/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /not logged/ })).toBeTruthy();
     expect(screen.getByText("Weekly calories: 3 days within budget, 1 over, budget 1,853.")).toBeTruthy();
+  });
+
+  it("names the week it shows: This week, or its dates", () => {
+    wrap(<WeeklyCard bars={bars} today="2026-10-17" selected="2026-10-17" onSelect={() => {}} />);
+    expect(screen.getByText("This week")).toBeTruthy();
+    cleanup();
+
+    wrap(<WeeklyCard bars={bars} today="2026-10-27" selected="2026-10-17" onSelect={() => {}} />);
+    expect(screen.getByText("Oct 12 – 18")).toBeTruthy();
   });
 
   it("marks the selected day and cannot select a future day", () => {
@@ -603,23 +608,5 @@ describe("Progress cards", () => {
     fireEvent.click(screen.getByRole("button", { name: /Show 2 more/ }));
     expect(screen.getAllByRole("listitem")).toHaveLength(7);
     expect(screen.getByRole("listitem", { name: /^New record\. Lift 1/ })).toBeTruthy();
-  });
-
-  it("puts last week in a table a screen reader can read row by row", () => {
-    wrap(
-      <WeeklySummaryCard
-        unit="kg"
-        summary={{
-          week_start: "2026-10-12", week_end: "2026-10-18", qualifying_days: 5, prev_qualifying_days: 4,
-          sessions: 4, prev_sessions: 3, active_s: 3600, prev_active_s: 3600, run_m: 0, volume_kg: 0,
-          days_logged: 0, avg_kcal: null, prev_avg_kcal: null, avg_protein_g: null, avg_weight_kg: null,
-          prev_avg_weight_kg: null,
-        }}
-      />,
-    );
-
-    expect(screen.getByRole("rowheader", { name: "Days counted" })).toBeTruthy();
-    expect(screen.getByRole("cell", { name: "5 of 7" })).toBeTruthy();
-    expect(screen.queryByRole("rowheader", { name: "Calories a day" })).toBeNull();
   });
 });

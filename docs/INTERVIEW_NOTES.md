@@ -17,7 +17,7 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | Strava backfill | 24 activities over 90 days; ~5 seconds per normal run |
 | Strava API use | ~145 of 1,000 daily read calls (14%) |
 | Airflow memory | ~1.0 GB (official Compose setup: 4 GB minimum) |
-| Tests | 144 API + 195 pipeline + 145 web, all in CI |
+| Tests | 155 API + 214 pipeline + 155 web, all in CI |
 
 ## Architecture and design
 
@@ -120,6 +120,22 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Verify the API you call.** The Airflow reference page renders with JavaScript, so I read the endpoints from the running Airflow 3.3.2's own OpenAPI spec: a JWT from `/auth/token`, then `POST /api/v2/dags/{id}/dagRuns` with `logical_date: null`.
 - **Guard rails in layers.** A 2-minute cooldown in the database, a refusal while a run is in progress (ignoring "running" rows older than 30 minutes, which are crash leftovers), and the DAG's `max_active_runs=1` as the last line.
 - **Test at the HTTP boundary.** The tests start a real local HTTP server playing Airflow, so the client's actual requests (path, body, bearer token, URL-encoded run id) are checked, and an Airflow error is shown to never leak the password.
+
+## Slice 7d: new streak rules
+
+- **A changed business rule is a test-first rewrite.** Rob redefined the streak (four kinds of day; two over-budget or two rest days in a row, or a missed day, end it). I asked the four questions that changed outcomes before writing SQL, rewrote the 20 mandatory scenarios from his answers, then the function, and broke each new rule on purpose to see a test fail.
+- **Still one window function.** `LAG(kind)` and `LAG(lenient)` decide whether a day breaks; a running `SUM` over broken days gives the islands; the streak is the counted days of today's island. No recursion was needed because "two in a row" only looks one day back.
+- **Settings with history.** Relaxed weekends are effective-dated like the calorie budget, so switching them on never rewrites past streaks; vacation periods may cover past days on purpose (a forgotten vacation), and past ones are never moved.
+- **Provisional days.** Today never ends the streak before midnight and yesterday stays at risk until today ends, because food and workouts arrive late; the card says exactly why a day is at stake.
+- **Shape before colour, measured at 200% zoom.** The calorie ring's over-budget state is a gap with a "!", not just orange; the bigger ringed circles forced the flame above the week on phones and three circles a row at 200% zoom, checked by measuring scroll width.
+
+## Slice 8a: sign-in and ingest token
+
+- **Fail fast on a bad config.** The API refuses to start in production without HTTPS, Google sign-in, every credential, or with a dev key or a frozen clock still set. A misconfiguration is a boot error you see at deploy time, not a hole someone finds later. One test per guard, and two guards broken on purpose to see their tests fail.
+- **Errors name variables, never values.** Pydantic's own validation message includes the rejected input, which could be a secret, so the loader reports only which variables are wrong. Every secret is a `SecretStr`, so printing the settings shows asterisks. The tests use fake "canary" values and assert they never appear in an error or a repr.
+- **An app factory.** `create_app(settings)` (started with `uvicorn --factory`) runs the guards before the first request and lets tests build an app from their own settings, so a test run never reads the developer's real `.env`. Trade-off: the dependency on settings is explicit (`get_settings`) instead of reading `os.environ` anywhere.
+- **"Dev" must not be deployable.** Dev relaxes the guards (plain cookies, key sign-in), so it refuses to start unless the public URL is localhost, a private LAN address, or a Compose service name. Defense in depth: it assumes someone will copy the wrong config one day.
+- **Store a hash of the token, not the token.** The ingest token is 256 random bits; the server keeps only its SHA-256. A database or environment leak doesn't hand over a working credential. No salt or slow hash is needed, because the token is random, not a guessable password.
 
 ## Bugs found, and how (good "tell me about a time" stories)
 

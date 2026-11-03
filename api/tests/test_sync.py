@@ -10,11 +10,11 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import TEST_API_KEY
+from conftest import TEST_API_KEY, app
+from pydantic import SecretStr
 from sqlalchemy import Engine, text
 
 from app.airflow import AirflowClient, get_airflow
-from app.main import app
 
 HEADERS = {"X-API-Key": TEST_API_KEY}
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
@@ -62,7 +62,7 @@ def airflow():
     server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAirflow)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    client = AirflowClient(f"http://127.0.0.1:{server.server_port}", "admin", "secret")
+    client = AirflowClient(f"http://127.0.0.1:{server.server_port}", "admin", SecretStr("secret"))
     app.dependency_overrides[get_airflow] = lambda: client
     yield FakeAirflow
     app.dependency_overrides.pop(get_airflow, None)

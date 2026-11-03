@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BarStatus, WeekBar } from "../api/types";
-import { barLabel, chartMax, chartSummary, hasBar, percentOf, weekdayLetters } from "./chart";
+import { barLabel, chartMax, chartSummary, chartWeekLabel, hasBar, percentOf, weekdayLetters } from "./chart";
 
 const bar = (date: string, status: BarStatus, kcal: number | null, budget: number | null = 1853): WeekBar => ({
   date,
@@ -68,5 +68,14 @@ describe("labels", () => {
     const week = [bar("2026-10-12", "within", 1700, 1853), bar("2026-10-13", "within", 1500, 1600)];
 
     expect(chartSummary(week)).toBe("Weekly calories: 2 days within budget.");
+  });
+});
+
+describe("chartWeekLabel", () => {
+  it("says This week for the week holding today, and the dates for any other", () => {
+    expect(chartWeekLabel("2026-10-26", "2026-10-27")).toBe("This week");
+    expect(chartWeekLabel("2026-10-26", "2026-11-01")).toBe("This week"); // Sunday
+    expect(chartWeekLabel("2026-10-19", "2026-10-27")).toBe("Oct 19 – 25");
+    expect(chartWeekLabel("2026-09-28", "2026-10-27")).toBe("Sep 28 – Oct 4");
   });
 });

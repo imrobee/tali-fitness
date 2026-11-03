@@ -1,14 +1,22 @@
-// Pure scaling and labels for the weekly calorie card (UI_SPEC.md 5.8). No React here.
+// Pure scaling and labels for the Calories by day card (UI_SPEC.md 5.8). No React here.
 
 import type { BarStatus, WeekBar } from "../api/types";
-import { parseIsoDate } from "./dates";
+import { addDays, parseIsoDate } from "./dates";
 import { formatNumber } from "./format";
+import { weekRange } from "./progress";
 
 const WEEKDAY = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 /** Two-letter weekday for the x axis: "2026-10-19" -> "Mo". */
 export function weekdayLetters(iso: string): string {
   return WEEKDAY[parseIsoDate(iso).getUTCDay()];
+}
+
+/** The week the chart shows: "This week" when it holds today, else "Oct 19 – 25". */
+export function chartWeekLabel(weekStart: string, today: string): string {
+  const weekEnd = addDays(weekStart, 6);
+  if (weekStart <= today && today <= weekEnd) return "This week"; // ISO dates compare as strings
+  return weekRange(weekStart, weekEnd);
 }
 
 /**

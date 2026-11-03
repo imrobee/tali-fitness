@@ -44,10 +44,12 @@
 
 .week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(32px, 1fr));
+  grid-template-columns: repeat(7, minmax(42px, 1fr));
   gap: 4px;
   margin: 0;
-  padding: 0;
+  /* The flame's drawn bottom sits about 48px down its 52px box; this lowers the 42px rings
+     so their bottoms line up with it. */
+  padding: 6px 0 0;
   list-style: none;
 }
 
@@ -56,18 +58,46 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  min-height: var(--touch);
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
 }
 
-.day:disabled {
-  cursor: default;
+/* --- The circle inside its calorie ring ------------------------------------------------- */
+
+.ringWrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
 }
 
-/* --- The circle, one look per state ------------------------------------------------------- */
+.ring {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 2.5; /* RING_STROKE in lib/streakRing.ts */
+  stroke-linecap: round;
+}
+
+/* Grey: food not logged yet. Green: within budget. Orange: over, with a gap and a triangle. */
+.ring_grey {
+  stroke: var(--neutral);
+}
+
+.ring_green {
+  stroke: var(--within-budget);
+}
+
+.ring_orange {
+  stroke: var(--over-budget);
+}
+
+.overMark {
+  fill: var(--over-budget);
+}
 
 .circle {
   display: grid;
@@ -79,15 +109,17 @@
   font-weight: 600;
 }
 
-.qualifying {
+.active {
   background: var(--text);
   color: var(--surface);
   font-size: 18px; /* the activity icon */
 }
 
-.today_pending {
-  border: 2px solid var(--text);
+/* Today is still open: drawn like the days to come, but in white. */
+.today {
+  border: 1px solid var(--text);
   color: var(--text);
+  font-weight: 400;
 }
 
 .missed {
@@ -95,12 +127,11 @@
   color: var(--text);
 }
 
-/* At risk: like missed, plus a dashed ring that says "still fixable". Never red. */
+/* At risk: like missed, with a dashed edge that says "still fixable". Never red. */
 .at_risk {
+  border: 1.5px dashed var(--text-secondary);
   background: var(--card-elevated);
   color: var(--text);
-  outline: 1.5px dashed var(--text-secondary);
-  outline-offset: 2px;
 }
 
 .recovery {
@@ -115,83 +146,60 @@
   font-weight: 400;
 }
 
-/* --- Calorie marker: shape carries the meaning, not colour -------------------------------- */
-
-.marker {
-  width: 9px;
-  height: 9px;
-}
-
-.marker_not_logged {
-  border: 1.5px solid var(--neutral);
-  border-radius: 50%;
-}
-
-.marker_within {
-  border-radius: 50%;
-  background: var(--within-budget);
-}
-
-.marker_over {
-  border-radius: 1px;
-  background: var(--over-budget);
-}
-
-.marker_not_set {
-  border-radius: 50%;
-  background: var(--neutral);
-}
-
-.marker_hidden {
-  visibility: hidden;
-}
-
 .letter {
-  padding-bottom: 2px;
-  border-bottom: 2px solid transparent;
   color: var(--text-secondary);
   font-size: var(--fs-small);
   font-weight: 600;
   line-height: 1;
 }
 
-.selected {
-  border-bottom-color: var(--accent);
-  color: var(--accent);
-}
-
 .message {
   color: var(--text-secondary);
 }
 
-.fillIn {
-  margin-left: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-weight: 600;
-  cursor: pointer;
+/* The small flame, count and "Days" in the header row: only on a phone (below). */
+.compact {
+  display: none;
+  align-items: baseline; /* "10 Days" on the title's baseline; the flame is centred on it */
+  gap: 4px;
+  color: var(--flame);
+  font-size: var(--fs-card);
+  font-weight: 700;
+  line-height: 1;
 }
 
-/* 200% zoom or a very narrow screen: the flame block moves above the week. */
-@media (max-width: 340px) {
+.compactFlame {
+  align-self: center;
+  font-size: 20px;
+}
+
+/* A phone: seven ringed circles and the flame block do not fit side by side, so the flame
+   and count move up into the header row and the circles span the width (UI_SPEC.md 5.3). */
+@media (max-width: 460px) {
   .body {
     grid-template-columns: 1fr;
   }
 
   .flameBlock {
-    flex-direction: row;
-    gap: 8px;
-    width: auto;
+    display: none;
+  }
+
+  .compact {
+    display: inline-flex;
+  }
+
+  .week {
+    padding-top: 0;
   }
 }
 
-/* 200% zoom on a phone (about 200px wide): seven 32px circles cannot fit on one line, and
-   UI_SPEC 5.3 keeps circles at 32px or more, so the week wraps to two rows (4 + 3). */
+/* 200% zoom on a phone (about 200px wide): the ringed circles are 42px and UI_SPEC 5.3 keeps
+   circles at 32px or more, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
 @media (max-width: 240px) {
   .week {
-    grid-template-columns: repeat(4, minmax(32px, 1fr));
+    grid-template-columns: repeat(3, minmax(42px, 1fr));
+    column-gap: 2px; /* three 42px rings in about 133px */
     row-gap: 12px;
   }
 }
+

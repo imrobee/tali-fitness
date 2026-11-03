@@ -232,8 +232,9 @@ def test_a_failure_mid_batch_rolls_back_raw_and_core(engine, monkeypatch):
 
     monkeypatch.setattr(store, "apply_batch", broken_apply)
     monkeypatch.setenv("API_KEY", TEST_API_KEY)
+    from conftest import app
+
     from app.db import get_engine
-    from app.main import app
 
     app.dependency_overrides[get_engine] = lambda: engine
     try:

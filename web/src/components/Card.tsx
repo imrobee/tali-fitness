@@ -8,17 +8,15 @@ interface CardProps {
   to?: string;
   /** Small grey text at the right of the title row. */
   aside?: ReactNode;
-  quietTitle?: boolean;
   label?: string;
   children: ReactNode;
 }
 
-export function Card({ title, to, aside, quietTitle, label, children }: CardProps) {
-  const titleClass = quietTitle ? `${styles.title} ${styles.titleQuiet}` : styles.title;
+export function Card({ title, to, aside, label, children }: CardProps) {
   return (
     <section className={styles.card} aria-label={label}>
       <div className={styles.header}>
-        <h2 className={titleClass}>
+        <h2 className={styles.title}>
           {to ? (
             <Link to={to} className={styles.stretched}>
               {title}

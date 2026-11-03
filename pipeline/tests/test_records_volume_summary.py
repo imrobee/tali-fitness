@@ -220,9 +220,9 @@ def test_the_summary_compares_the_average_weight(engine):
     assert (float(row.avg_weight_kg), float(row.prev_avg_weight_kg)) == (74.25, 75.0)
 
 
-def test_a_recovery_day_is_not_a_qualifying_day(engine):
+def test_a_recovery_day_counts_as_a_kept_day(engine):
     add_session(engine, date(2026, 10, 12), 1, minutes=30)
     add_calories(engine, date(2026, 10, 12), kcal=1800)
     add_recovery(engine, date(2026, 10, 13))
 
-    assert summary(engine).qualifying_days == 1
+    assert summary(engine).qualifying_days == 2  # a rest day keeps the streak (Slice 7d)
