@@ -5,6 +5,8 @@ Built by create_app(), an application factory: Uvicorn calls it at startup
 accepts a request, and tests build an app from their own settings.
 """
 
+import logging
+
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -24,6 +26,8 @@ from app.config import Settings, check_startup, load_settings
 from app.dashboard.router import router as dashboard_router
 from app.errors import ApiError, handle_api_error
 from app.ingest.router import router as ingest_router
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
@@ -53,6 +57,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = load_settings()
     check_startup(settings)
+    if settings.public_base_url.startswith("http://"):
+        # Allowed on this Mac and the LAN in dev; production is HTTPS only (the guards).
+        logger.warning("Plain HTTP: the Shortcut's ingest token travels unencrypted.")
 
     app = FastAPI(title="fitness-tracker API")
     # Routes read the settings through the get_settings dependency, not os.environ.

@@ -13,7 +13,9 @@ from sqlalchemy import create_engine
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers that already exist: by default fileConfig switches them off, which
+    # silenced the API's security logs whenever tests ran migrations in the same process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 
 def database_url() -> str:

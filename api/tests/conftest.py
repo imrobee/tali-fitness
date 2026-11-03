@@ -12,6 +12,7 @@ from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+from app.auth import token_hash
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
@@ -19,6 +20,9 @@ from app.main import create_app
 ALEMBIC_INI = "/db/alembic.ini"
 SAMPLES = Path("/samples")
 TEST_API_KEY = "test-api-key"
+# An obviously fake canary: if it ever shows up in a log or a response, a test caught a leak.
+TEST_INGEST_TOKEN = "ing_canary-ingest-token-not-a-real-secret"
+INGEST_HEADERS = {"Authorization": f"Bearer {TEST_INGEST_TOKEN}"}
 
 # Tests never read .env for auth settings: the app is built from these, so a test run
 # cannot depend on (or print) Rob's real values.
@@ -27,6 +31,7 @@ TEST_SETTINGS = Settings(
     auth_mode="google",
     public_base_url="http://testserver",
     warehouse_url=SecretStr(os.environ["WAREHOUSE_URL"]),
+    ingest_token_sha256=SecretStr(token_hash(TEST_INGEST_TOKEN)),
 )
 app = create_app(TEST_SETTINGS)
 

@@ -8,7 +8,7 @@ from sqlalchemy import Engine
 from starlette.concurrency import run_in_threadpool
 
 from app import clock
-from app.auth import require_api_key
+from app.auth import require_ingest_token
 from app.db import get_engine
 from app.errors import ApiError
 from app.ingest.checks import Accepted, Rejected, check_sample, device_timezone, window_problem
@@ -17,8 +17,8 @@ from app.ingest.store import store_batch
 
 MAX_BODY_BYTES = 1_000_000
 
-# Every route on this router requires the X-API-Key header.
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+# The Shortcut's bearer token, and nothing else, opens this router (AUTH_SPEC.md section 7).
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_ingest_token)])
 
 
 @router.post("/ingest/health", response_model=IngestResponse)
