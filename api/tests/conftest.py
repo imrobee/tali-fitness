@@ -71,7 +71,7 @@ def engine(migrated_engine: Engine) -> Engine:
             text(
                 "TRUNCATE raw.health_batches, raw.strava_activities, core.dim_activity_type, "
                 "app.recovery_day, app.target_history, app.weight_goal_history, "
-                "app.streak_settings_history, app.vacation, ops.quarantine, "
+                "app.streak_settings_history, app.vacation, app.session, ops.quarantine, "
                 "ops.pipeline_runs CASCADE"
             )
         )
