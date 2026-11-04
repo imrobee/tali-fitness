@@ -35,9 +35,9 @@ Pattern: **ELT**. Land raw data unchanged (`raw`; one exception: Strava location
 | `postgres` | `postgres:16` | `127.0.0.1:5433` (container port 5432; the Mac's own Postgres holds 5432) | Two databases: `app` (warehouse, `POSTGRES_DB`) and `airflow` (metadata, `db/init/01_create_airflow_db.sql`) |
 | `airflow` | Build `./pipeline`, `FROM apache/airflow:3.3.2` (Python 3.13) | `127.0.0.1:8080` | `airflow standalone` in one container: **LocalExecutor only** (no Celery, no Redis), metadata in the `airflow` database. Mounts `pipeline/dags`, `pipeline/include`, `pipeline/tests`. Login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` (written to the simple auth manager's passwords file by `pipeline/start_airflow.sh`) |
 | `api` | Build `./api` (`python:3.13-slim`, matches the Airflow image) | `0.0.0.0:8000` | `uvicorn --reload` in dev. Mounts `db/` for Alembic. Reachable from the iPhone at `http://<mac-lan-ip>:8000` |
-| `web` | Build `./web` (Node) | `0.0.0.0:5173` | `vite --host`; dev proxy `/api` to `http://api:8000` (same origin, no CORS pain) |
+| `web` | Build `./web` (Node) | `0.0.0.0:5173` | `vite --host`; dev proxy `/api` and `/auth` to `http://api:8000` (same origin: no CORS, and the session cookie belongs to the page's host) |
 
-`.env.example` keys: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `WAREHOUSE_URL`, `API_KEY`, `APP_TIMEZONE=Asia/Manila`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `BACKFILL_DAYS=90`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD`, `APP_ENV=dev`, `NOW_OVERRIDE` (only honored when `APP_ENV` is `dev` or `test`; used for fixtures and screenshots).
+`.env.example` keys: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `WAREHOUSE_URL`, the sign-in variables of `AUTH_SPEC.md` section 4 (`AUTH_MODE`, `PUBLIC_BASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`, `ALLOWED_GOOGLE_SUB`, `INGEST_TOKEN_SHA256`, `DEV_LOGIN_KEY`), `APP_TIMEZONE=Asia/Manila`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `BACKFILL_DAYS=90`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD`, `APP_ENV=dev`, `NOW_OVERRIDE` (only honored when `APP_ENV` is `dev` or `test`; used for fixtures and screenshots).
 
 DB access: SQLAlchemy Core with `text()` and parameters, using `WAREHOUSE_URL`, from both the API and Airflow tasks (one way to talk to Postgres, easy to explain). Alembic runs migrations; write them as explicit SQL (`op.execute`).
 
@@ -160,7 +160,7 @@ Write-side function outside `mart`: `core.apply_health_batch(p_batch_id uuid)` a
 - Fallback if the Shortcut cannot send a window: de-duplicate on `sha256(type|start|end|value|unit|source)`. State the limitation (no edit/delete propagation) in DECISIONS.
 - Validation (Pydantic + DB `CHECK`): `type` in the three allowed values (`dietary_energy`, `dietary_protein`, `body_mass`); energy `0 < value <= 5000` kcal (convert kJ to kcal at 0.239006 kcal per kJ); protein `0 <= value <= 500` g; body mass `30 <= value <= 250` kg (sanity range; any unit other than `kg` is `bad_unit`); `start` ISO-8601 (naive means `device_tz`); every sample's `local_date` must fall inside the window; window spans at most 7 days and does not end after tomorrow. Invalid samples go to `ops.quarantine` (reason codes `invalid_sample` for a missing field or a non-number value, `unknown_type`, `bad_unit`, `out_of_range`, `outside_window`, `bad_timestamp`) and the rest of the batch is still accepted.
 - Empty `samples` returns 422 `empty_batch` (an empty run means the Shortcut failed; rejecting it makes the failure visible). Same `payload_sha256` (sha256 of a canonical form: samples sorted, keys ordered, because the Shortcut returns samples in a different order on each run) as the latest batch with the same window returns 200 with `duplicate: true` and that batch's `batch_id`; it stores no data but still writes an `ops.pipeline_runs` row, so freshness checks can see the Shortcut is alive. A new batch returns 201. A body over 1 MB returns 413 `payload_too_large`; a malformed envelope or unknown `device_tz` returns 422 `invalid_payload`; a window over 7 days or ending after tomorrow (profile time zone, `NOW_OVERRIDE`-aware) returns 422 `date_out_of_range`.
-- The Shortcut posts to `http://<mac-lan-ip>:8000/api/v1/ingest/health` with the header `X-API-Key`, triggered when MyNetDiary is closed (DECISIONS D5). **Shortcuts compares dates in "Start Date is after" filters by calendar day**, ignoring the time: "after Oct 20 12:00 AM" means Oct 21 onward. So the three Find Health Samples filters use `FilterAfter` = start of the day *before* yesterday (after Oct 19 = Oct 20 and 21), while `window.from` stays yesterday (DECISIONS D31). `scripts/send_sample_shortcut_payload.sh` sends a recorded payload the same way for manual checks.
+- The Shortcut posts to `http://<mac-lan-ip>:8000/api/v1/ingest/health` with the header `Authorization: Bearer ing_...` (the ingest token; the server keeps only its SHA-256, `AUTH_SPEC.md` section 7), triggered when MyNetDiary is closed (DECISIONS D5). **Shortcuts compares dates in "Start Date is after" filters by calendar day**, ignoring the time: "after Oct 20 12:00 AM" means Oct 21 onward. So the three Find Health Samples filters use `FilterAfter` = start of the day *before* yesterday (after Oct 19 = Oct 20 and 21), while `window.from` stays yesterday (DECISIONS D31). `scripts/send_sample_shortcut_payload.sh` sends a recorded payload the same way for manual checks (the token from the `INGEST_TOKEN` environment variable, never a file).
 - Response: `{"batch_id": "...", "received": 12, "accepted": 11, "rejected": 1, "duplicate": false}`.
 - Per-item pairing of calories to protein is **not needed**: the app only uses per-day sums, so the two types are aggregated independently.
 - **Body mass** (`body_mass`, kg): sent in the same batch. MyNetDiary keeps **one weight per day** in Apple Health: a new weigh-in replaces that day's earlier sample (confirmed 2026-10-20). Rob enters pounds, so values arrive as exact lb conversions (`74.84274105` kg = 165 lb): store the full value, round to 0.1 kg only for display. It lands in `raw.health_samples` only; it is **not** loaded into `core.fact_dietary_sample` (dietary only) and never affects `has_calories` or the streak. The core table for weight is designed with the weight-trend feature (PROJECT_PLAN Slice 7b) and uses the same per-(date, type) replace. Daily weight rule: section 14, #8.
@@ -296,11 +296,17 @@ Every DAG run and every health ingest writes `ops.pipeline_runs`. `GET /api/v1/p
 
 ## 11. API contract (v1)
 
-Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` (bad query parameters and bodies too, as `invalid_payload`) with codes `unauthorized`, `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`, `not_found`, and for Sync now `sync_cooldown` (429), `sync_running` (409), `sync_unavailable` (503, no Airflow, as in the demo), `airflow_unavailable` (502).
+Base `/api/v1`. Every endpoint except `/health` needs a signed-in session (the `session` cookie; `__Host-session` in production), and `POST /ingest/health` needs the Shortcut's bearer token instead (section 12). Requests that change something must come from the app's own `Origin` and be JSON. JSON in and out; errors are `{"error": {"code": "...", "message": "..."}}` (bad query parameters and bodies too, as `invalid_payload`) with codes `unauthorized` (401), `forbidden_origin` (403), `unsupported_media_type` (415), `rate_limited` (429), `internal_error` (500, never a stack trace), `invalid_payload`, `payload_too_large`, `empty_batch`, `date_out_of_range`, `recovery_not_allowed`, `not_found`, and for Sync now `sync_cooldown` (429), `sync_running` (409), `sync_unavailable` (503, no Airflow, as in the demo), `airflow_unavailable` (502).
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | liveness, no auth |
+| GET | `/auth/login?next=` | outside `/api/v1`: starts Google sign-in (OIDC, PKCE, `openid email`); `next` must be a path on this site |
+| GET | `/auth/callback` | Google's answer: a session for `ALLOWED_GOOGLE_SUB` and a redirect, or a generic 403 page |
+| GET | `/auth/me` | `{"signed_in": true}` or 401 |
+| GET | `/auth/method` | `{"method": "google"\|"key"}`: which sign-in screen to show (public) |
+| POST | `/auth/logout` | ends the session; 204 |
+| POST | `/auth/dev-login` | `{key}`: local key mode only (`AUTH_MODE=key`, `APP_ENV=dev`); the route does not exist otherwise |
 | GET | `/dashboard?date=YYYY-MM-DD` | composed payload for the dashboard (below) |
 | GET | `/activities?from=&to=` | day-grouped summaries, newest first; default last 30 days, at most 366 days per request (`date_out_of_range`); each item carries `duration_s`, `moving_s`, `distance_m`, `parse_status`, and exercise, set and volume totals |
 | GET | `/activities/{id}` | detail: exercises with notes, sets by `set_kind` (kg and original unit, reps, distance, duration), parse status, raw text if not `ok`; 404 `not_found` for an unknown id |
@@ -356,10 +362,15 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 
 ## 12. Security
 
-- `X-API-Key` on every endpoint except `/health`; compare with `secrets.compare_digest`. The web app asks for the key once and keeps it in `localStorage` (never bundled into the JS).
-- Request body limit on ingest (for example 1 MB). All SQL parameterized. Pydantic validation at every boundary.
-- Secrets only in `.env`. Logs never print keys or tokens. Strava tokens in `ops.oauth_tokens` are acceptable for local dev; revisit for hosting.
-- HTTP on the LAN is accepted for dev. HTTPS is mandatory before any public hosting (Slice 8).
+The full design, threat model and test matrix are in `docs/AUTH_SPEC.md` (Slice 8a). In short:
+- **Web app:** Google sign-in (OpenID Connect through Authlib) for exactly one account, matched on the stable `sub` claim (`ALLOWED_GOOGLE_SUB`), checked on every request. Server-side sessions: an HttpOnly, SameSite=Lax cookie holding a random 256-bit id; `app.session` stores only its SHA-256 (60 days absolute, 30 idle). No backdoor or break-glass key: recovery is changing `ALLOWED_GOOGLE_SUB`. Local development can use the dev key form (`AUTH_MODE=key`, dev only).
+- **iOS Shortcut:** `Authorization: Bearer ing_...` on `POST /api/v1/ingest/health` only; the server stores the token's SHA-256 (`INGEST_TOKEN_SHA256`, plus `_NEXT` during rotation). `scripts/make_ingest_token.py` makes one.
+- **CSRF:** cookie requests that change something need the exact `Origin` of `PUBLIC_BASE_URL` and a JSON body (D109). No CORS.
+- **Every route** is public on purpose (`/api/v1/health`, `/auth/login`, `/auth/callback`, `/auth/method`) or has exactly one guard; a black-box test fails CI otherwise (D110).
+- **Hardening:** security headers and `Cache-Control: no-store` on every API answer; HSTS, no `/docs`, and startup guards in production; in-process rate limits on sign-in, dev login and ingest (D107); log redaction of credentials and of the callback's query string; generic 500s.
+- **Leak checks in `make check`:** a log and response leak test over every sign-in flow, a bundle check for canary secrets, and gitleaks over the full git history (`make secret-scan`).
+- Request body limit on ingest (1 MB). All SQL parameterized. Pydantic validation at every boundary. Strava tokens in `ops.oauth_tokens` are acceptable for local dev; revisit for hosting.
+- HTTP on the LAN is accepted for dev (the API warns at startup). HTTPS is mandatory before any public hosting (Slice 8).
 
 ## 13. Testing and CI
 
@@ -369,12 +380,13 @@ Base `/api/v1`. All endpoints except `/health` require `X-API-Key`. JSON in and 
 | SQL rules | pytest + real Postgres | scenarios in 8.4 with helpers like `insert_day(date, activity=True, calories=500, recovery=False)`; idempotent loads (run twice); re-parse leaves `dim_exercise` unchanged (incl. NULL equipment) |
 | Health apply | pytest + real Postgres | `core.apply_health_batch`: same batch twice is unchanged; edited entry replaces its pair; a type missing for a day leaves that pair untouched; failure mid-batch rolls back raw and core |
 | Data quality | pytest + real Postgres | one pass test and one fail test per check |
-| API | pytest + FastAPI `TestClient`, `NOW_OVERRIDE` | auth, error codes, dashboard payload per scenario (incl. `not_set`), recovery rules, targets history |
+| API | pytest + FastAPI `TestClient`, `NOW_OVERRIDE` | sign-in against a fake Google (an RSA key pair and a mock transport: no network), sessions, route coverage, Origin checks, startup guards, headers and rate limits, log and response leak test; error codes, dashboard payload per scenario (incl. `not_set`), recovery rules, targets history |
+| Leaks | gitleaks (Docker), a bundle grep | full git history and uncommitted changes; the production web build made with canary secrets |
 | DAGs | pytest | `DagBag` has zero import errors (`strava_sync`, `data_quality`); task functions with a stubbed Strava client |
 | Web logic | Vitest + Testing Library | formatters, ring and chart math, card states from payloads |
 | Visual | Playwright | screenshots per scenario at 393x852 and 1280x800 (see `UI_SPEC.md`) |
 
-CI (GitHub Actions) runs `make check`, the same containers as local: ruff (official image), oxlint, `tsc` plus the production build, pytest against the Compose Postgres service, the DAG import test inside the Airflow image, and `vitest`. Playwright screenshots run locally via `make screenshots` (upload as CI artifacts optional).
+CI (GitHub Actions) runs `make check`, the same containers as local: ruff (official image), oxlint, `tsc` plus the production build, pytest against the Compose Postgres service, the DAG import test inside the Airflow image, `vitest`, gitleaks over the full history (`fetch-depth: 0`), and the bundle check. Playwright screenshots run locally via `make screenshots` (upload as CI artifacts optional).
 
 ## 14. Open decisions
 

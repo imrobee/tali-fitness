@@ -50,6 +50,8 @@ class Settings(BaseModel):
     airflow_url: str | None = None
     airflow_admin_user: str | None = None
     airflow_admin_password: SecretStr | None = None
+    # Read by Uvicorn itself; here only so the guards can check it.
+    forwarded_allow_ips: str | None = None
 
     @property
     def cookie_secure(self) -> bool:
@@ -80,6 +82,7 @@ ENV_NAMES = {
     "AIRFLOW_URL": "airflow_url",
     "AIRFLOW_ADMIN_USER": "airflow_admin_user",
     "AIRFLOW_ADMIN_PASSWORD": "airflow_admin_password",
+    "FORWARDED_ALLOW_IPS": "forwarded_allow_ips",
 }
 
 
@@ -122,8 +125,23 @@ def _problems_everywhere(settings: Settings) -> list[str]:
         problems.append("AUTH_MODE=key is allowed only when APP_ENV=dev.")
     if settings.auth_mode == "key" and settings.dev_login_key is None:
         problems.append("AUTH_MODE=key needs DEV_LOGIN_KEY.")
+    if settings.auth_mode == "google":
+        # Sign-in cannot work without these, in any environment. ALLOWED_GOOGLE_SUB may
+        # be empty in dev: the first (denied) sign-in logs the sub to put there.
+        google = {
+            "GOOGLE_CLIENT_ID": settings.google_client_id,
+            "GOOGLE_CLIENT_SECRET": settings.google_client_secret,
+            "OAUTH_STATE_SECRET": settings.oauth_state_secret,
+        }
+        for name, value in google.items():
+            if value is None:
+                problems.append(f"AUTH_MODE=google needs {name}.")
     # dev relaxes the guards (plain cookies, docs, key login), so it must stay on this
     # machine or the LAN: a public address means someone is deploying it.
+    # Uvicorn takes the client IP and scheme from X-Forwarded-* only from these addresses;
+    # "*" would let anyone claim any IP (and dodge the rate limits).
+    if settings.forwarded_allow_ips and "*" in settings.forwarded_allow_ips.split(","):
+        problems.append("FORWARDED_ALLOW_IPS must list the proxy's address, never *.")
     if settings.app_env == "dev" and not _is_local_url(settings.public_base_url):
         problems.append("APP_ENV=dev is local only: PUBLIC_BASE_URL must be a local address.")
     for name, value in (

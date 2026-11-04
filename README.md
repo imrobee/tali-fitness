@@ -23,11 +23,11 @@ make check                # lint, typecheck, and all tests (same as CI)
 | Airflow UI | http://localhost:8080 (login: `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` from `.env`) |
 | Postgres | `127.0.0.1:5433`, databases `app` and `airflow` |
 
-Open the web app, enter the `API_KEY` from `.env` once, and set a calorie budget and protein goal on the Me page.
+Open the web app and sign in: with Google (`AUTH_MODE=google`, see below), or locally with `DEV_LOGIN_KEY` from `.env` (`AUTH_MODE=key`, dev only). Then set a calorie budget and protein goal on the Me page.
 
 ## Demo and screenshots
 
-A separate demo stack (its own database `app_demo`, key `demo-key`, clock frozen at Sat 2026-10-17 14:00) never touches real data.
+A separate demo stack (its own database `app_demo`, dev key `demo-key`, clock frozen at Sat 2026-10-17 14:00) never touches real data.
 
 ```bash
 make seed-demo SCENARIO=midweek   # or at_risk, edge_empty; then open http://localhost:5174
@@ -41,3 +41,20 @@ make screenshots                  # iPhone and desktop screenshots of every scen
 Other scenarios: [at risk](docs/screenshots/at_risk-iphone.png), [stale pipeline](docs/screenshots/at_risk-me-iphone.png), [nothing set up yet](docs/screenshots/edge_empty-iphone.png), [desktop](docs/screenshots/midweek-desktop.png), [trends by month](docs/screenshots/midweek-activities-month-iphone.png), [weights in pounds](docs/screenshots/midweek-nutrition-lb-iphone.png).
 
 Other commands: `make down`, `make logs`, `make test`, `make lint`. `make db-reset` deletes all local data.
+
+## Authentication and security
+
+Full design: [docs/AUTH_SPEC.md](docs/AUTH_SPEC.md). The app has one user, so the goal is defense in depth: no single mistake (a leaked log, a committed file, a stolen cookie, a wrong setting) should expose the data or a credential.
+
+- **Sign-in:** Google (OpenID Connect, with PKCE, a nonce and a single-use state) for exactly one Google account, matched on its stable `sub` and checked on every request. Nothing from Google is stored: no email, no tokens.
+- **Sessions:** a random 256-bit id in an HttpOnly, SameSite=Lax cookie (`__Host-` and Secure in production). The database keeps only its SHA-256, so a database copy cannot be turned into a cookie. 60 days at most, 30 idle.
+- **The iOS Shortcut** has its own token, valid on the ingest route only. The server keeps only its hash, and rotation is supported.
+- **CSRF:** requests that change something must come from the app's own `Origin` and be JSON. No CORS.
+- **Hardening:** strict Content-Security-Policy and security headers, no-store caching, HSTS and no API docs in production, startup guards that refuse an unsafe configuration, rate limits on sign-in and ingest, credential redaction in logs.
+- **Proof in CI:** a test that every route is public on purpose or guarded, a fake Google that tries wrong audiences, issuers, nonces, keys, states and PKCE verifiers, a log and response leak test with canary secrets, a bundle check, and gitleaks over the full git history.
+
+**Residual risks** (what this design does not protect against):
+- Someone who takes over the allowed Google account. Mitigation: a passkey or 2-step verification on that account.
+- A compromise of the host or of its secret store.
+- Someone using the owner's unlocked phone, where the Shortcut's token can be read.
+

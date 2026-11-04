@@ -21,7 +21,7 @@ Four pages, one **bottom navigation bar** on every page:
 - `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`, `apple-mobile-web-app-capable`, status-bar style meta, an apple-touch-icon, `theme-color`. No service worker.
 - Desktop: content in a centered column (max width ~520px), nav aligned to the same column. Same layout, no separate desktop design.
 - **`selectedDate`** is shared state synced to the URL (`?date=YYYY-MM-DD`). Default: `today` from the API. Cannot go past today or before `earliest_date`. Tab switches keep it. Dashboard and Nutrition show the day chooser; Activities lists only that day (Slice 7a; it scrolled to and highlighted it in 6b).
-- First load without an API key shows a small gate screen asking for the key (stored in `localStorage`). A 401 returns to it.
+- **Sign-in gate** (Slice 8a, `AUTH_SPEC.md` section 9): the app asks the server (`GET /auth/me`) and shows the pages only to a signed-in browser. Otherwise one screen: the flame, "Sign in to your tracker", "Only the owner's Google account can open it." and a **Sign in with Google** pill, a plain link to `/auth/login?next=<this page>` (no Google script in the page). In local key mode (`GET /auth/method` says `key`) the same screen holds a **Dev key** field and **Sign in** instead. Any 401 brings the screen back; the server unreachable shows "Can't reach the server" with Retry. Nothing about sign-in is kept in browser storage; the old API key's `localStorage` entry is deleted on every load.
 - Dark-first. All reference images are dark.
 
 ## 2. Dashboard: order and click targets
@@ -155,7 +155,7 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 - **How your streak works** (Slice 7d): the rules of 4 and ARCHITECTURE 8 as a bulleted list in plain words, never the internal names S, O, R, M (text in `web/src/lib/streakRules.ts`). The weekend line follows the setting. Under it a **Weekends** row with a **Strict / Relaxed** switch, saved at once, applying from today; help: "Relaxed: on Saturdays and Sundays only a day with nothing logged ends your streak. Changes apply from today."
 - **Vacation or injury** (Slice 7d): help "During a break, only a day with nothing logged ends your streak." Then a **Log break** button that opens the form (a break still running or to come shows it open): a **From** row and a **To** row, each with a date chip showing a calendar icon and **"Choose date"** in the accent colour until a date is picked, then the date ("Mon, Nov 2"). The native date input lies invisibly over the chip, so a tap anywhere opens the phone's picker. **Save break**; **End break** when one is running or to come. Past dates are allowed (a forgotten break). "Last break: Oct 12 – Oct 15" under it once one has ended. Errors from the API inline.
 - **Timezone:** shown read-only ("Asia/Manila") in v1.
-- **Connection:** API key masked, with "Change".
+- **Account:** "Signed in" and **Sign out** (no email or name). Sign out ends the session on the server, drops every page's data from memory, and shows the sign-in screen.
 - **Data and sync** panel (from `/pipeline/health`): per source (Strava, Apple Health) "Last successful sync" as relative time plus clock time, status shown as icon **and** text (OK / Delayed / Failed), failures in the last 7 days; "Quarantined records: N" expandable to a list (source, reason, raw snippet); "Data quality: N passed, N warnings, N failed" expandable to the check list. Under Strava a **Sync now** button (Slice 7c): "Syncing..." while Airflow works, then "Synced. New activities are in." and every page reloads; the API's reason when refused ("Try again in 90 s."). Under Apple Health a **Run Health Push** link (`shortcuts://run-shortcut?name=Health%20Push`): the server cannot reach the phone, so it opens the Shortcut.
 
 ## 7. Design tokens (`web/src/theme/tokens.css`; components must not use raw hex)
@@ -204,7 +204,7 @@ The at-risk, fresh-start, and counted messages appear as one quiet line at the b
 
 ## 10. Loading, empty, and error states
 
-Skeleton cards while loading (no layout jump). Per-card error with a "Retry" button rather than a full-page error. Offline or API down: banner "Can't reach the server" with retry; never show stale numbers without saying so. 401 goes to the key gate.
+Skeleton cards while loading (no layout jump). Per-card error with a "Retry" button rather than a full-page error. Offline or API down: banner "Can't reach the server" with retry; never show stale numbers without saying so. 401 goes to the sign-in screen.
 
 ## 11. Visual verification loop (the agent must do this)
 

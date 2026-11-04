@@ -137,6 +137,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **"Dev" must not be deployable.** Dev relaxes the guards (plain cookies, key sign-in), so it refuses to start unless the public URL is localhost, a private LAN address, or a Compose service name. Defense in depth: it assumes someone will copy the wrong config one day.
 - **Store a hash of the token, not the token.** The ingest token is 256 random bits; the server keeps only its SHA-256. A database or environment leak doesn't hand over a working credential. No salt or slow hash is needed, because the token is random, not a guessable password.
 
+## Slice 8a (continued): sessions, Google sign-in, hardening, leak tests
+
+- **Server-side sessions, hashed.** The cookie holds a random 256-bit id; the database holds only its SHA-256, with a 60-day absolute and 30-day idle limit. Signing out (or ending a stolen session) deletes one row; a database copy can't be replayed as cookies. Trade-off against a signed cookie: one indexed lookup per request.
+- **The allowlist is checked on every request, not only at sign-in.** The session must belong to `ALLOWED_GOOGLE_SUB` (Google's stable id, not the email). Changing that variable ends every session of the old account, which is the whole recovery plan: no backdoor, no break-glass key.
+- **CSRF without tokens.** SameSite=Lax cookies, an exact `Origin` match and JSON-only bodies: a cross-site form can't send JSON or fake `Origin`. The Shortcut's bearer route is exempt, because a browser never attaches that header on its own.
+- **Test like an attacker, against a fake Google.** A mock Google with its own RSA key lets CI try a wrong audience, issuer, nonce, signing key, state and PKCE verifier, each of which must fail. The route test calls every route from the OpenAPI list without credentials, so a new unguarded route fails CI.
+- **Assume one layer fails.** Credentials are redacted from logs, the callback's query string is stripped from the access log, and leak tests run every flow with canary secrets and search all logs, responses and the built JavaScript for them. gitleaks scans the full git history in CI.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -154,5 +162,9 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | The Week / Month switch pushed past the card edge at 200% zoom | Measuring horizontal scroll at 197px wide | Card headers wrap; trend charts keep only the first and last axis labels at that width |
 | Switching the goal to pounds showed 160.1 lb for a 160 lb goal | A page test of the kg / lb switch | The page converted the rounded on-screen value; it now uses the stored goal while the field is untouched, and never re-saves it |
 | The dashboard was 21px too wide at 200% zoom, but no element stuck out | Measuring scroll width, then hiding cards one by one | A `width: 1%` table-column trick became a 1px box when the rows stacked, and its text spilled past the card; bounding boxes do not include spilled text |
+
+| The security log tests passed while checking nothing | A logging test failed: no record captured at all | Alembic's `fileConfig` switches off every logger that already exists; tests import the app before running migrations. Now `disable_existing_loggers=False` |
+| The route-coverage test found no routes | A parametrized test came back "skipped" (an empty list) | FastAPI 0.142 nests included routers, so `app.routes` hides them. The test now calls every route from the public OpenAPI list instead of reading FastAPI internals |
+| Signing out would have left a blank app | Reading the sign-out code after it passed its test | Clearing React Query's cache also removed the sign-in check itself, so nothing asked again. Sign-out now drops the pages' data and then re-asks the server |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

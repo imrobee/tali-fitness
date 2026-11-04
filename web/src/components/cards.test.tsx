@@ -24,7 +24,6 @@ import { DataSyncCard } from "./DataSyncCard";
 import { DayChooser } from "./DayChooser";
 import { ActivityItem } from "./ActivityItem";
 import { ExercisesCard } from "./ExercisesCard";
-import { KeyGate } from "./KeyGate";
 import { ProteinCard } from "./ProteinCard";
 import { RecoveryCard } from "./RecoveryCard";
 import { StreakCard } from "./StreakCard";
@@ -243,37 +242,6 @@ describe("DayChooser", () => {
     fireEvent.change(picker, { target: { value: "" } }); // a cleared picker changes nothing
 
     expect(onChange.mock.calls).toEqual([["2026-09-01"], [null]]);
-  });
-});
-
-describe("KeyGate", () => {
-  it("asks for the key, then shows the app", () => {
-    wrap(
-      <KeyGate>
-        <p>The app</p>
-      </KeyGate>,
-    );
-
-    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "abc123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
-
-    expect(screen.getByText("The app")).toBeTruthy();
-    expect(localStorage.getItem("fitness-tracker.api-key")).toBe("abc123");
-  });
-
-  it("comes back with a message after a 401", async () => {
-    localStorage.setItem("fitness-tracker.api-key", "wrong");
-    wrap(
-      <KeyGate>
-        <p>The app</p>
-      </KeyGate>,
-    );
-
-    window.dispatchEvent(new Event("api:unauthorized"));
-
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(screen.queryByText("The app")).toBeNull();
-    expect(localStorage.getItem("fitness-tracker.api-key")).toBeNull();
   });
 });
 

@@ -10,7 +10,12 @@ from sqlalchemy import text
 from app.auth import DEV_SUB, allowed_sub
 
 # Routes anyone may call. Adding a route that is neither here nor guarded fails CI.
-PUBLIC = {("GET", "/api/v1/health")}
+PUBLIC = {
+    ("GET", "/api/v1/health"),
+    ("GET", "/auth/login"),
+    ("GET", "/auth/callback"),
+    ("GET", "/auth/method"),
+}
 INGEST = ("POST", "/api/v1/ingest/health")
 
 

@@ -5,7 +5,8 @@ import { type Page, expect, test } from "@playwright/test";
 // this file. Every scenario gets its dashboard at iPhone and desktop size (UI_SPEC.md 11);
 // midweek also gets the Activities (with a session open), Nutrition and Me pages.
 const scenario = process.env.SCENARIO ?? "midweek";
-const apiKey = process.env.API_KEY ?? "demo-key";
+const baseUrl = process.env.BASE_URL ?? "http://web-demo:5173";
+const devKey = process.env.DEV_LOGIN_KEY ?? "demo-key";
 const OUT = "screenshots";
 
 const VIEWPORTS = [
@@ -14,9 +15,13 @@ const VIEWPORTS = [
 ];
 
 test(`screenshots: ${scenario}`, async ({ page }) => {
-  await page.addInitScript((key) => {
-    window.localStorage.setItem("fitness-tracker.api-key", key);
-  }, apiKey);
+  // Sign in the way the dev key form does. page.request shares the page's cookies, so the
+  // session cookie it gets back signs the page in too. Origin: the API's CSRF check.
+  const signIn = await page.request.post("/auth/dev-login", {
+    data: { key: devKey },
+    headers: { Origin: baseUrl },
+  });
+  expect(signIn.status()).toBe(204);
 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fake_google import CLIENT_ID, CLIENT_SECRET, FakeGoogle
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
@@ -17,6 +18,7 @@ from app.auth import token_hash
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
+from app.security import RateLimiter
 from app.sessions import create_session
 
 ALEMBIC_INI = "/db/alembic.ini"
@@ -36,9 +38,23 @@ TEST_SETTINGS = Settings(
     public_base_url=ORIGIN,
     warehouse_url=SecretStr(os.environ["WAREHOUSE_URL"]),
     allowed_google_sub=TEST_SUB,
+    google_client_id=CLIENT_ID,
+    google_client_secret=SecretStr(CLIENT_SECRET),
+    oauth_state_secret=SecretStr("canary-oauth-state-secret-0123456789abcdef"),
     ingest_token_sha256=SecretStr(token_hash(TEST_INGEST_TOKEN)),
 )
-app = create_app(TEST_SETTINGS)
+# Sign-in talks to this fake Google, never the real one.
+FAKE_GOOGLE = FakeGoogle()
+app = create_app(TEST_SETTINGS, google_transport=FAKE_GOOGLE.transport)
+
+
+@pytest.fixture(autouse=True)
+def honest_google():
+    """Every test starts with a fake Google that signs in the allowed account, and with
+    empty rate limits (the shared app would otherwise count every test's requests)."""
+    FAKE_GOOGLE.reset(TEST_SUB)
+    app.state.rate_limiter = RateLimiter()
+    return FAKE_GOOGLE
 
 
 @pytest.fixture(scope="session")

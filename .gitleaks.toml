@@ -1,0 +1,11 @@
+# Secret scanning (docs/AUTH_SPEC.md section 11): gitleaks' default rules, plus this
+# project's ingest token. Run with `make secret-scan` (CI runs it over the full history).
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "fitness-tracker-ingest-token"
+description = "The iOS Shortcut's ingest token: ing_ and 32 random bytes, URL-safe base64"
+regex = '''\bing_[A-Za-z0-9_-]{43}\b'''
+keywords = ["ing_"]
