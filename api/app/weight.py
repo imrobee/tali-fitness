@@ -12,11 +12,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Connection, Engine
 
 from app import clock
-from app.auth import require_api_key
+from app.auth import require_user
 from app.db import get_engine, load_sql
 from app.errors import ApiError
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
 DEFAULT_DAYS = 90
 MAX_DAYS = 366

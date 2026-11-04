@@ -48,7 +48,7 @@ router = APIRouter(prefix="/api/v1")
 
 @router.get("/health")
 def health() -> dict[str, str]:
-    """Liveness check. No API key and no database access, by design."""
+    """Liveness check. No sign-in and no database access, by design."""
     return {"status": "ok"}
 
 

@@ -3,10 +3,7 @@
 from datetime import date, timedelta
 
 from builders import TODAY
-from conftest import TEST_API_KEY
 from sqlalchemy import Engine, text
-
-HEADERS = {"X-API-Key": TEST_API_KEY}
 
 
 def weigh(engine: Engine, day: date, kg: float) -> None:
@@ -36,7 +33,7 @@ def weigh(engine: Engine, day: date, kg: float) -> None:
 
 
 def get(client, query: str = ""):
-    return client.get(f"/api/v1/weight{query}", headers=HEADERS)
+    return client.get(f"/api/v1/weight{query}")
 
 
 def test_the_latest_weigh_in_with_its_average_and_change(client, engine):
@@ -61,7 +58,7 @@ def test_no_weigh_ins_gives_nulls_and_not_logged_days(client):
 
 def test_the_goal_is_set_from_today_and_judges_the_average(client, engine):
     weigh(engine, TODAY, 74.0)
-    response = client.put("/api/v1/me", headers=HEADERS, json={"weight_goal_kg": 72.5})
+    response = client.put("/api/v1/me", json={"weight_goal_kg": 72.5})
 
     assert response.json()["weight_goal_kg"] == 72.5
     body = get(client, "?from=2026-10-20&to=2026-10-20").json()
@@ -70,15 +67,15 @@ def test_the_goal_is_set_from_today_and_judges_the_average(client, engine):
 
 
 def test_saving_other_fields_keeps_the_weight_goal(client):
-    client.put("/api/v1/me", headers=HEADERS, json={"weight_goal_kg": 72.5})
+    client.put("/api/v1/me", json={"weight_goal_kg": 72.5})
 
-    me = client.put("/api/v1/me", headers=HEADERS, json={"nickname": "Rob"}).json()
+    me = client.put("/api/v1/me", json={"nickname": "Rob"}).json()
 
     assert me["weight_goal_kg"] == 72.5
 
 
 def test_a_goal_outside_the_sanity_range_is_refused(client):
-    response = client.put("/api/v1/me", headers=HEADERS, json={"weight_goal_kg": 5})
+    response = client.put("/api/v1/me", json={"weight_goal_kg": 5})
 
     assert (response.status_code, response.json()["error"]["code"]) == (422, "invalid_payload")
 
@@ -91,27 +88,27 @@ def test_the_range_is_limited_and_must_run_forwards(client):
     assert backwards.json()["error"]["code"] == "invalid_payload"
 
 
-def test_the_weight_needs_the_api_key(client):
-    assert client.get("/api/v1/weight").status_code == 401
+def test_the_weight_needs_sign_in(anonymous):
+    assert anonymous.get("/api/v1/weight").status_code == 401
 
 
 # --- the unit preference -------------------------------------------------------------------
 
 
 def test_the_unit_starts_as_kg_and_can_change_to_lb(client):
-    assert client.get("/api/v1/me", headers=HEADERS).json()["weight_unit"] == "kg"
+    assert client.get("/api/v1/me").json()["weight_unit"] == "kg"
 
-    me = client.put("/api/v1/me", headers=HEADERS, json={"weight_unit": "lb"}).json()
+    me = client.put("/api/v1/me", json={"weight_unit": "lb"}).json()
 
     assert me["weight_unit"] == "lb"
-    assert client.get("/api/v1/me", headers=HEADERS).json()["weight_unit"] == "lb"
+    assert client.get("/api/v1/me").json()["weight_unit"] == "lb"
 
 
 def test_changing_the_unit_never_changes_stored_weights(client, engine):
     weigh(engine, TODAY, 74.84274105)
-    client.put("/api/v1/me", headers=HEADERS, json={"weight_goal_kg": 72.5747792})
+    client.put("/api/v1/me", json={"weight_goal_kg": 72.5747792})
 
-    client.put("/api/v1/me", headers=HEADERS, json={"weight_unit": "lb"})
+    client.put("/api/v1/me", json={"weight_unit": "lb"})
     body = get(client, "?from=2026-10-20&to=2026-10-20").json()
 
     assert body["latest_kg"] == 74.84274105  # still kg: the page converts for display
@@ -119,6 +116,6 @@ def test_changing_the_unit_never_changes_stored_weights(client, engine):
 
 
 def test_an_unknown_unit_is_refused(client):
-    response = client.put("/api/v1/me", headers=HEADERS, json={"weight_unit": "stone"})
+    response = client.put("/api/v1/me", json={"weight_unit": "stone"})
 
     assert (response.status_code, response.json()["error"]["code"]) == (422, "invalid_payload")

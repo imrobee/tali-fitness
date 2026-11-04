@@ -3,10 +3,7 @@
 from datetime import timedelta
 
 from builders import TODAY, add_activity, date_key
-from conftest import TEST_API_KEY
 from sqlalchemy import Engine, text
-
-HEADERS = {"X-API-Key": TEST_API_KEY}
 
 
 def add_set(engine: Engine, strava_id: int, order: int, number: int, kind: str, **measures):
@@ -68,7 +65,7 @@ def test_the_list_is_grouped_by_day_newest_first(client, engine):
     add_activity(engine, TODAY, title="Evening Run", local_time="18:00")
     add_activity(engine, TODAY - timedelta(days=1), title="Yesterday Run")
 
-    body = client.get("/api/v1/activities", headers=HEADERS).json()
+    body = client.get("/api/v1/activities").json()
 
     assert [day["date"] for day in body["days"]] == ["2026-10-20", "2026-10-19"]
     assert [a["title"] for a in body["days"][0]["activities"]] == ["Evening Run", "Morning Run"]
@@ -78,7 +75,7 @@ def test_the_default_range_is_the_last_30_days(client, engine):
     add_activity(engine, TODAY - timedelta(days=29), title="Inside")
     add_activity(engine, TODAY - timedelta(days=30), title="Outside")
 
-    body = client.get("/api/v1/activities", headers=HEADERS).json()
+    body = client.get("/api/v1/activities").json()
 
     assert (body["from"], body["to"]) == ("2026-09-21", "2026-10-20")
     titles = [a["title"] for day in body["days"] for a in day["activities"]]
@@ -92,7 +89,6 @@ def test_an_explicit_range_is_honoured(client, engine):
     body = client.get(
         "/api/v1/activities",
         params={"from": "2026-10-10", "to": "2026-10-15"},
-        headers=HEADERS,
     ).json()
 
     assert [a["title"] for day in body["days"] for a in day["activities"]] == ["Wanted"]
@@ -105,7 +101,7 @@ def test_strength_summary_counts_exercises_sets_and_volume(client, engine):
     add_set(engine, strava_id, 1, 2, "weight_reps", weight_kg=20, reps=8)
     add_set(engine, strava_id, 2, 1, "reps", reps=15)
 
-    summary = client.get("/api/v1/activities", headers=HEADERS).json()["days"][0]["activities"][0]
+    summary = client.get("/api/v1/activities").json()["days"][0]["activities"][0]
 
     assert (summary["exercise_count"], summary["set_count"]) == (2, 3)
     assert summary["volume_kg"] == 320.0  # 20 kg x 8 x 2; bodyweight sets add nothing
@@ -114,25 +110,21 @@ def test_strength_summary_counts_exercises_sets_and_volume(client, engine):
 def test_a_run_has_no_sets_and_no_volume(client, engine):
     add_activity(engine, TODAY)
 
-    summary = client.get("/api/v1/activities", headers=HEADERS).json()["days"][0]["activities"][0]
+    summary = client.get("/api/v1/activities").json()["days"][0]["activities"][0]
 
     assert (summary["exercise_count"], summary["set_count"], summary["volume_kg"]) == (0, 0, 0.0)
     assert summary["moving_s"] is None  # the test helper sets no moving time
 
 
 def test_a_range_over_a_year_is_refused(client):
-    response = client.get(
-        "/api/v1/activities", params={"from": "2025-01-01", "to": "2026-10-20"}, headers=HEADERS
-    )
+    response = client.get("/api/v1/activities", params={"from": "2025-01-01", "to": "2026-10-20"})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "date_out_of_range"
 
 
 def test_from_after_to_is_refused(client):
-    response = client.get(
-        "/api/v1/activities", params={"from": "2026-10-20", "to": "2026-10-01"}, headers=HEADERS
-    )
+    response = client.get("/api/v1/activities", params={"from": "2026-10-20", "to": "2026-10-01"})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_payload"
@@ -148,7 +140,7 @@ def test_detail_groups_sets_under_their_exercise_in_order(client, engine):
     add_set(engine, strava_id, 1, 2, "weight_reps", weight_kg=22.5, reps=6, note="Pause at the top")
     add_set(engine, strava_id, 2, 1, "duration", duration_s=90)
 
-    body = client.get(f"/api/v1/activities/{activity_id(engine, strava_id)}", headers=HEADERS)
+    body = client.get(f"/api/v1/activities/{activity_id(engine, strava_id)}")
     detail = body.json()
 
     assert body.status_code == 200
@@ -181,9 +173,7 @@ def test_raw_text_is_shown_only_when_the_parse_is_not_ok(client, engine):
             {"raw": "Bench 3x8\nGarbage line", "id": strava_id},
         )
 
-    detail = client.get(
-        f"/api/v1/activities/{activity_id(engine, strava_id)}", headers=HEADERS
-    ).json()
+    detail = client.get(f"/api/v1/activities/{activity_id(engine, strava_id)}").json()
 
     assert detail["parse_status"] == "partial"
     assert detail["description_raw"] == "Bench 3x8\nGarbage line"
@@ -201,19 +191,17 @@ def test_raw_text_is_hidden_when_the_parse_is_ok(client, engine):
             {"id": strava_id},
         )
 
-    detail = client.get(
-        f"/api/v1/activities/{activity_id(engine, strava_id)}", headers=HEADERS
-    ).json()
+    detail = client.get(f"/api/v1/activities/{activity_id(engine, strava_id)}").json()
 
     assert detail["description_raw"] is None
 
 
 def test_an_unknown_activity_is_not_found(client):
-    response = client.get("/api/v1/activities/999999", headers=HEADERS)
+    response = client.get("/api/v1/activities/999999")
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
 
 
-def test_activities_need_the_api_key(client):
-    assert client.get("/api/v1/activities").status_code == 401
+def test_activities_need_sign_in(anonymous):
+    assert anonymous.get("/api/v1/activities").status_code == 401

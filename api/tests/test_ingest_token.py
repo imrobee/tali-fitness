@@ -4,7 +4,7 @@ import json
 import logging
 
 import pytest
-from conftest import INGEST_HEADERS, TEST_API_KEY, TEST_INGEST_TOKEN, TEST_SETTINGS, load_sample
+from conftest import INGEST_HEADERS, TEST_INGEST_TOKEN, TEST_SETTINGS, load_sample
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -34,7 +34,7 @@ def test_a_valid_token_is_accepted(client):
         {"Authorization": "Basic " + TEST_INGEST_TOKEN},  # another scheme
         {"Authorization": "Bearer ing_wrong-token"},
         {"Authorization": "Bearer "},
-        {"X-API-Key": TEST_API_KEY},  # the old key does not open this route
+        {"X-API-Key": "changemelocal"},  # the old shared key header is not accepted
     ],
 )
 def test_every_failure_gets_the_same_401(client, headers):
@@ -59,10 +59,14 @@ def test_a_failure_is_logged_without_the_token(client, caplog):
     assert "ing_" not in caplog.text
 
 
-def test_the_token_does_not_open_other_routes(client):
-    response = client.get("/api/v1/dashboard", headers=INGEST_HEADERS)
+def test_the_token_does_not_open_other_routes(anonymous):
+    assert anonymous.get("/api/v1/dashboard", headers=INGEST_HEADERS).status_code == 401
+    assert anonymous.post("/api/v1/recovery", headers=INGEST_HEADERS, json={}).status_code == 401
 
-    assert response.status_code == 401
+
+def test_a_session_cookie_does_not_open_the_ingest_route(client):
+    # `client` is signed in: its session cookie alone must not be enough here.
+    assert post(client).status_code == 401
 
 
 def test_rotation_accepts_both_tokens_until_the_old_hash_is_removed(engine, monkeypatch):

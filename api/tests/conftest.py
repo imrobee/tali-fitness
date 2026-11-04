@@ -12,14 +12,18 @@ from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+from app import clock
 from app.auth import token_hash
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
+from app.sessions import create_session
 
 ALEMBIC_INI = "/db/alembic.ini"
 SAMPLES = Path("/samples")
-TEST_API_KEY = "test-api-key"
+# The test client signs in as this account. Obviously fake, like every test secret.
+TEST_SUB = "canary-google-sub-0001"
+ORIGIN = "http://testserver"  # PUBLIC_BASE_URL below: what the browser sends as Origin
 # An obviously fake canary: if it ever shows up in a log or a response, a test caught a leak.
 TEST_INGEST_TOKEN = "ing_canary-ingest-token-not-a-real-secret"
 INGEST_HEADERS = {"Authorization": f"Bearer {TEST_INGEST_TOKEN}"}
@@ -29,8 +33,9 @@ INGEST_HEADERS = {"Authorization": f"Bearer {TEST_INGEST_TOKEN}"}
 TEST_SETTINGS = Settings(
     app_env="test",
     auth_mode="google",
-    public_base_url="http://testserver",
+    public_base_url=ORIGIN,
     warehouse_url=SecretStr(os.environ["WAREHOUSE_URL"]),
+    allowed_google_sub=TEST_SUB,
     ingest_token_sha256=SecretStr(token_hash(TEST_INGEST_TOKEN)),
 )
 app = create_app(TEST_SETTINGS)
@@ -80,14 +85,30 @@ def engine(migrated_engine: Engine) -> Engine:
 
 
 @pytest.fixture
-def client(engine: Engine, monkeypatch) -> TestClient:
-    """A client whose app talks to the test database, with a known key and a frozen clock."""
-    monkeypatch.setenv("API_KEY", TEST_API_KEY)
+def anonymous(engine: Engine, monkeypatch) -> TestClient:
+    """A client of the app on the test database with a frozen clock, not signed in.
+
+    It sends the app's own Origin, as the browser does on the app's pages."""
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("NOW_OVERRIDE", "2026-10-20T20:00:00+08:00")
     app.dependency_overrides[get_engine] = lambda: engine
-    yield TestClient(app)
+    yield TestClient(app, headers={"Origin": ORIGIN})
     app.dependency_overrides.clear()
+
+
+def sign_in(client: TestClient, engine: Engine, sub: str = TEST_SUB) -> str:
+    """Give the client a real session, as signing in would. Returns the session id."""
+    with engine.begin() as conn:
+        session_id = create_session(conn, sub, clock.now())
+    client.cookies.set("session", session_id)
+    return session_id
+
+
+@pytest.fixture
+def client(anonymous: TestClient, engine: Engine) -> TestClient:
+    """The same client, signed in as the allowed account."""
+    sign_in(anonymous, engine)
+    return anonymous
 
 
 def load_sample(name: str) -> dict:

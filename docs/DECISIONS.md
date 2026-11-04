@@ -378,3 +378,9 @@ Why: one API instance, so a dictionary of recent request times is enough and eas
 
 **D108. The page's Content-Security-Policy is checked against the production build on `vite preview`, not the dev server.**
 Why: the Vite dev server injects an inline React-refresh script, which a strict `script-src 'self'` blocks; loosening the policy to `unsafe-inline` for dev would hide real violations. The API sets the policy on its own responses; whatever serves the static files in Slice 8 sets the same header (Rob, 2026-10-28). Rejected: a looser dev-only policy.
+
+**D109. The Origin check (CSRF) runs inside `require_user`, so it covers every cookie-authenticated request that changes something; the Shortcut's ingest route is exempt.**
+Why: AUTH_SPEC section 6 says "every non-GET request", but the iOS Shortcut is not a browser and sends no `Origin`, and CSRF needs a credential the browser attaches by itself (a cookie). The ingest route accepts only an `Authorization` header, which another site cannot make a browser send, and it rejects the session cookie. Mutating requests must also be JSON (415 otherwise): a cross-site HTML form can only send form data or plain text. Rejected: an app-wide Origin middleware with an ingest exception (one more place to forget the exception).
+
+**D110. The route-coverage test is black-box: it lists every route from `app.openapi()` and expects 401 from each one not on the public allowlist, and 401 from every non-ingest route given only the ingest token.**
+Why: FastAPI 0.142 nests included routers, so `app.routes` no longer lists them and the per-route dependency records are internal. The OpenAPI list is public and complete in tests, and a route with a missing guard fails the test whatever the cause. Rejected: reading `route.dependant` (undocumented, broke on this version).

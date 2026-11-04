@@ -14,11 +14,11 @@ from sqlalchemy import Engine
 
 from app import clock
 from app.airflow import AirflowClient, AirflowError, get_airflow
-from app.auth import require_api_key
+from app.auth import require_user
 from app.db import get_engine, load_sql
 from app.errors import ApiError
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
 DAG_ID = "strava_sync"
 COOLDOWN = timedelta(minutes=2)
