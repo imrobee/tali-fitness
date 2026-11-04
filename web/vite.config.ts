@@ -12,9 +12,13 @@ export default defineConfig({
     // Vite refuses unknown host names; these are the Compose service names the
     // screenshot container uses. IP addresses (the iPhone) are always allowed.
     allowedHosts: ['web', 'web-demo'],
-    // Forward /api to the API so the browser sees a single origin (no CORS setup).
+    // Forward /api and /auth to the API so the browser sees a single origin: no CORS,
+    // and the session cookie belongs to the page's own host (docs/AUTH_SPEC.md 5).
     // The demo stack points this at its own API (docker-compose.yml, profile "demo").
-    proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://api:8000' },
+    proxy: {
+      '/api': process.env.API_PROXY_TARGET ?? 'http://api:8000',
+      '/auth': process.env.API_PROXY_TARGET ?? 'http://api:8000',
+    },
   },
   test: {
     // Pure functions run in Node; component tests opt into jsdom per file.

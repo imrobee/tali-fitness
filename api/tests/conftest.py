@@ -7,28 +7,54 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fake_google import CLIENT_ID, CLIENT_SECRET, FakeGoogle
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+from app import clock
+from app.auth import token_hash
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
+from app.security import RateLimiter
+from app.sessions import create_session
 
 ALEMBIC_INI = "/db/alembic.ini"
 SAMPLES = Path("/samples")
-TEST_API_KEY = "test-api-key"
+# The test client signs in as this account. Obviously fake, like every test secret.
+TEST_SUB = "canary-google-sub-0001"
+ORIGIN = "http://testserver"  # PUBLIC_BASE_URL below: what the browser sends as Origin
+# An obviously fake canary: if it ever shows up in a log or a response, a test caught a leak.
+TEST_INGEST_TOKEN = "ing_canary-ingest-token-not-a-real-secret"
+INGEST_HEADERS = {"Authorization": f"Bearer {TEST_INGEST_TOKEN}"}
 
 # Tests never read .env for auth settings: the app is built from these, so a test run
 # cannot depend on (or print) Rob's real values.
 TEST_SETTINGS = Settings(
     app_env="test",
     auth_mode="google",
-    public_base_url="http://testserver",
+    public_base_url=ORIGIN,
     warehouse_url=SecretStr(os.environ["WAREHOUSE_URL"]),
+    allowed_google_sub=TEST_SUB,
+    google_client_id=CLIENT_ID,
+    google_client_secret=SecretStr(CLIENT_SECRET),
+    oauth_state_secret=SecretStr("canary-oauth-state-secret-0123456789abcdef"),
+    ingest_token_sha256=SecretStr(token_hash(TEST_INGEST_TOKEN)),
 )
-app = create_app(TEST_SETTINGS)
+# Sign-in talks to this fake Google, never the real one.
+FAKE_GOOGLE = FakeGoogle()
+app = create_app(TEST_SETTINGS, google_transport=FAKE_GOOGLE.transport)
+
+
+@pytest.fixture(autouse=True)
+def honest_google():
+    """Every test starts with a fake Google that signs in the allowed account, and with
+    empty rate limits (the shared app would otherwise count every test's requests)."""
+    FAKE_GOOGLE.reset(TEST_SUB)
+    app.state.rate_limiter = RateLimiter()
+    return FAKE_GOOGLE
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +92,7 @@ def engine(migrated_engine: Engine) -> Engine:
             text(
                 "TRUNCATE raw.health_batches, raw.strava_activities, core.dim_activity_type, "
                 "app.recovery_day, app.target_history, app.weight_goal_history, "
-                "app.streak_settings_history, app.vacation, ops.quarantine, "
+                "app.streak_settings_history, app.vacation, app.session, ops.quarantine, "
                 "ops.pipeline_runs CASCADE"
             )
         )
@@ -75,14 +101,30 @@ def engine(migrated_engine: Engine) -> Engine:
 
 
 @pytest.fixture
-def client(engine: Engine, monkeypatch) -> TestClient:
-    """A client whose app talks to the test database, with a known key and a frozen clock."""
-    monkeypatch.setenv("API_KEY", TEST_API_KEY)
+def anonymous(engine: Engine, monkeypatch) -> TestClient:
+    """A client of the app on the test database with a frozen clock, not signed in.
+
+    It sends the app's own Origin, as the browser does on the app's pages."""
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("NOW_OVERRIDE", "2026-10-20T20:00:00+08:00")
     app.dependency_overrides[get_engine] = lambda: engine
-    yield TestClient(app)
+    yield TestClient(app, headers={"Origin": ORIGIN})
     app.dependency_overrides.clear()
+
+
+def sign_in(client: TestClient, engine: Engine, sub: str = TEST_SUB) -> str:
+    """Give the client a real session, as signing in would. Returns the session id."""
+    with engine.begin() as conn:
+        session_id = create_session(conn, sub, clock.now())
+    client.cookies.set("session", session_id)
+    return session_id
+
+
+@pytest.fixture
+def client(anonymous: TestClient, engine: Engine) -> TestClient:
+    """The same client, signed in as the allowed account."""
+    sign_in(anonymous, engine)
+    return anonymous
 
 
 def load_sample(name: str) -> dict:

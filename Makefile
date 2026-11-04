@@ -5,8 +5,9 @@ COMPOSE := docker compose
 # `run --build` rebuilds the image first if a Dockerfile or dependency changed.
 RUN := $(COMPOSE) run --rm --build
 RUFF := docker run --rm -v "$(CURDIR)":/io -w /io ghcr.io/astral-sh/ruff:0.16.10
+GITLEAKS := docker run --rm -v "$(CURDIR)":/repo ghcr.io/gitleaks/gitleaks:v8.30.1
 
-.PHONY: up down logs migrate strava-auth seed-demo test test-api test-pipeline test-web lint typecheck check screenshots db-reset
+.PHONY: up down logs migrate strava-auth seed-demo test test-api test-pipeline test-web lint typecheck check screenshots db-reset secret-scan check-bundle
 
 # --renew-anon-volumes: the web container keeps node_modules in an anonymous volume;
 # without this flag a rebuilt image would keep the old packages. Only anonymous volumes
@@ -57,7 +58,17 @@ lint:
 typecheck:
 	$(RUN) --no-deps web npm run build
 
-check: lint typecheck test
+# Leak checks (docs/AUTH_SPEC.md section 11). secret-scan: every commit in the history,
+# then uncommitted changes to tracked files (new files are scanned once staged, by the
+# pre-commit hook). Findings print as REDACTED. check-bundle: no secret in the web build.
+secret-scan:
+	$(GITLEAKS) git --config /repo/.gitleaks.toml --redact /repo
+	$(GITLEAKS) git --pre-commit --config /repo/.gitleaks.toml --redact /repo
+
+check-bundle:
+	$(RUN) --no-deps web sh scripts/check-bundle.sh
+
+check: lint typecheck test secret-scan check-bundle
 
 # iPhone-size screenshots of each scenario into docs/screenshots/ (UI_SPEC.md 11).
 screenshots:

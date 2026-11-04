@@ -1,18 +1,18 @@
 import { type FormEvent, type ReactNode, useState } from "react";
-import { UNAUTHORIZED_EVENT, isOffline } from "../api/client";
+import { isOffline } from "../api/client";
 import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
 import { StreakRulesCard, VacationCard } from "../components/StreakSettings";
 import { Toggle } from "../components/Toggle";
 import { toKg, type WeightUnit, weightNumber } from "../lib/units";
-import { getApiKey, maskKey } from "../api/key";
 import type { Me, MeUpdate } from "../api/types";
+import { AccountCard } from "../components/AccountCard";
 import { DataSyncCard } from "../components/DataSyncCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { OfflineBanner, Page } from "../components/Page";
 import { type ProfileErrors, validateProfile } from "../lib/targets";
 import styles from "./MePage.module.css";
 
-// Me (UI_SPEC.md 6.3): profile and targets, time zone, the data and sync panel, and the key.
+// Me (UI_SPEC.md 6.3): profile and targets, time zone, the data and sync panel, and signing out.
 export function MePage() {
   const query = useMe();
   const health = usePipelineHealth();
@@ -46,7 +46,7 @@ export function MePage() {
         </Card>
       )}
       {health.data && <DataSyncCard health={health.data} now={Date.parse(health.data.now)} />}
-      <ConnectionCard />
+      <AccountCard />
     </Page>
   );
 }
@@ -212,27 +212,5 @@ function Field({ id, label, unit, value, onChange, error, numeric, decimal, trai
         </span>
       )}
     </div>
-  );
-}
-
-function ConnectionCard() {
-  const key = getApiKey();
-
-  return (
-    <Card title="Connection">
-      <div className={styles.row}>
-        <span>
-          API key <span className={`${styles.rowValue} num`}>{key ? maskKey(key) : "—"}</span>
-        </span>
-        <button
-          type="button"
-          className={styles.change}
-          // Asking again is the same as an expired key: the key gate takes over.
-          onClick={() => window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))}
-        >
-          Change
-        </button>
-      </div>
-    </Card>
   );
 }

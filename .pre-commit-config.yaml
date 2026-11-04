@@ -1,0 +1,7 @@
+# Optional local hook (docs/AUTH_SPEC.md section 11): scans staged changes for secrets
+# before each commit. Install once: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

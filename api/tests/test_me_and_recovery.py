@@ -4,10 +4,8 @@ from datetime import timedelta
 
 import pytest
 from builders import TODAY, add_food, add_recovery, qualify
-from conftest import TEST_API_KEY
 from sqlalchemy import text
 
-HEADERS = {"X-API-Key": TEST_API_KEY}
 YESTERDAY = TODAY - timedelta(days=1)
 
 
@@ -15,7 +13,7 @@ YESTERDAY = TODAY - timedelta(days=1)
 
 
 def test_me_starts_without_nickname_or_targets(client):
-    body = client.get("/api/v1/me", headers=HEADERS).json()
+    body = client.get("/api/v1/me").json()
 
     assert body == {
         "nickname": None,
@@ -34,7 +32,6 @@ def test_saving_targets_applies_from_today(client):
     body = client.put(
         "/api/v1/me",
         json={"nickname": "Rob", "targets": {"calorie_budget": 1853, "protein_goal": 130}},
-        headers=HEADERS,
     ).json()
 
     assert body["nickname"] == "Rob"
@@ -50,7 +47,6 @@ def test_saving_twice_on_one_day_replaces_that_days_targets(client, engine):
         client.put(
             "/api/v1/me",
             json={"targets": {"calorie_budget": budget, "protein_goal": 130}},
-            headers=HEADERS,
         )
 
     with engine.connect() as conn:
@@ -70,7 +66,6 @@ def test_earlier_targets_stay_in_history(client, engine):
     client.put(
         "/api/v1/me",
         json={"targets": {"calorie_budget": 1853, "protein_goal": 130}},
-        headers=HEADERS,
     )
 
     with engine.connect() as conn:
@@ -84,10 +79,9 @@ def test_updating_only_the_nickname_keeps_the_targets(client):
     client.put(
         "/api/v1/me",
         json={"targets": {"calorie_budget": 1853, "protein_goal": 130}},
-        headers=HEADERS,
     )
 
-    body = client.put("/api/v1/me", json={"nickname": "Rob"}, headers=HEADERS).json()
+    body = client.put("/api/v1/me", json={"nickname": "Rob"}).json()
 
     assert body["targets"]["calorie_budget"] == 1853
 
@@ -102,7 +96,7 @@ def test_updating_only_the_nickname_keeps_the_targets(client):
     ],
 )
 def test_targets_outside_the_sanity_limits_are_rejected(client, targets):
-    response = client.put("/api/v1/me", json={"targets": targets}, headers=HEADERS)
+    response = client.put("/api/v1/me", json={"targets": targets})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_payload"
@@ -112,7 +106,7 @@ def test_targets_outside_the_sanity_limits_are_rejected(client, targets):
 
 
 def post_recovery(client, day):
-    return client.post("/api/v1/recovery", json={"date": str(day)}, headers=HEADERS)
+    return client.post("/api/v1/recovery", json={"date": str(day)})
 
 
 def test_log_a_recovery_day_when_the_previous_day_counted(client, engine):
@@ -122,7 +116,7 @@ def test_log_a_recovery_day_when_the_previous_day_counted(client, engine):
 
     assert response.status_code == 201
     assert response.json() == {"date": "2026-10-20", "state": "logged"}
-    dashboard = client.get("/api/v1/dashboard", headers=HEADERS).json()
+    dashboard = client.get("/api/v1/dashboard").json()
     assert dashboard["recovery"] == {"state": "logged"}
 
 
@@ -146,11 +140,11 @@ def test_blocked_when_the_day_before_was_a_rest_day(client, engine):
 def test_heal_yesterday_with_a_recovery_day(client, engine):
     qualify(engine, TODAY - timedelta(days=3))
     qualify(engine, TODAY - timedelta(days=2))
-    assert client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]["at_risk"] is True
+    assert client.get("/api/v1/dashboard").json()["streak"]["at_risk"] is True
 
     assert post_recovery(client, YESTERDAY).status_code == 201
 
-    streak = client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]
+    streak = client.get("/api/v1/dashboard").json()["streak"]
     assert (streak["count"], streak["at_risk"]) == (3, False)  # a rest day counts
 
 
@@ -174,15 +168,15 @@ def test_undo_removes_the_recovery_day(client, engine):
     qualify(engine, YESTERDAY)
     add_recovery(engine, TODAY)
 
-    response = client.delete(f"/api/v1/recovery/{TODAY}", headers=HEADERS)
+    response = client.delete(f"/api/v1/recovery/{TODAY}")
 
     assert response.status_code == 204
-    dashboard = client.get("/api/v1/dashboard", headers=HEADERS).json()
+    dashboard = client.get("/api/v1/dashboard").json()
     assert dashboard["recovery"]["state"] == "available"
 
 
 def test_undo_is_limited_to_today_or_yesterday(client):
-    response = client.delete("/api/v1/recovery/2026-10-01", headers=HEADERS)
+    response = client.delete("/api/v1/recovery/2026-10-01")
 
     assert response.json()["error"]["code"] == "recovery_not_allowed"
 
@@ -197,7 +191,7 @@ def test_a_recovery_day_after_a_missed_day_is_allowed(client, engine):
 
 
 def test_relaxed_weekends_apply_from_today(client, engine):
-    me = client.put("/api/v1/me", headers=HEADERS, json={"lenient_weekends": True}).json()
+    me = client.put("/api/v1/me", json={"lenient_weekends": True}).json()
 
     assert me["lenient_weekends"] is True
     with engine.connect() as conn:
@@ -208,24 +202,18 @@ def test_relaxed_weekends_apply_from_today(client, engine):
 
 
 def test_a_vacation_can_be_set_changed_and_ended(client):
-    me = client.put(
-        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-24", "to": "2026-11-01"}
-    ).json()
+    me = client.put("/api/v1/vacation", json={"from": "2026-10-24", "to": "2026-11-01"}).json()
     assert me["vacation"] == {"from": "2026-10-24", "to": "2026-11-01"}
 
-    me = client.put(
-        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-25", "to": "2026-11-02"}
-    ).json()
+    me = client.put("/api/v1/vacation", json={"from": "2026-10-25", "to": "2026-11-02"}).json()
     assert me["vacation"] == {"from": "2026-10-25", "to": "2026-11-02"}  # changed, not added
 
-    assert client.delete("/api/v1/vacation", headers=HEADERS).status_code == 204
-    assert client.get("/api/v1/me", headers=HEADERS).json()["vacation"] is None
+    assert client.delete("/api/v1/vacation").status_code == 204
+    assert client.get("/api/v1/me").json()["vacation"] is None
 
 
 def test_a_forgotten_vacation_in_the_past_is_kept_as_history(client):
-    me = client.put(
-        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-12", "to": "2026-10-15"}
-    ).json()
+    me = client.put("/api/v1/vacation", json={"from": "2026-10-12", "to": "2026-10-15"}).json()
 
     assert (me["vacation"], me["last_vacation"]) == (
         None,
@@ -237,11 +225,11 @@ def test_a_vacation_heals_the_days_it_covers(client, engine):
     qualify(engine, TODAY - timedelta(days=3))
     add_food(engine, TODAY - timedelta(days=2))
     add_food(engine, YESTERDAY)  # a second rest day in a row: at risk
-    assert client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]["at_risk"] is True
+    assert client.get("/api/v1/dashboard").json()["streak"]["at_risk"] is True
 
-    client.put("/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-18", "to": "2026-10-19"})
+    client.put("/api/v1/vacation", json={"from": "2026-10-18", "to": "2026-10-19"})
 
-    streak = client.get("/api/v1/dashboard", headers=HEADERS).json()["streak"]
+    streak = client.get("/api/v1/dashboard").json()["streak"]
     assert (streak["count"], streak["at_risk"]) == (3, False)
 
 
@@ -254,16 +242,14 @@ def test_a_vacation_heals_the_days_it_covers(client, engine):
     ],
 )
 def test_vacation_limits(client, period, code):
-    response = client.put("/api/v1/vacation", headers=HEADERS, json=period)
+    response = client.put("/api/v1/vacation", json=period)
 
     assert (response.status_code, response.json()["error"]["code"]) == (422, code)
 
 
 def test_vacations_cannot_overlap(client):
-    client.put("/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-12", "to": "2026-10-15"})
+    client.put("/api/v1/vacation", json={"from": "2026-10-12", "to": "2026-10-15"})
 
-    response = client.put(
-        "/api/v1/vacation", headers=HEADERS, json={"from": "2026-10-14", "to": "2026-10-22"}
-    )
+    response = client.put("/api/v1/vacation", json={"from": "2026-10-14", "to": "2026-10-22"})
 
     assert response.json()["error"]["code"] == "vacation_overlap"

@@ -10,13 +10,12 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import TEST_API_KEY, app
+from conftest import app
 from pydantic import SecretStr
 from sqlalchemy import Engine, text
 
 from app.airflow import AirflowClient, get_airflow
 
-HEADERS = {"X-API-Key": TEST_API_KEY}
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
 
 
@@ -98,7 +97,7 @@ def add_running_strava_run(engine: Engine, started: datetime) -> None:
 
 
 def test_sync_now_starts_strava_sync_through_airflow(client, airflow):
-    response = client.post("/api/v1/sync/strava", headers=HEADERS)
+    response = client.post("/api/v1/sync/strava")
 
     assert response.status_code == 202
     assert response.json()["state"] == "queued"
@@ -115,7 +114,7 @@ def test_sync_now_starts_strava_sync_through_airflow(client, airflow):
 def test_a_second_request_within_two_minutes_is_refused(client, engine, airflow):
     add_request(engine, NOW - timedelta(seconds=30))
 
-    response = client.post("/api/v1/sync/strava", headers=HEADERS)
+    response = client.post("/api/v1/sync/strava")
 
     assert (response.status_code, response.json()["error"]["code"]) == (429, "sync_cooldown")
     assert airflow.calls == []  # Airflow was never asked
@@ -124,13 +123,13 @@ def test_a_second_request_within_two_minutes_is_refused(client, engine, airflow)
 def test_after_the_cooldown_a_new_request_goes_through(client, engine, airflow):
     add_request(engine, NOW - timedelta(minutes=2, seconds=1))
 
-    assert client.post("/api/v1/sync/strava", headers=HEADERS).status_code == 202
+    assert client.post("/api/v1/sync/strava").status_code == 202
 
 
 def test_no_request_while_a_strava_run_is_in_progress(client, engine, airflow):
     add_running_strava_run(engine, NOW - timedelta(minutes=5))
 
-    response = client.post("/api/v1/sync/strava", headers=HEADERS)
+    response = client.post("/api/v1/sync/strava")
 
     assert (response.status_code, response.json()["error"]["code"]) == (409, "sync_running")
 
@@ -138,13 +137,13 @@ def test_no_request_while_a_strava_run_is_in_progress(client, engine, airflow):
 def test_a_running_row_left_by_a_crash_does_not_block_forever(client, engine, airflow):
     add_running_strava_run(engine, NOW - timedelta(hours=2))
 
-    assert client.post("/api/v1/sync/strava", headers=HEADERS).status_code == 202
+    assert client.post("/api/v1/sync/strava").status_code == 202
 
 
 def test_an_airflow_error_is_a_502_and_nothing_is_recorded(client, engine, airflow):
     airflow.trigger_status = 500
 
-    response = client.post("/api/v1/sync/strava", headers=HEADERS)
+    response = client.post("/api/v1/sync/strava")
 
     assert (response.status_code, response.json()["error"]["code"]) == (502, "airflow_unavailable")
     assert "secret" not in response.text
@@ -156,7 +155,7 @@ def test_the_status_follows_the_airflow_run(client, engine, airflow):
     add_request(engine, NOW - timedelta(minutes=1), run_id="manual__2026-10-20T11:59:00+00:00")
     airflow.state = "success"
 
-    body = client.get("/api/v1/sync/strava", headers=HEADERS).json()
+    body = client.get("/api/v1/sync/strava").json()
 
     assert (body["dag_run_id"], body["state"]) == ("manual__2026-10-20T11:59:00+00:00", "success")
     assert (
@@ -166,7 +165,7 @@ def test_the_status_follows_the_airflow_run(client, engine, airflow):
 
 
 def test_before_any_request_the_status_is_empty(client, airflow):
-    body = client.get("/api/v1/sync/strava", headers=HEADERS).json()
+    body = client.get("/api/v1/sync/strava").json()
 
     assert body == {"requested_at": None, "dag_run_id": None, "state": None}
 
@@ -174,12 +173,12 @@ def test_before_any_request_the_status_is_empty(client, airflow):
 def test_without_airflow_sync_is_unavailable(client):
     app.dependency_overrides[get_airflow] = lambda: None
     try:
-        response = client.post("/api/v1/sync/strava", headers=HEADERS)
+        response = client.post("/api/v1/sync/strava")
     finally:
         app.dependency_overrides.pop(get_airflow, None)
 
     assert (response.status_code, response.json()["error"]["code"]) == (503, "sync_unavailable")
 
 
-def test_sync_needs_the_api_key(client):
-    assert client.post("/api/v1/sync/strava").status_code == 401
+def test_sync_needs_sign_in(anonymous):
+    assert anonymous.post("/api/v1/sync/strava").status_code == 401

@@ -12,10 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, Engine
 
 from app import clock
-from app.auth import require_api_key
+from app.auth import require_user
 from app.db import get_engine, load_sql
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
 
 class SourceHealth(BaseModel):

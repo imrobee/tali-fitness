@@ -7,11 +7,8 @@ pipeline/tests/test_records_volume_summary.py; these tests check what the endpoi
 from datetime import date
 
 from builders import add_activity, add_food
-from conftest import TEST_API_KEY
 from sqlalchemy import text
 from test_activities import add_set, strava_id_for
-
-HEADERS = {"X-API-Key": TEST_API_KEY}
 
 
 def lifting(engine, day: date) -> int:
@@ -20,7 +17,7 @@ def lifting(engine, day: date) -> int:
 
 
 def get(client, path: str) -> dict:
-    return client.get(f"/api/v1/{path}", headers=HEADERS).json()
+    return client.get(f"/api/v1/{path}").json()
 
 
 def test_records_mark_a_record_from_the_last_14_days_as_recent(client, engine):
@@ -76,9 +73,9 @@ def test_the_weekly_summary_compares_last_week_with_the_week_before(client, engi
     assert (body["avg_kcal"], body["prev_avg_kcal"], body["avg_protein_g"]) == (1900, 1700, 120)
 
 
-def test_progress_needs_the_api_key(client):
+def test_progress_needs_sign_in(anonymous):
     for path in ("records", "muscle-volume", "summary/week"):
-        assert client.get(f"/api/v1/{path}").status_code == 401
+        assert anonymous.get(f"/api/v1/{path}").status_code == 401
 
 
 def test_unmapped_exercises_are_left_out_of_muscle_volume_and_unnamed_in_records(client, engine):

@@ -3,13 +3,10 @@
 from datetime import date
 
 from builders import add_activity, add_recovery, qualify
-from conftest import TEST_API_KEY
-
-HEADERS = {"X-API-Key": TEST_API_KEY}
 
 
 def get(client, query: str = ""):
-    return client.get(f"/api/v1/calendar{query}", headers=HEADERS)
+    return client.get(f"/api/v1/calendar{query}")
 
 
 def test_the_month_grid_is_full_monday_to_sunday_weeks(client):
@@ -105,5 +102,5 @@ def test_the_week_of_today_is_the_default(client):
     assert get(client, "?view=week").json()["period_start"] == "2026-10-19"
 
 
-def test_the_calendar_needs_the_api_key(client):
-    assert client.get("/api/v1/calendar").status_code == 401
+def test_the_calendar_needs_sign_in(anonymous):
+    assert anonymous.get("/api/v1/calendar").status_code == 401

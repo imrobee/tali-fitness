@@ -1,0 +1,8 @@
+# Secrets are passed at run time as environment variables, never baked into an image.
+.env*
+*.pem
+*.key
+.git
+__pycache__
+.pytest_cache
+spike_out/

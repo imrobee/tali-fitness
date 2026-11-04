@@ -7,14 +7,14 @@ edited (576 -> 504 kcal, 20.8 -> 18.2 g) and one deleted (172 kcal, 4.8 g).
 import json
 
 import pytest
-from conftest import TEST_API_KEY, load_sample
+from conftest import INGEST_HEADERS, load_sample
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
 from app.ingest import store
 
 URL = "/api/v1/ingest/health"
-HEADERS = {"X-API-Key": TEST_API_KEY}
+HEADERS = INGEST_HEADERS
 
 
 def post(client: TestClient, payload: dict, headers: dict | None = None):
@@ -48,19 +48,7 @@ def count(engine: Engine, table: str) -> int:
 # --- auth and request-level errors ---------------------------------------------------------
 
 
-def test_missing_api_key_is_401(client):
-    response = client.post(URL, content=json.dumps(load_sample("health_payload_01.json")))
-
-    assert response.status_code == 401
-    assert response.json() == {
-        "error": {"code": "unauthorized", "message": "Missing or wrong X-API-Key header."}
-    }
-
-
-def test_wrong_api_key_is_401(client):
-    response = post(client, load_sample("health_payload_01.json"), {"X-API-Key": "wrong"})
-
-    assert response.status_code == 401
+# Auth for this route is tested in test_ingest_token.py.
 
 
 def test_empty_batch_is_422_and_stores_nothing(client, engine):
@@ -231,7 +219,6 @@ def test_a_failure_mid_batch_rolls_back_raw_and_core(engine, monkeypatch):
         raise RuntimeError("simulated failure after raw rows were written")
 
     monkeypatch.setattr(store, "apply_batch", broken_apply)
-    monkeypatch.setenv("API_KEY", TEST_API_KEY)
     from conftest import app
 
     from app.db import get_engine

@@ -1,6 +1,6 @@
 import { Route, Routes } from "react-router";
 import { BottomNav } from "./components/BottomNav";
-import { KeyGate } from "./components/KeyGate";
+import { SignInGate } from "./components/SignInGate";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
@@ -8,10 +8,10 @@ import { NutritionPage } from "./pages/DayPages";
 import { MePage } from "./pages/MePage";
 
 // Four pages and one bottom navigation (UI_SPEC.md section 1). Everything sits behind
-// the key gate: without a key nothing calls the API.
+// the sign-in gate: until the browser is signed in, no page calls the API.
 export default function App() {
   return (
-    <KeyGate>
+    <SignInGate>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<DashboardPage />} />
@@ -21,6 +21,6 @@ export default function App() {
         <Route path="*" element={<DashboardPage />} />
       </Routes>
       <BottomNav />
-    </KeyGate>
+    </SignInGate>
   );
 }

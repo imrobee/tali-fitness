@@ -86,7 +86,7 @@ services:
       retries: 10
 
   # --- Demo stack for screenshots (profile "demo": `make up` never starts these) ---------
-  # Its own database (app_demo), a frozen clock, and a throwaway key, so demo data can
+  # Its own database (app_demo), a frozen clock, and a throwaway dev key, so demo data can
   # never reach the real warehouse (UI_SPEC.md section 11).
 
   api-demo:
@@ -95,12 +95,11 @@ services:
     env_file: .env
     environment:
       WAREHOUSE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/app_demo
-      API_KEY: demo-key # not a secret: it only opens the demo database
       # dev on this Mac only: key sign-in for the screenshots. dev refuses a public
       # PUBLIC_BASE_URL; the hosted demo gets its own APP_ENV=demo in Slice 8.
       APP_ENV: dev
       AUTH_MODE: key
-      DEV_LOGIN_KEY: demo-key
+      DEV_LOGIN_KEY: demo-key # not a secret: it only opens the demo database
       PUBLIC_BASE_URL: http://web-demo:5173
       NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
     command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
@@ -140,7 +139,7 @@ services:
       dockerfile: Dockerfile.playwright
     environment:
       BASE_URL: http://web-demo:5173
-      API_KEY: demo-key
+      DEV_LOGIN_KEY: demo-key
     volumes:
       - ./web/e2e:/app/e2e:ro
       - ./web/playwright.config.ts:/app/playwright.config.ts:ro

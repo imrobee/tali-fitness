@@ -3,19 +3,17 @@
 from datetime import timedelta
 
 from builders import TODAY, add_activity, add_food, add_recovery, add_target, qualify
-from conftest import TEST_API_KEY
 
-HEADERS = {"X-API-Key": TEST_API_KEY}
 YESTERDAY = TODAY - timedelta(days=1)
 MONDAY = TODAY - timedelta(days=1)  # TODAY is a Tuesday
 
 
 def get(client, query: str = ""):
-    return client.get(f"/api/v1/dashboard{query}", headers=HEADERS)
+    return client.get(f"/api/v1/dashboard{query}")
 
 
-def test_requires_the_api_key(client):
-    assert client.get("/api/v1/dashboard").status_code == 401
+def test_requires_sign_in(anonymous):
+    assert anonymous.get("/api/v1/dashboard").status_code == 401
 
 
 def test_an_empty_database_still_returns_a_full_dashboard(client):
@@ -181,7 +179,7 @@ def test_the_week_tells_a_logged_recovery_day_from_a_day_without_a_workout(clien
 
 
 def test_nickname_shows_once_set(client):
-    client.put("/api/v1/me", json={"nickname": "Rob"}, headers=HEADERS)
+    client.put("/api/v1/me", json={"nickname": "Rob"})
 
     assert get(client).json()["nickname"] == "Rob"
 

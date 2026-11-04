@@ -2,6 +2,8 @@
 
 Supersedes the "API key" parts of `ARCHITECTURE.md` section 12 and the web key gate in `UI_SPEC.md` section 1. When this task is done, update those sections to point here.
 
+**Status (2026-11-04):** built (Slice 8a, steps 1-9). Where the build departs from this text, the reason is in `docs/DECISIONS.md`: the Origin check covers cookie routes, not the Shortcut's (D109); the route test is black-box (D110); `GET /auth/method` is an extra public route (D112); rate limits cover the sign-in pages, not every `/auth/*` route (D113); the database role moves to Slice 8 (D115).
+
 **Design goal:** defense in depth. No single mistake (a leaked log, a committed file, a stolen cookie, a misconfigured flag) should expose the data or a credential. "No chance of a leak" is not achievable by any app, so every control below assumes one other control has already failed.
 
 ## 0. Instructions for the agent

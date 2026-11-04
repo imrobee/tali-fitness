@@ -7,13 +7,10 @@ pipeline/tests/test_trends.py; these tests check what the endpoints add.
 from datetime import date
 
 from builders import TODAY, add_activity, add_food, add_target
-from conftest import TEST_API_KEY
-
-HEADERS = {"X-API-Key": TEST_API_KEY}
 
 
 def get(client, path: str):
-    return client.get(f"/api/v1/trends/{path}", headers=HEADERS)
+    return client.get(f"/api/v1/trends/{path}")
 
 
 def test_training_shows_eight_weeks_ending_with_the_current_one(client, engine):
@@ -89,6 +86,6 @@ def test_an_unknown_grain_is_invalid(client):
     assert (response.status_code, response.json()["error"]["code"]) == (422, "invalid_payload")
 
 
-def test_trends_need_the_api_key(client):
-    assert client.get("/api/v1/trends/training").status_code == 401
-    assert client.get("/api/v1/trends/nutrition").status_code == 401
+def test_trends_need_sign_in(anonymous):
+    assert anonymous.get("/api/v1/trends/training").status_code == 401
+    assert anonymous.get("/api/v1/trends/nutrition").status_code == 401

@@ -1,7 +1,6 @@
-// One way to call the API. Every request carries the key; every failure becomes an
-// ApiError with the server's code and message ({"error": {"code", "message"}}).
-
-import { getApiKey } from "./key";
+// One way to call the API. The browser sends the session cookie by itself (same origin);
+// every failure becomes an ApiError with the server's code and message
+// ({"error": {"code", "message"}}).
 
 export class ApiError extends Error {
   status: number;
@@ -14,15 +13,15 @@ export class ApiError extends Error {
   }
 }
 
-/** Fired on any 401 so the key gate can ask for the key again (UI_SPEC.md section 1). */
+/** Fired on any 401 so the sign-in gate can take over (UI_SPEC.md section 1). */
 export const UNAUTHORIZED_EVENT = "api:unauthorized";
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     ...init,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": getApiKey() ?? "",
       ...init.headers,
     },
   });

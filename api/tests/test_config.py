@@ -119,6 +119,32 @@ def test_production_cookies_are_secure():
     assert not dev().cookie_secure
 
 
+@pytest.mark.parametrize(
+    ("field", "name"),
+    [
+        ("google_client_id", "GOOGLE_CLIENT_ID"),
+        ("google_client_secret", "GOOGLE_CLIENT_SECRET"),
+        ("oauth_state_secret", "OAUTH_STATE_SECRET"),
+    ],
+)
+def test_google_mode_needs_its_client_and_state_secret_even_in_dev(field, name):
+    google_dev = dev(
+        auth_mode="google",
+        google_client_id="client-id.apps.googleusercontent.com",
+        google_client_secret=SecretStr(CANARY_CLIENT_SECRET),
+        oauth_state_secret=SecretStr(CANARY_STATE_SECRET),
+    )
+    check_startup(google_dev)  # complete: starts, even without ALLOWED_GOOGLE_SUB
+
+    assert f"AUTH_MODE=google needs {name}" in refusal(google_dev.model_copy(update={field: None}))
+
+
+@pytest.mark.parametrize("value", ["*", "10.0.0.1,*"])
+def test_proxy_headers_are_never_trusted_from_everyone(value):
+    assert "FORWARDED_ALLOW_IPS must list" in refusal(production(forwarded_allow_ips=value))
+    check_startup(production(forwarded_allow_ips="10.0.0.1"))
+
+
 def test_key_mode_is_dev_only():
     assert "AUTH_MODE=key is allowed only when APP_ENV=dev" in refusal(dev(app_env="test"))
 

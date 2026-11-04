@@ -378,3 +378,24 @@ Why: one API instance, so a dictionary of recent request times is enough and eas
 
 **D108. The page's Content-Security-Policy is checked against the production build on `vite preview`, not the dev server.**
 Why: the Vite dev server injects an inline React-refresh script, which a strict `script-src 'self'` blocks; loosening the policy to `unsafe-inline` for dev would hide real violations. The API sets the policy on its own responses; whatever serves the static files in Slice 8 sets the same header (Rob, 2026-10-28). Rejected: a looser dev-only policy.
+
+**D109. The Origin check (CSRF) runs inside `require_user`, so it covers every cookie-authenticated request that changes something; the Shortcut's ingest route is exempt.**
+Why: AUTH_SPEC section 6 says "every non-GET request", but the iOS Shortcut is not a browser and sends no `Origin`, and CSRF needs a credential the browser attaches by itself (a cookie). The ingest route accepts only an `Authorization` header, which another site cannot make a browser send, and it rejects the session cookie. Mutating requests must also be JSON (415 otherwise): a cross-site HTML form can only send form data or plain text. Rejected: an app-wide Origin middleware with an ingest exception (one more place to forget the exception).
+
+**D110. The route-coverage test is black-box: it lists every route from `app.openapi()` and expects 401 from each one not on the public allowlist, and 401 from every non-ingest route given only the ingest token.**
+Why: FastAPI 0.142 nests included routers, so `app.routes` no longer lists them and the per-route dependency records are internal. The OpenAPI list is public and complete in tests, and a route with a missing guard fails the test whatever the cause. Rejected: reading `route.dependant` (undocumented, broke on this version).
+
+**D111. Google sign-in uses Authlib 1.9.4's Starlette client (with `httpx2` for its HTTP calls) and Starlette's `SessionMiddleware` (needs `itsdangerous`) for the 10-minute login-state cookie.**
+Why: AUTH_SPEC forbids hand-written OIDC or JWT checks. Authlib reads Google's discovery document, adds PKCE (S256) and a nonce, keeps the state, nonce and verifier in `request.session`, and validates the ID token (Google's signature, `iss`, `aud`, `exp` with 120 s leeway, nonce); read in its source (1.9.4) and proven by the fake-Google tests. 1.9.4 is pinned because every 1.9.x release carries a security advisory (none in code this app uses, but staying behind has no upside). `httpx2` is what Authlib 1.8+ uses; `itsdangerous` signs the session cookie. The cookie is signed, not encrypted: it holds only one-use values (`login_state`, HttpOnly, `Path=/auth`, Max-Age 600). Rejected: `python-jose` or hand-rolled JWT checks; storing the login state in the database (a table for 10-minute rows).
+
+**D112. A public `GET /auth/method` tells the web app which sign-in screen to show (`google` or `key`).**
+Why: one web build serves Google sign-in and the local dev key form, and the API's `AUTH_MODE` stays the only switch. The answer is not a secret. Rejected: a `VITE_` build variable (the web container would have to read `.env`, and the bundle would go stale when `AUTH_MODE` changes); showing both options (a dead button in each mode). Added to the route test's public list.
+
+**D113. Rate limits cover `/auth/login` and `/auth/callback` (10 a minute), `/auth/dev-login` (5) and ingest (60), not every `/auth/*` route.**
+Why: AUTH_SPEC says `/auth/*` 10 a minute, but the app asks `/auth/me` on every load and window focus, and in dev all browsers share one limit (D107), so ordinary use would hit 429. `/auth/me` and `/auth/method` reveal nothing without a valid session, and the 256-bit session id cannot be guessed at any rate. Rejected: limiting `/auth/me` too (locks Rob out of his own app on a busy afternoon).
+
+**D114. Secret scanning is gitleaks v8.30.1 run from its official Docker image (`make secret-scan`, in `make check`), over every commit and over uncommitted changes, with one custom rule for `ing_` tokens; the pre-commit hook is optional.**
+Why: the same command locally and in CI, with no GitHub-Action licence question. CI checks out the full history (`fetch-depth: 0`). Findings print as `REDACTED`. Note: gitleaks' maintainer says new releases are security patches only (focus moved to Betterleaks); fine for this use, revisit if it stops being patched. Rejected: scanning the whole working folder (it would flag the gitignored `.env`, and allowlisting `.env` would also hide a committed one).
+
+**D115. The API's database role without DDL rights is a Slice 8 task, not built in 8a.**
+Why: AUTH_SPEC section 10 asks for it only if under an hour. It needs a second role and password, migrations run as the owner, grants on five schemas, and Airflow's own connection checked; that is a hosting change, done with the host's secret store. Rejected: building it now against a local-only database.

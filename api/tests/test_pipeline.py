@@ -3,10 +3,8 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import TEST_API_KEY
 from sqlalchemy import Engine, text
 
-HEADERS = {"X-API-Key": TEST_API_KEY}
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
 
 
@@ -23,7 +21,7 @@ def add_run(engine: Engine, source: str, hours_ago: float, status: str = "succes
 
 
 def source_status(client, name: str) -> dict:
-    body = client.get("/api/v1/pipeline/health", headers=HEADERS).json()
+    body = client.get("/api/v1/pipeline/health").json()
     return next(s for s in body["sources"] if s["source"] == name)
 
 
@@ -64,13 +62,13 @@ def add_dq_run(engine: Engine, results: list[tuple[str, str]], hours_ago: float 
 
 
 def test_the_response_carries_the_servers_clock(client):
-    body = client.get("/api/v1/pipeline/health", headers=HEADERS).json()
+    body = client.get("/api/v1/pipeline/health").json()
 
     assert body["now"] == "2026-10-20T20:00:00+08:00"
 
 
 def test_a_source_that_never_synced_is_failed(client):
-    body = client.get("/api/v1/pipeline/health", headers=HEADERS).json()
+    body = client.get("/api/v1/pipeline/health").json()
 
     assert [(s["source"], s["status"], s["last_success_at"]) for s in body["sources"]] == [
         ("health", "failed", None),
@@ -127,7 +125,7 @@ def test_quarantine_counts_open_rows_by_reason(client, engine):
     add_quarantine(engine, "bad_unit")
     add_quarantine(engine, "bad_unit", resolved=True)
 
-    quarantine = client.get("/api/v1/pipeline/health", headers=HEADERS).json()["quarantine"]
+    quarantine = client.get("/api/v1/pipeline/health").json()["quarantine"]
 
     assert quarantine["open"] == 3
     assert quarantine["by_reason"] == {"unparsed_line": 2, "bad_unit": 1}
@@ -137,7 +135,7 @@ def test_quarantine_shows_the_20_most_recent_with_short_snippets(client, engine)
     for index in range(25):
         add_quarantine(engine, "unparsed_line", raw="x" * 500 + str(index))
 
-    recent = client.get("/api/v1/pipeline/health", headers=HEADERS).json()["quarantine"]["recent"]
+    recent = client.get("/api/v1/pipeline/health").json()["quarantine"]["recent"]
 
     assert len(recent) == 20
     assert all(len(item["raw_snippet"]) == 200 for item in recent)
@@ -154,7 +152,7 @@ def test_dq_shows_the_latest_run_only(client, engine):
         [("strava_freshness", "warn"), ("set_range", "fail"), ("target_present", "pass")],
     )
 
-    dq = client.get("/api/v1/pipeline/health", headers=HEADERS).json()["dq"]
+    dq = client.get("/api/v1/pipeline/health").json()["dq"]
 
     assert (dq["passed"], dq["warnings"], dq["failed"]) == (1, 1, 1)
     assert [check["check_name"] for check in dq["checks"]] == [
@@ -165,10 +163,10 @@ def test_dq_shows_the_latest_run_only(client, engine):
 
 
 def test_dq_is_empty_before_any_run(client):
-    dq = client.get("/api/v1/pipeline/health", headers=HEADERS).json()["dq"]
+    dq = client.get("/api/v1/pipeline/health").json()["dq"]
 
     assert dq == {"passed": 0, "warnings": 0, "failed": 0, "checked_at": None, "checks": []}
 
 
-def test_pipeline_health_needs_the_api_key(client):
-    assert client.get("/api/v1/pipeline/health").status_code == 401
+def test_pipeline_health_needs_sign_in(anonymous):
+    assert anonymous.get("/api/v1/pipeline/health").status_code == 401

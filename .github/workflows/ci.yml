@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history, so the secret scan sees every commit, not just the last.
+          fetch-depth: 0
 
       # CI needs no real secrets: the example values are enough to run the stack.
       - name: Create .env from the example

@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import Engine
 
 from app import clock
-from app.auth import require_api_key
+from app.auth import require_user
 from app.dashboard.build import build_dashboard
 from app.dashboard.models import Dashboard
 from app.db import get_engine
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
 
 # A plain `def` (not async): FastAPI runs it in a worker thread, so the blocking database
