@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
 import styles from "./Page.module.css";
+import { ThemeToggle } from "./ThemeToggle";
 
-/** A page: one <main>, one h1 (UI_SPEC.md section 8). */
+/** A page: one <main>, one h1 (UI_SPEC.md section 8), the theme toggle at its right. */
 export function Page({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>{title}</h1>
+      <div className={styles.header}>
+        <h1 className={styles.title}>{title}</h1>
+        <ThemeToggle />
+      </div>
       {children}
     </main>
   );

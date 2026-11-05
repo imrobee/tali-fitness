@@ -15,6 +15,29 @@ const VIEWPORTS = [
 ];
 
 test(`screenshots: ${scenario}`, async ({ page }) => {
+  // midweek captures about twenty pages (both sizes plus the light theme): around 20s on a
+  // warm dev server, so the default 30s limit failed it now and then.
+  test.setTimeout(90_000);
+
+  // The launch screen, before signing in. The demo stack signs in with the dev key, so the
+  // sign-in method is faked as Google here to picture what a real visitor sees.
+  if (scenario === "midweek") {
+    await page.route("**/auth/method", (route) => route.fulfill({ json: { method: "google" } }));
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto("/");
+      await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+      await page.screenshot({ path: `${OUT}/launch-${viewport.name}.png` });
+    }
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.evaluate(() => localStorage.setItem("fitness-tracker.theme", "light"));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Demo version" })).toBeVisible();
+    await page.screenshot({ path: `${OUT}/launch-light-iphone.png` });
+    await page.evaluate(() => localStorage.removeItem("fitness-tracker.theme"));
+    await page.unroute("**/auth/method");
+  }
+
   // Sign in the way the dev key form does. page.request shares the page's cookies, so the
   // session cookie it gets back signs the page in too. Origin: the API's CSRF check.
   const signIn = await page.request.post("/auth/dev-login", {
@@ -38,37 +61,32 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await capture(page, `${scenario}-${viewport.name}.png`);
 
     if (scenario === "midweek") {
-      // Activities filtered to Saturday from the calendar, with the trend above it.
+      // Activities filtered to Saturday from the calendar, which leads the page.
       await page.goto("/activities?date=2026-10-17");
       await expect(page.getByRole("heading", { level: 1, name: "Activities" })).toBeVisible();
-      await expect(page.getByText(/^Last week: /)).toBeVisible();
       await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Personal records" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Muscle volume" })).toBeVisible();
       await page.getByRole("button", { name: /Full Body/ }).click();
       await expect(page.getByText("20 kg × 8")).toBeVisible();
       await capture(page, `midweek-activities-${viewport.name}.png`);
 
       await page.goto("/nutrition?date=2026-10-17");
       await expect(page.getByRole("heading", { name: "Calories by day" })).toBeVisible();
-      await expect(page.getByText(/^7-day average: /)).toBeVisible();
+      await expect(page.getByText(/^7-day average: [\d,]+ kcal/)).toBeVisible();
       await expect(page.getByRole("heading", { name: "Weight" })).toBeVisible();
       await capture(page, `midweek-nutrition-${viewport.name}.png`);
 
-      // The same trends by month, at phone size only.
+      // The calorie trend by month, at phone size only.
       if (viewport.name === "iphone") {
         await page.getByRole("group", { name: "Calorie trend range" }).getByRole("button", { name: "Month" }).click();
-        await expect(page.getByText(/^Last month: /)).toBeVisible();
-        await page.goto("/activities");
-        await page.getByRole("group", { name: "Training trend range" }).getByRole("button", { name: "Month" }).click();
-        await expect(page.getByText(/^Last month: /)).toBeVisible();
-        await capture(page, "midweek-activities-month-iphone.png");
+        await expect(page.getByRole("group", { name: "Calorie trend range" }).getByRole("button", { name: "Month" })).toHaveAttribute("aria-pressed", "true");
+        await capture(page, "midweek-nutrition-month-iphone.png");
 
         // Pounds: switched on the Me page, as a person would; every weight follows.
         await page.goto("/me");
         await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "lb" }).click();
         await page.goto("/nutrition?date=2026-10-17");
-        await expect(page.getByText(/^Latest [\d.]+ lb on /).first()).toBeVisible();
+        await expect(page.getByText(/^Last weigh-in: [\d.]+ lb$/)).toBeVisible();
         await capture(page, "midweek-nutrition-lb-iphone.png");
         await page.goto("/me");
         await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "kg" }).click();
@@ -82,6 +100,28 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
       await expect(page.getByRole("heading", { name: "Data and sync" })).toBeVisible();
       await capture(page, `${scenario}-me-${viewport.name}.png`);
     }
+  }
+
+  // The light theme, at phone size: switched with the header toggle, kept across a reload.
+  if (scenario === "midweek") {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.getByRole("heading", { name: "Calories by day" })).toBeVisible();
+    await capture(page, "midweek-light-iphone.png");
+    // Each card loads its own data, so wait for the last card on the page, not just the title.
+    for (const [path, name, lastCard] of [
+      ["/activities?date=2026-10-17", "activities", "Personal records"],
+      ["/nutrition?date=2026-10-17", "nutrition", "Weight"],
+      ["/me", "me", "Data and sync"],
+    ]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { name: lastCard, exact: true })).toBeVisible();
+      await capture(page, `midweek-${name}-light-iphone.png`);
+    }
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
   }
 });
 

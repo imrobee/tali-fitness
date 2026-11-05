@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MuscleWeek, PersonalRecord } from "../api/types";
-import { muscleAmount, muscleChange, recordGain, recordLabel, recordSet, recordValue, weekRange } from "./progress";
+import { muscleAmount, muscleChange, recordLabel, recordSet, recordValue, weekRange } from "./progress";
 
 const record: PersonalRecord = {
   exercise: "Incline Bench Press",
@@ -17,16 +17,14 @@ const record: PersonalRecord = {
 };
 
 describe("personal records", () => {
-  it("states the estimate, the set it came from and the gain", () => {
+  it("states the estimate and the set it came from", () => {
     expect(recordValue(record, "kg")).toBe("26.3 kg");
     expect(recordSet(record, "kg")).toBe("From 22.5 kg × 6 on Oct 17");
-    expect(recordGain(record, "kg")).toBe("Up 0.9 kg on the record before");
-    expect(recordGain({ ...record, prev_e1rm_kg: null }, "kg")).toBeNull();
   });
 
-  it("speaks in the person's unit and says when the record is new", () => {
+  it("speaks in the person's unit, without a new-record flag or the gain", () => {
     expect(recordLabel(record, "lb")).toBe(
-      "New record. Incline Bench Press: estimated one-rep max 57.9 lb. From 49.6 lb × 6 on Oct 17. Up 2.0 lb on the record before.",
+      "Incline Bench Press: estimated one-rep max 57.9 lb. From 49.6 lb × 6 on Oct 17.",
     );
   });
 });

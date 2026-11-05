@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { circleLook, RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
+import { CIRCLE_SIZE, circleLook, RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
 
 describe("calorie ring", () => {
-  it("leaves a visible gap around the 32px circle and stays inside its square", () => {
-    expect(RING_RADIUS - RING_STROKE / 2 - 16).toBeGreaterThanOrEqual(2);
+  it("leaves a clear gap around the circle and stays inside its square", () => {
+    expect(RING_RADIUS - RING_STROKE / 2 - CIRCLE_SIZE / 2).toBeGreaterThanOrEqual(4);
     expect(RING_RADIUS + RING_STROKE / 2).toBeLessThanOrEqual(RING_SIZE / 2);
   });
 

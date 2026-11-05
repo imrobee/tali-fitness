@@ -3,26 +3,34 @@ import { useSaveMe, useVacation } from "../api/hooks";
 import type { Me } from "../api/types";
 import { CalendarIcon } from "../icons";
 import { openPicker } from "../lib/picker";
-import { chipText, periodText, streakRules, vacationError } from "../lib/streakRules";
+import { chipText, periodText, streakRules, vacationError, weekendRule } from "../lib/streakRules";
 import { Card } from "./Card";
 import styles from "./StreakSettings.module.css";
 import { Toggle } from "./Toggle";
 
 type Weekends = "strict" | "relaxed";
 
-/** "How your streak works", with the weekend switch (UI_SPEC.md 6.3). */
-export function StreakRulesCard({ me }: { me: Me }) {
-  const save = useSaveMe();
-  const weekends: Weekends = me.lenient_weekends ? "relaxed" : "strict";
+/** "How your streak works": the rules in plain words (UI_SPEC.md 6.3). */
+export function StreakRulesCard() {
   return (
     <Card title="How your streak works">
       <ul className={styles.rules}>
-        {streakRules(me.lenient_weekends).map((rule) => (
+        {streakRules().map((rule) => (
           <li key={rule}>{rule}</li>
         ))}
       </ul>
-      <div className={styles.setting}>
-        <span className={styles.settingLabel}>Weekends</span>
+    </Card>
+  );
+}
+
+/** The weekend switch in its own card, with the rule it sets under it (UI_SPEC.md 6.3). */
+export function WeekendsCard({ me }: { me: Me }) {
+  const save = useSaveMe();
+  const weekends: Weekends = me.lenient_weekends ? "relaxed" : "strict";
+  return (
+    <Card
+      title="Weekends"
+      aside={
         <Toggle<Weekends>
           label="Weekends"
           options={[
@@ -32,11 +40,10 @@ export function StreakRulesCard({ me }: { me: Me }) {
           value={weekends}
           onChange={(next) => save.mutate({ lenient_weekends: next === "relaxed" })}
         />
-      </div>
-      <p className={styles.help}>
-        Relaxed: on Saturdays and Sundays only a day with nothing logged ends your streak.
-        Changes apply from today.
-      </p>
+      }
+    >
+      <p className={styles.rule}>{weekendRule(me.lenient_weekends)}</p>
+      <p className={styles.help}>Changes apply from today.</p>
       {save.isError && (
         <p className={styles.error} role="alert">
           {save.error.message}

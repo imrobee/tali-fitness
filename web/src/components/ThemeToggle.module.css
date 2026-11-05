@@ -1,0 +1,23 @@
+/* The dark/light switch at the top right of each page header: a 40px round icon button,
+   drawn like a card so it reads as a control in both themes. */
+
+.toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: -4px 0; /* centred on the 32px title line without making the header taller */
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--card-border);
+  color: var(--text);
+  font-size: 20px; /* the icon is 1em */
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--card-elevated);
+}

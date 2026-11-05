@@ -1,5 +1,5 @@
 /* Bottom navigation (UI_SPEC.md section 1): fixed, 56px plus the home-indicator safe area,
-   on the page's own black with one rule above it. No blur. */
+   on the page background with one rule above it. No blur. */
 
 .nav {
   position: fixed;

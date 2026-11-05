@@ -2,24 +2,23 @@
 
 .columns {
   display: grid;
-  /* minmax(0, 1fr): the two side columns stay equal whatever their numbers, so the ring
-     sits in the middle of the card ("654" is narrower than "1,853"). */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Three columns, Eaten | ring | Budget. The side columns share the leftover space equally,
+     so the ring sits in the middle of the card, but never shrink below their number: when a
+     wide figure ("12,500", or a wider font) needs more, the ring gives up the room (up to
+     176px) instead of the number running into it or off the card. */
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, 176px) minmax(max-content, 1fr);
   align-items: center;
   gap: 8px;
 }
 
-/* Each caption sits centred over its number; the pair hugs the card's left or right edge. */
+/* Each caption sits centred over its number, and the pair is centred in its column
+   (Eaten in the first, Budget in the third). */
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  justify-self: start;
-}
-
-.stat:last-child {
-  justify-self: end;
+  justify-self: center;
 }
 
 .caption {
@@ -39,7 +38,7 @@
   font-size: var(--fs-body);
 }
 
-/* 176px, or the card's width when that is smaller (200% zoom): the SVG scales with it. */
+/* 176px, or its column when that is smaller (wide figures, 200% zoom): the SVG scales. */
 .ring {
   position: relative;
   width: min(176px, 100%);
@@ -55,7 +54,7 @@
 }
 
 .track {
-  stroke: var(--card-elevated);
+  stroke: var(--ring-track);
 }
 
 .arc {
@@ -126,7 +125,7 @@
     grid-template-columns: 1fr;
   }
 
-  .stat:last-child {
+  .stat {
     justify-self: start;
   }
 }

@@ -181,7 +181,7 @@ Spec: `docs/AUTH_SPEC.md` (Rob, 2026-10-28). Replaces the shared API key: Google
 - Streak pause for injury/vacation (multi-day freeze). Known limitation: with one freeze, a multi-day absence breaks the streak.
 - Training-load view; `GET /streak` for Scriptable; CSV export.
 - dbt for transforms; Great Expectations.
-- Light mode; per-role DB users; reconcile Strava deletions.
+- Per-role DB users; reconcile Strava deletions. (Light mode was built on `ui-polish` with the Tali colours, 2026-11-04; D116.)
 - Cheaper Strava polling (decided to wait, 2026-10-20: about 145 of 1,000 daily read calls today). (a) Skip night hours: cron `0 6-23 * * *` with the DAG time zone set to Asia/Manila (Airflow defaults to UTC). (b) Hourly runs fetch only new activities; one morning run re-checks the 7-day lookback for edited descriptions. (b) matters more: today every run re-fetches the whole week, so cost grows with activity count and could reach the daily limit in a very busy week.
 - Shareable **Health Push** Shortcut: an iCloud link (or a signed `.shortcut` file via macOS `shortcuts sign`) in the README instead of rebuilding by hand. Use the Shortcut's import questions so each person enters their own server URL and API key at install; the shared copy must never contain Rob's key. Includes the day-granular date filter fix (ARCHITECTURE.md 6.2).
 

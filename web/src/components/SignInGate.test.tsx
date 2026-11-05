@@ -80,6 +80,20 @@ describe("SignInGate", () => {
     expect(screen.queryByText("The app")).toBeNull();
   });
 
+  it("shows the launch screen: the wordmark, the invite note and a Demo button that does nothing", async () => {
+    const calls = fakeServer({ signedIn: false });
+    renderGate("/");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "tali" })).toBeTruthy();
+    expect(screen.getByText(/limited to invited users only/)).toBeTruthy();
+    const demo = screen.getByRole("button", { name: "Demo version" });
+    expect(demo.getAttribute("type")).toBe("button");
+    const before = calls.length;
+    fireEvent.click(demo);
+    expect(calls.length).toBe(before);
+    expect(screen.getByRole("link", { name: "Sign in with Google" })).toBeTruthy();
+  });
+
   it("in local key mode, signs in with the dev key and keeps it nowhere", async () => {
     const calls = fakeServer({ signedIn: false, method: "key" });
     renderGate();

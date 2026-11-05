@@ -525,7 +525,9 @@ describe("Trend cards", () => {
     };
     wrap(<NutritionTrendCard trend={trend} grain="week" onGrainChange={() => {}} />);
 
-    expect(screen.getByText("7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days.")).toBeTruthy();
+    expect(screen.getByText("7-day average: 1,742 kcal and 112 g of protein a day")).toBeTruthy();
+    expect(screen.queryByText(/^Last week: /)).toBeNull();
+    expect(screen.queryByText("Averages count logged days only.")).toBeNull();
     expect(screen.getByText("Week of October 12: 1,850 kcal a day, within budget on average.")).toBeTruthy();
     expect(screen.getByText("1,853")).toBeTruthy();
   });
@@ -550,7 +552,10 @@ describe("Weight card", () => {
   it("says the latest weight, the change and the distance to goal in words", () => {
     wrap(<WeightCard weight={weight} />);
 
-    expect(screen.getAllByText("Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Last weigh-in: 74.8 kg")).toBeTruthy();
+    expect(screen.getByText("7-day average: 74.9 kg")).toBeTruthy();
+    // Each weigh-in's dot carries its weight; a day without one gets no label.
+    expect(screen.getByText("75.1")).toBeTruthy();
     expect(screen.getByText("Down 0.3 kg on last week.")).toBeTruthy();
     expect(screen.getByText("2.4 kg above your goal of 72.5 kg.")).toBeTruthy();
   });
@@ -575,6 +580,15 @@ describe("Progress cards", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
     fireEvent.click(screen.getByRole("button", { name: /Show 2 more/ }));
     expect(screen.getAllByRole("listitem")).toHaveLength(7);
-    expect(screen.getByRole("listitem", { name: /^New record\. Lift 1/ })).toBeTruthy();
+    expect(screen.getByRole("listitem", { name: /^Lift 1: / })).toBeTruthy();
+  });
+
+  it("shows no count, no New badge, no gain and no formula line", () => {
+    wrap(<RecordsCard records={[{ ...records[0], prev_e1rm_kg: 45 }]} unit="kg" />);
+
+    expect(screen.queryByText("New")).toBeNull();
+    expect(screen.queryByText(/on the record before/)).toBeNull();
+    expect(screen.queryByText(/Estimated one-rep max/)).toBeNull();
+    expect(screen.queryByText("1")).toBeNull();
   });
 });

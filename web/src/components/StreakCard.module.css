@@ -28,7 +28,7 @@
 .count {
   position: absolute;
   inset: auto 0 9px;
-  color: var(--surface); /* the dark numeral inside the flame */
+  color: var(--on-flame); /* the numeral inside the flame */
   font-size: var(--fs-card);
   font-weight: 800;
   line-height: 1;
@@ -82,9 +82,9 @@
   stroke-linecap: round;
 }
 
-/* Grey: food not logged yet. Green: within budget. Orange: over, with a gap and a triangle. */
+/* Hollow track: food not logged yet. Mint: within budget. Amber: over, with a gap and a triangle. */
 .ring_grey {
-  stroke: var(--neutral);
+  stroke: var(--ring-track);
 }
 
 .ring_green {
@@ -102,20 +102,20 @@
 .circle {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px; /* CIRCLE_SIZE in lib/streakRing.ts: 4.5px of blank space inside the ring */
+  height: 28px;
   border-radius: 50%;
   font-size: var(--fs-body);
   font-weight: 600;
 }
 
 .active {
-  background: var(--text);
-  color: var(--surface);
-  font-size: 18px; /* the activity icon */
+  background: var(--done-core);
+  color: var(--on-done-core);
+  font-size: 20px; /* the activity icon */
 }
 
-/* Today is still open: drawn like the days to come, but in white. */
+/* Today is still open: drawn like the days to come, but in the text colour. */
 .today {
   border: 1px solid var(--text);
   color: var(--text);
@@ -137,12 +137,12 @@
 .recovery {
   background: var(--freeze-tint);
   color: var(--accent);
-  font-size: 18px; /* the snowflake */
+  font-size: 16px; /* the snowflake */
 }
 
 .future {
   border: 1px solid var(--card-elevated);
-  color: var(--text-dim);
+  color: var(--text); /* the date reads like the other days; the dim edge says "not yet" */
   font-weight: 400;
 }
 
@@ -193,8 +193,8 @@
   }
 }
 
-/* 200% zoom on a phone (about 200px wide): the ringed circles are 42px and UI_SPEC 5.3 keeps
-   circles at 32px or more, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
+/* 200% zoom on a phone (about 200px wide): the rings are 42px and UI_SPEC 5.3 keeps them
+   at full size, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
 @media (max-width: 240px) {
   .week {
     grid-template-columns: repeat(3, minmax(42px, 1fr));

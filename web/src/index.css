@@ -27,6 +27,22 @@ p {
   margin: 0;
 }
 
+/* Set for a moment by the theme toggle, so the swap eases instead of flashing. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-switching,
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition:
+      background-color 150ms var(--ease-out),
+      color 150ms var(--ease-out),
+      border-color 150ms var(--ease-out),
+      box-shadow 150ms var(--ease-out),
+      fill 150ms var(--ease-out),
+      stroke 150ms var(--ease-out);
+  }
+}
+
 button {
   font: inherit;
   color: inherit;

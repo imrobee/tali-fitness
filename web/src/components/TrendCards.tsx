@@ -6,7 +6,6 @@ import {
   GRAIN_OPTIONS,
   lastComplete,
   nutritionBarLabel,
-  nutritionHeadline,
   periodAxis,
   rollingLine,
   trainingBarLabel,
@@ -94,7 +93,6 @@ export function NutritionTrendCard({ trend, grain, onGrainChange }: Props<Nutrit
       aside={<Toggle label="Calorie trend range" options={GRAIN_OPTIONS} value={grain} onChange={onGrainChange} />}
     >
       <p className={styles.headline}>{rollingLine(trend.rolling_7d)}</p>
-      <p className={styles.detail}>{nutritionHeadline(trend.periods, grain)}</p>
       <TrendBars
         max={trendMax(
           trend.periods.map((p) => p.avg_kcal),
@@ -111,7 +109,6 @@ export function NutritionTrendCard({ trend, grain, onGrainChange }: Props<Nutrit
           label: nutritionBarLabel(p, grain),
         }))}
       />
-      <p className={styles.detail}>Averages count logged days only.</p>
     </Card>
   );
 }

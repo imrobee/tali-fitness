@@ -4,7 +4,6 @@ import {
   changeWords,
   lastComplete,
   nutritionBarLabel,
-  nutritionHeadline,
   periodAxis,
   rollingLine,
   trainingBarLabel,
@@ -117,25 +116,13 @@ describe("nutrition", () => {
   it("states the 7-day average with protein and the days it covers", () => {
     expect(
       rollingLine({ end_date: "2026-10-19", kcal_avg: 1742, protein_avg_g: 112, days_logged: 6 }),
-    ).toBe("7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days.");
+    ).toBe("7-day average: 1,742 kcal and 112 g of protein a day");
     expect(
       rollingLine({ end_date: "2026-10-19", kcal_avg: 1500, protein_avg_g: null, days_logged: 1 }),
-    ).toBe("7-day average: 1,500 kcal a day, over 1 logged day.");
+    ).toBe("7-day average: 1,500 kcal a day");
     expect(
       rollingLine({ end_date: "2026-10-19", kcal_avg: null, protein_avg_g: null, days_logged: 0 }),
     ).toBe("Nothing logged in the last 7 days.");
-  });
-
-  it("sums up the last finished week", () => {
-    expect(nutritionHeadline([nutrition(), nutrition(THIS_WEEK)], "week")).toBe(
-      "Last week: 1,850 kcal a day, 4 of 5 logged days within budget.",
-    );
-    expect(nutritionHeadline([nutrition({ status: "not_set" })], "week")).toBe(
-      "Last week: 1,850 kcal a day, no budget set.",
-    );
-    expect(nutritionHeadline([nutrition({ avg_kcal: null, days_logged: 0 })], "month")).toBe(
-      "Nothing logged last month.",
-    );
   });
 
   it("speaks each bar with its status", () => {

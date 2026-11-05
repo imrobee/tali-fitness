@@ -9,26 +9,17 @@
   padding: var(--page-pad);
 }
 
-.mark {
-  color: var(--flame);
-  font-size: 44px;
-}
-
 .title {
   font-size: var(--fs-title);
   font-weight: 700;
   line-height: 1.15;
 }
 
-.lede {
-  margin-top: 8px;
-  color: var(--text-secondary);
-}
-
 .form {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .label {
@@ -46,7 +37,7 @@
   font-size: 1rem; /* 16px: iOS Safari zooms into smaller inputs */
 }
 
-/* The Google link and the form button share this look: a white pill, black label. */
+/* Retry, when the server can't be reached: the primary button. */
 .submit {
   display: flex;
   align-items: center;
@@ -55,8 +46,8 @@
   margin-top: 8px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--text);
-  color: var(--surface);
+  background: var(--button);
+  color: var(--on-button);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -73,4 +64,162 @@
 
 .error {
   color: var(--over-budget);
+}
+
+/* ---- The launch screen: what a signed-out visitor sees first (UI_SPEC.md section 1) ---- */
+
+.launch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+  overflow: hidden; /* crops the corner ring */
+}
+
+/* One column for every screen size: on desktop it simply sits in the middle. */
+.column {
+  position: relative; /* above the corner ring */
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 360px;
+}
+
+.icon {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: 22.4%;
+}
+
+.brand {
+  margin-top: 16px;
+  line-height: 0;
+  color: var(--text);
+}
+
+.wordmark {
+  display: block;
+  width: 120px;
+  height: auto;
+}
+
+.dotRing {
+  fill: none;
+  stroke: var(--brand-mint);
+}
+
+.dotCore {
+  fill: var(--text);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  margin-top: 60px;
+}
+
+/* Google's sign-in button: their colours, their "G", weight 500. Also the dev key's Sign in. */
+.google,
+.demo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.google {
+  border: 1px solid var(--google-border);
+  background: var(--google-bg);
+  color: var(--google-text);
+  font-weight: 500;
+}
+
+.g {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.demo {
+  border: 1.5px solid var(--brand-mint);
+  background: transparent;
+  color: var(--brand-mint);
+  font-weight: 600;
+}
+
+/* Hover and pressed: a small brightness step, so both themes read the same way. */
+.google:hover,
+.demo:hover {
+  filter: brightness(1.12);
+}
+
+:root[data-theme="light"] .google:hover,
+:root[data-theme="light"] .demo:hover {
+  filter: brightness(0.96);
+}
+
+.google:active,
+.demo:active {
+  filter: brightness(0.9);
+}
+
+.google:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.google:focus-visible,
+.demo:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .google,
+  .demo {
+    transition: filter 120ms var(--ease-out);
+  }
+}
+
+.note {
+  color: var(--launch-note);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* A large ring, mostly off the bottom-right corner. Decoration: it takes no clicks. */
+.corner {
+  position: absolute;
+  right: -150px;
+  bottom: -150px;
+  width: 400px;
+  height: 400px;
+  pointer-events: none;
+}
+
+.cornerRing {
+  fill: none;
+  stroke: var(--brand-mint);
+  opacity: var(--deco-ring-opacity);
+}
+
+.cornerCore {
+  fill: var(--text);
+  opacity: 0.045;
 }

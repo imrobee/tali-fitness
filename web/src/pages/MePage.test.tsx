@@ -102,7 +102,10 @@ describe("Me page streak settings", () => {
     const puts = fakeApi();
     renderMe();
 
-    expect(await screen.findByText("Weekends follow the same rules as weekdays.")).toBeTruthy();
+    // The rule sits in the Weekends card, under the switch, not in the rules list.
+    const rule = await screen.findByText("Weekends follow the same rules as weekdays.");
+    expect(rule.closest("li")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Weekends" })).toBeTruthy();
     fireEvent.click(screen.getByRole("group", { name: "Weekends" }).querySelectorAll("button")[1]);
 
     await waitFor(() => expect(puts).toEqual([{ lenient_weekends: true }]));

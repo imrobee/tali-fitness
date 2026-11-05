@@ -5,7 +5,6 @@ import { ChevronDownIcon } from "../icons";
 import {
   muscleAmount,
   muscleChange,
-  recordGain,
   recordLabel,
   recordSet,
   recordValue,
@@ -24,34 +23,23 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
   const shown = open ? records : records.slice(0, COLLAPSED_RECORDS);
   const hidden = records.length - COLLAPSED_RECORDS;
   return (
-    <Card title="Personal records" aside={records.length > 0 ? String(records.length) : undefined}>
+    <Card title="Personal records">
       {records.length === 0 ? (
         <p className={styles.muted}>Records appear once a lifting session with weights is read.</p>
       ) : (
         <ol className={styles.list}>
-          {shown.map((record) => {
-            const gain = recordGain(record, unit);
-            return (
-              <li key={record.exercise + (record.equipment ?? "")} className={styles.record} aria-label={recordLabel(record, unit)}>
-                <span className={styles.recordHead} aria-hidden="true">
-                  <span className={styles.name}>
-                    {record.exercise}
-                    {record.recent && <span className={styles.chip}>New</span>}
-                  </span>
-                  <span className={`${styles.value} num`}>{recordValue(record, unit)}</span>
-                </span>
-                <span className={`${styles.muted} num`} aria-hidden="true">
-                  {recordSet(record, unit)}
-                  {record.muscle_group && ` · ${record.muscle_group}`}
-                </span>
-                {gain && (
-                  <span className={`${styles.muted} num`} aria-hidden="true">
-                    {gain}
-                  </span>
-                )}
-              </li>
-            );
-          })}
+          {shown.map((record) => (
+            <li key={record.exercise + (record.equipment ?? "")} className={styles.record} aria-label={recordLabel(record, unit)}>
+              <span className={styles.recordHead} aria-hidden="true">
+                <span className={styles.name}>{record.exercise}</span>
+                <span className={`${styles.value} num`}>{recordValue(record, unit)}</span>
+              </span>
+              <span className={`${styles.muted} num`} aria-hidden="true">
+                {recordSet(record, unit)}
+                {record.muscle_group && ` · ${record.muscle_group}`}
+              </span>
+            </li>
+          ))}
         </ol>
       )}
       {hidden > 0 && (
@@ -60,7 +48,6 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
           <ChevronDownIcon className={`${styles.chevron} ${open ? styles.open : ""}`} />
         </button>
       )}
-      <p className={styles.muted}>Estimated one-rep max: weight × (1 + reps ÷ 30), sets of 12 reps or fewer.</p>
     </Card>
   );
 }

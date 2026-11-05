@@ -3,27 +3,14 @@
 
 import type { Weight, WeightDay } from "../api/types";
 import { longDate } from "./format";
-import { parseIsoDate } from "./dates";
-import { bodyWeight, fromKg, type WeightUnit } from "./units";
+import { bodyWeight, fromKg, type WeightUnit, weightNumber } from "./units";
 
-
-function shortDate(iso: string): string {
-  return parseIsoDate(iso).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-/** The one line under the title: the latest weigh-in and the 7-day average. */
-export function weightHeadline(weight: Weight, unit: WeightUnit = "kg"): string {
-  if (weight.latest_kg === null || weight.latest_date === null) {
-    return "No weigh-ins in these days yet.";
-  }
-  const average =
-    weight.avg_7d_kg === null ? "" : `, 7-day average ${bodyWeight(weight.avg_7d_kg, unit)}`;
-  return `Latest ${bodyWeight(weight.latest_kg, unit)} on ${shortDate(weight.latest_date)}${average}.`;
+/** The lines under the title, one fact each: "Last weigh-in: 74.8 kg", "7-day average: 74.9 kg". */
+export function weightLines(weight: Weight, unit: WeightUnit = "kg"): string[] {
+  if (weight.latest_kg === null) return ["No weigh-ins in these days yet."];
+  const lines = [`Last weigh-in: ${bodyWeight(weight.latest_kg, unit)}`];
+  if (weight.avg_7d_kg !== null) lines.push(`7-day average: ${bodyWeight(weight.avg_7d_kg, unit)}`);
+  return lines;
 }
 
 /** How the weekly change reads: "Down 0.3 kg on last week." or "No change on last week." */
@@ -48,11 +35,49 @@ export function goalLine(weight: Weight, unit: WeightUnit = "kg"): string {
 /** The spoken summary for screen readers (UI_SPEC.md 8). */
 export function weightSummary(weight: Weight, unit: WeightUnit = "kg"): string {
   const parts = [
-    weightHeadline(weight, unit),
+    ...weightLines(weight, unit).map((line) => (line.endsWith(".") ? line : `${line}.`)),
     changeLine(weight.change_7d_kg, unit),
     goalLine(weight, unit),
   ];
   return parts.filter((part): part is string => part !== null).join(" ");
+}
+
+/** The label printed by a weigh-in's dot: the number alone, in the person's unit ("74.8"). */
+export function pointLabel(weightKg: number, unit: WeightUnit = "kg"): string {
+  return weightNumber(weightKg, unit);
+}
+
+/**
+ * Which dots get a printed weight: walking back from the latest weigh-in (always labelled),
+ * a dot is labelled only when it is at least `minGap` from the last label, so the numbers
+ * never overlap. With a weigh-in every day of 90, most dots stay unlabelled; each still has
+ * its spoken label and its title.
+ */
+export function labelledDots(xs: number[], minGap: number): Set<number> {
+  const labelled = new Set<number>();
+  let lastX = Infinity;
+  for (let i = xs.length - 1; i >= 0; i--) {
+    if (lastX - xs[i] >= minGap) {
+      labelled.add(i);
+      lastX = xs[i];
+    }
+  }
+  return labelled;
+}
+
+/**
+ * Where the 7-day average line may bend: only on days with a weigh-in, so every rise or fall
+ * of the line sits on a real dot. Days without one carry the average over in the data but
+ * get no vertex here, so the line runs straight from one weigh-in to the next.
+ */
+export function averageVertices<T extends Pick<WeightDay, "weight_kg" | "avg_7d_kg">>(
+  days: T[],
+): { index: number; avgKg: number }[] {
+  const vertices: { index: number; avgKg: number }[] = [];
+  days.forEach((day, index) => {
+    if (day.weight_kg !== null && day.avg_7d_kg !== null) vertices.push({ index, avgKg: day.avg_7d_kg });
+  });
+  return vertices;
 }
 
 /** One day's spoken label: "Monday, October 20: 74.8 kg." */

@@ -98,23 +98,11 @@ export function trainingBarLabel(period: TrainingPeriod, grain: Grain): string {
 
 // --- nutrition -----------------------------------------------------------------------------
 
-/** "7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days." */
+/** "7-day average: 1,742 kcal and 112 g of protein a day": the calorie trend card's one line. */
 export function rollingLine(rolling: NutritionTrend["rolling_7d"]): string {
   if (rolling.kcal_avg === null) return "Nothing logged in the last 7 days.";
-  const protein = rolling.protein_avg_g === null ? "" : ` and ${rolling.protein_avg_g} g protein`;
-  const days = count(rolling.days_logged, "logged day", "logged days");
-  return `7-day average: ${formatNumber(rolling.kcal_avg)} kcal${protein} a day, over ${days}.`;
-}
-
-/** "Last week: 1,850 kcal a day, 4 of 5 logged days within budget." */
-export function nutritionHeadline(periods: NutritionPeriod[], grain: Grain): string {
-  const last = lastComplete(periods);
-  const name = grain === "week" ? "week" : "month";
-  if (!last) return "";
-  if (last.avg_kcal === null) return `Nothing logged last ${name}.`;
-  const average = `Last ${name}: ${formatNumber(last.avg_kcal)} kcal a day`;
-  if (last.status === "not_set") return `${average}, no budget set.`;
-  return `${average}, ${last.days_within} of ${count(last.days_logged, "logged day", "logged days")} within budget.`;
+  const protein = rolling.protein_avg_g === null ? "" : ` and ${rolling.protein_avg_g} g of protein`;
+  return `7-day average: ${formatNumber(rolling.kcal_avg)} kcal${protein} a day`;
 }
 
 const STATUS_WORDS: Record<PeriodStatus, string> = {

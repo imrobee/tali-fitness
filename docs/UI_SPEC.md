@@ -21,7 +21,7 @@ Four pages, one **bottom navigation bar** on every page:
 - `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`, `apple-mobile-web-app-capable`, status-bar style meta, an apple-touch-icon, `theme-color`. No service worker.
 - Desktop: content in a centered column (max width ~520px), nav aligned to the same column. Same layout, no separate desktop design.
 - **`selectedDate`** is shared state synced to the URL (`?date=YYYY-MM-DD`). Default: `today` from the API. Cannot go past today or before `earliest_date`. Tab switches keep it. Dashboard and Nutrition show the day chooser; Activities lists only that day (Slice 7a; it scrolled to and highlighted it in 6b).
-- **Sign-in gate** (Slice 8a, `AUTH_SPEC.md` section 9): the app asks the server (`GET /auth/me`) and shows the pages only to a signed-in browser. Otherwise one screen: the flame, "Sign in to your tracker", "Only the owner's Google account can open it." and a **Sign in with Google** pill, a plain link to `/auth/login?next=<this page>` (no Google script in the page). In local key mode (`GET /auth/method` says `key`) the same screen holds a **Dev key** field and **Sign in** instead. Any 401 brings the screen back; the server unreachable shows "Can't reach the server" with Retry. Nothing about sign-in is kept in browser storage; the old API key's `localStorage` entry is deleted on every load.
+- **Sign-in gate** (Slice 8a, `AUTH_SPEC.md` section 9): the app asks the server (`GET /auth/me`) and shows the pages only to a signed-in browser. Otherwise the **launch screen** (D117): one centred column, max 360px, 24px side padding, at every size. Top to bottom: the app icon (88px), the "tali" wordmark (120px wide, the page's `h1`, `aria-label` "tali"), 60px of space, a **Sign in with Google** pill in Google's button colours with their "G" (a plain link to `/auth/login?next=<this page>`, no Google script in the page), the note "This app is limited to invited users only. To learn more about the app, check out the Demo version." (12.5px, `--launch-note`), and a mint outlined **Demo version** button that does nothing yet. Buttons are 48px, 15px text, with a mint focus ring. A faint ring is cropped by the bottom-right corner (`aria-hidden`). No theme toggle on this screen; it follows the saved theme. In local key mode (`GET /auth/method` says `key`) a **Dev key** field and **Sign in** take the Google button's place. Any 401 brings the screen back; the server unreachable shows "Can't reach the server" with Retry. Nothing about sign-in is kept in browser storage; the old API key's `localStorage` entry is deleted on every load. Screenshots: `launch-iphone.png`, `launch-desktop.png`, `launch-light-iphone.png`.
 - Dark-first. All reference images are dark.
 
 ## 2. Dashboard: order and click targets
@@ -49,7 +49,7 @@ Card style: radius 24px, padding 16px, gap 12px, page padding 16px, system font 
 
 Reference images live in `docs/design-reference/`. This text is authoritative where an image and the text disagree.
 
-**Strava iOS streak widget to Streak card.** Take: dark rounded card; gray title "Your streak"; left block orange flame with the number inside (dark numeral) and the unit label **"Days"** in orange below; right block 7 circles Mon-Sun with the **day-of-month number inside** and single-letter weekday labels below. States: activity day = solid white circle with a black activity icon; past day without a qualifying day = dark filled circle (one step lighter than the card) with white date number; today (pending) = white outlined ring with date number; future = dim thin outline with dim number. Ignore the Strava logo. Add: one calorie marker per day (section 5.3).
+**Strava iOS streak widget to Streak card.** Take: dark rounded card; gray title "Your streak"; left block orange flame with the number inside (dark numeral) and the unit label **"Days"** in orange below; right block 7 circles Mon-Sun with the **day-of-month number inside** and single-letter weekday labels below. States: activity day = solid white circle with a black activity icon; past day without a qualifying day = dark filled circle (one step lighter than the card) with white date number; today (pending) = white outlined ring with date number; future = dim thin outline with a white date number (Rob, 2026-11-05). Ignore the Strava logo. Add: one calorie marker per day (section 5.3).
 
 **MyNetDiary to Day chooser, Calorie card, Protein card, Weekly chart.** Take: pill with calendar icon, "Today", and chevrons; dark card with three-column rhythm and a calorie ring that fills **green** (ours is a **plain circular ring, not an apple**); protein row (label, "21g, 109g left", percentage at right, thin green bar); weekly bars with a **dashed budget line**, green when under, **orange and rising above the line** when over, two-line labels (`Mo` over `19`), today's label in an accent color with an underline. Ignore: apple shape, `...` menu, Exercise/Steps/Water/Notes column, meal columns, "View All Meals", pencil icon.
 
@@ -83,9 +83,9 @@ The circle shows what happened that day, from `kind`, `state` and `primary_activ
 | today, no workout yet | Like a future day but in white: thin white outline, white date number. Not a rest day yet, even with food logged; the snowflake only when a recovery day is logged by hand (`recovery_logged`) |
 | yesterday `at_risk`, no workout | Dark filled circle with a dashed edge (healable); never red |
 | anything else (missed, over without a workout, before the data) | Dark filled circle (one step lighter than the card) with the date number. No red |
-| `future` | Dim thin outline with a dim date number, no ring |
+| `future` | Dim thin outline with a white date number, no ring |
 
-**Calorie ring** (Slice 7d; replaces the marker under the circle): a 2.5px ring around each circle (42px across, the circle stays 32px, with a 2.5px blank gap between them), for past days and today, live for today. Three states only:
+**Calorie ring** (Slice 7d; replaces the marker under the circle): a 2.5px ring around each circle (42px across around a 28px circle, with a 4.5px blank gap between them; Rob, 2026-11-05), for past days and today, live for today. Three states only:
 
 | `calorie_status` | Ring |
 |---|---|
@@ -93,7 +93,7 @@ The circle shows what happened that day, from `kind`, `state` and `primary_activ
 | `within`, or `not_set` (logged without a budget: nothing to be over) | green, full circle |
 | `over` | orange, **cut off at the very bottom**, with a small orange **triangle** in the gap, so "over" never relies on colour alone |
 
-No ring on future days. Weekday letters sit below the circles. Circles >= 32px. On phones (up to 460px wide) a small flame, the count and "Days" move to the right of the title row and the circles span the width; at 200% zoom the week wraps three a row (3 + 3 + 1).
+No ring on future days. Weekday letters sit below the circles. Rings stay 42px. On phones (up to 460px wide) a small flame, the count and "Days" move to the right of the title row and the circles span the width; at 200% zoom the week wraps three a row (3 + 3 + 1).
 
 Footer: one quiet line only when relevant (copy in section 9).
 
@@ -118,7 +118,7 @@ Same slot and the same height in every state. Title and body left, button right.
 - The whole card links to `/activities?date=<selectedDate>`.
 
 ### 5.6 Calorie budget card
-- Title "Calorie budget". Three columns: **Eaten** (e.g. `654`), the ring, **Budget** (e.g. `1,853`), with small gray captions above the numbers.
+- Title "Calorie budget". Three columns: **Eaten** (e.g. `654`), the ring, **Budget** (e.g. `1,853`), with small gray captions above the numbers. Eaten and Budget are each centred in their column (Rob, 2026-11-05).
 - **Ring** (plain circle, SVG): ~180px, ~16px stroke, round caps, starts at 12 o'clock, clockwise, flat color, **no glow**. Track: elevated surface. Fill: **green** by `eaten / budget`. Center: large **remaining** number (green) with caption "kcal left".
 - **Over budget:** ring full and **orange**, center shows the overage in orange with caption "kcal over" (the non-colour cue). No dashed overflow arc (removed by Rob, Slice 7d).
 - No fill animation: the ring is drawn at its value straight away, also when switching pages (Rob, Slice 7d). No budget set: empty ring and a "Set your calorie budget" link to Me. The ring is centred in the card: the two side columns are always equal.
@@ -137,22 +137,23 @@ Title "Calories by day", with "This week" (or "Oct 19 – 25" for another week) 
 - Strength summary omits the volume when it is 0 (bodyweight, cardio, and timed sets only): `6 exercises · 12 sets`.
 - **Tap an item to expand** (here items are interactive): lifting shows exercises and sets by kind: `Set 1  20 kg × 8`; sets entered in lb show `18.1 kg (40 lb) × 12`; bodyweight `Set 1  10 reps`; distance `Set 1  21 km · 1 h`; timed hold `Set 1  1 min 30 s`. Equipment appears as a muted suffix. An exercise note appears as one muted line under the exercise name. If `parse_status` is not `ok`, show a small "Couldn't read some sets" tag and the raw description in a collapsible monospace block.
 - Empty, loading (skeleton), and error states.
-- **Order (Slice 7b):** training trend card, muscle volume card, personal records card, calendar card, then the list.
-- **Muscle volume card:** title "Muscle volume", aside "Last week, Oct 5 – 11". One row per muscle group: name, "6 sets · 1,000 kg" (bodyweight-only: sets alone), a thin white bar for sets (longest = the most sets in either week), and "+2 sets on the week before" in muted text. No colour for more or fewer: it is not a judgement. Exercises not yet mapped to a muscle group are left out; the word "Unmapped" never appears on a page (the `unmapped_exercises` data-quality check still reports them on Me).
-- **Personal records card:** title "Personal records" with the count. Five rows, then "Show N more" (chevron, `aria-expanded`). A row: exercise name with a "New" chip when set in the last 14 days, the estimated 1-rep max at the right, "From 22.5 kg × 6 on Oct 17 · Chest", and "Up 0.9 kg on the record before" when there was one. The row's accessible name is the whole sentence. Footer: "Estimated one-rep max: weight × (1 + reps ÷ 30), sets of 12 reps or fewer."
+- **Order:** calendar card, personal records card, then the list. The training trend and muscle volume cards were taken off the page (Rob, 2026-11-05); their API endpoints, SQL and component tests stay.
+- **Muscle volume card:** not on any page since 2026-11-05 (see Order above).
+- **Personal records card:** title "Personal records" (no count). Five rows, then "Show N more" (chevron, `aria-expanded`). A row: exercise name, the estimated 1-rep max at the right, and "From 22.5 kg × 6 on Oct 17 · Chest". No "New" chip, no "Up … on the record before" line and no formula footer (Rob, 2026-11-05). The row's accessible name is the whole sentence.
 - **Weights follow the unit set on Me** everywhere: sets ("44.1 lb (20 kg) × 8"; a set typed in the chosen unit shows exactly what was typed, "40 lb × 12"), volume, records, the training trend's lifting line, the weight card, last week's average weight.
 - **Calendar card:** title "Calendar" with a **Week / Month** switch (a pill of two buttons, the pressed one filled white; `aria-pressed`). Under it `‹ October 2026 ›` (`Oct 12 – 18` in week view); the arrows go to the server's `previous` and `next` dates and are disabled when those are null. Then `M T W T F S S` and full Monday-Sunday weeks of circles (36px, shrinking with their column at 200% zoom). A day with training: **solid white circle with a dark date number** (numbers, not icons, because in a month grid the numbers are how you find a day). A valid recovery day: the tinted snowflake circle. Today without training: white outline. Days of the neighbouring months: the same at lower opacity. Future days: dim and disabled. The filtered day: a 2px accent ring around its circle and `aria-pressed`. Tapping a day filters the list to it; tapping it again clears the filter. Accessible name: `"Wednesday, October 14: 2 activities, the longest a strength session."`, `"... recovery day."`, `"... no activity."`, `"... not yet."`.
-- **Training trend card:** title "Training trend" with the Week / Month switch (8 weeks or 6 months). A headline for the **last finished** period: "Last week: 4 sessions, 3 h 10 min, up 20% on the week before." (the change is left out when the previous period had no training; "No training last week." when empty). A muted line "Running 12.5 km · Lifting 3,491 kg" (zeros left out). One white bar per period for active time, two-line labels (`Oct` over `12`, or `Oct` over `'26`); the running period is lighter with a dashed edge, and a muted line under the chart says "This week so far: 1 session, 30 min.". Bars are not interactive; each has a spoken sentence ("Week of October 12: 4 sessions, 3 h 10 min.").
+- **Training trend card:** not on any page since 2026-11-05 (see Order above).
 - Built (Slice 6b): only lifting sessions with sets, and sessions whose text was only partly read, open; other activities are plain rows. A strength session with no sets shows its duration instead of "0 exercises".
 
 ### 6.2 Nutrition
-Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here), then the **calorie trend card** (Slice 7a): title "Calorie trend" with the Week / Month switch; headline "7-day average: 1,742 kcal and 112 g protein a day, over 6 logged days." (the week ending yesterday); a muted line for the last finished period, "Last week: 1,850 kcal a day, 4 of 5 logged days within budget."; one bar per period for the average kcal **per logged day**, coloured like the weekly card (`within` green, `over` orange, `not_set` neutral, nothing logged: no bar), a dashed segment at each period's average budget with the value at the right end, the running period lighter with a dashed edge; footer "Averages count logged days only." The trend card does not follow the day chooser.
+Title "Nutrition", the day chooser, then the **calorie budget card, protein card, and weekly calorie budget card** (same components as the dashboard, not links here), then the **calorie trend card** (Slice 7a): title "Calorie trend" with the Week / Month switch; one line of text, "7-day average: 1,742 kcal and 112 g of protein a day" (the week ending yesterday; Rob, 2026-11-05); one bar per period for the average kcal **per logged day**, coloured like the weekly card (`within` green, `over` orange, `not_set` neutral, nothing logged: no bar), a dashed segment at each period's average budget with the value at the right end, the running period lighter with a dashed edge. The trend card does not follow the day chooser.
 
-**Weight card** (Slice 7b, below the calorie trend): title "Weight"; headline "Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg."; "Down 0.3 kg on last week." (rounded to a tenth); "1.9 kg above your goal of 73.0 kg." (from the average; "Set a weight goal on Me to see how far you are from it." with no goal). The chart: one dot per weigh-in, a solid line for the 7-day average, a dashed line at the goal, first and last dates and the goal under it. The chart starts at the first weigh-in in the range, so the first point is always at the left edge (a single weigh-in sits at the left too). Each dot has a title with its day and weight; the screen-reader summary is the three sentences. Days with no weigh-in have no dot. Not affected by the day chooser.
+**Weight card** (Slice 7b, below the calorie trend): title "Weight"; two lines, "Last weigh-in: 74.8 kg" and "7-day average: 74.9 kg" (Rob, 2026-11-05); "Down 0.3 kg on last week." (rounded to a tenth); "1.9 kg above your goal of 73.0 kg." (from the average; "Set a weight goal on Me to see how far you are from it." with no goal). The chart: one dot per weigh-in, its weight printed above it in the person's unit where it fits (`labelledDots`: the latest always, then only dots far enough apart not to overlap); a solid line for the 7-day average that bends **only at weigh-ins** (no vertex on a day without one, so every rise or fall sits on a real dot); a dashed line at the goal, first and last dates and the goal under it. The chart starts at the first weigh-in in the range, so the first point is always at the left edge (a single weigh-in sits at the left too). Each dot has a title with its day and weight; the screen-reader summary is the three sentences. Days with no weigh-in have no dot. Not affected by the day chooser.
 
 ### 6.3 Me
 - **Profile and targets:** nickname, calorie budget (kcal), protein goal (g), weight goal (one decimal; 30-250 kg or 67-551 lb) with a **kg / lb switch** beside it (Slice 7b). The switch saves the preference at once and converts the goal on screen (72.575 kg reads 160 lb); it never changes stored data. An untouched goal is never saved again from its rounded text. Helper text: "Changes apply from today. Past days keep their old targets." Sanity limits (calories 800-6000, protein 0-400). Save button with inline errors.
-- **How your streak works** (Slice 7d): the rules of 4 and ARCHITECTURE 8 as a bulleted list in plain words, never the internal names S, O, R, M (text in `web/src/lib/streakRules.ts`). The weekend line follows the setting. Under it a **Weekends** row with a **Strict / Relaxed** switch, saved at once, applying from today; help: "Relaxed: on Saturdays and Sundays only a day with nothing logged ends your streak. Changes apply from today."
+- **How your streak works** (Slice 7d): the rules of 4 and ARCHITECTURE 8 as a bulleted list in plain words, never the internal names S, O, R, M (text in `web/src/lib/streakRules.ts`). The weekend rule is not in the list.
+- **Weekends** (its own card, Rob, 2026-11-05): title "Weekends" with a **Strict / Relaxed** switch at the right, saved at once, applying from today. Under it the weekend rule, which follows the switch ("Weekends follow the same rules as weekdays." / "On weekends, only a day with nothing logged ends the streak."), then "Changes apply from today."
 - **Vacation or injury** (Slice 7d): help "During a break, only a day with nothing logged ends your streak." Then a **Log break** button that opens the form (a break still running or to come shows it open): a **From** row and a **To** row, each with a date chip showing a calendar icon and **"Choose date"** in the accent colour until a date is picked, then the date ("Mon, Nov 2"). The native date input lies invisibly over the chip, so a tap anywhere opens the phone's picker. **Save break**; **End break** when one is running or to come. Past dates are allowed (a forgotten break). "Last break: Oct 12 – Oct 15" under it once one has ended. Errors from the API inline.
 - **Timezone:** shown read-only ("Asia/Manila") in v1.
 - **Account:** "Signed in" and **Sign out** (no email or name). Sign out ends the session on the server, drops every page's data from memory, and shows the sign-in screen.
@@ -160,19 +161,31 @@ Title "Nutrition", the day chooser, then the **calorie budget card, protein card
 
 ## 7. Design tokens (`web/src/theme/tokens.css`; components must not use raw hex)
 
-| Token | Intent | Starting value (verify contrast) |
-|---|---|---|
-| `--surface` | page background | near-black |
-| `--card` | card background | ~#1C1C1E |
-| `--card-elevated` | tracks, missed circles, exercise rows | one step lighter |
-| `--text` / `--text-secondary` | text | white / gray |
-| `--within-budget` | ring, bars, within marker, protein | green ~#66B33F |
-| `--over-budget` | over ring, bars, marker | orange ~#E39A3B |
-| `--flame` | flame and unit label | orange ~#E8622A; built as `#FC4C02`, Strava's orange (DECISIONS D62) |
-| `--accent` | selected day, active tab | blue; built as `#67A2E4`, iOS blue at 70% saturation to sit with the green and orange (D104); 6.4:1 on the card |
-| `--neutral` | `not_logged` hollow marker, `not_set` marker and bar | neutral gray |
+Two themes (Rob, 2026-11-04; D116). Dark is the default and keeps the original true-black and iOS-grey surfaces and white text; the data colours, buttons and the whole light theme come from the **Tali brand guide**. Light is a token swap under `[data-theme="light"]` on `<html>`. Values below are the built ones.
 
-`--over-budget` is one token shared by ring, bars, and marker. **No red anywhere.** Light mode is a token swap, only if time allows.
+| Token | Intent | Dark | Light |
+|---|---|---|---|
+| `--surface` | page background | `#000000` | `#F5F7F6` Paper |
+| `--card` | card background | `#1C1C1E` | `#FFFFFF` |
+| `--card-border` | card hairline (inset, takes no space) | transparent | `#D6DEDB` |
+| `--card-elevated` | missed circles, exercise rows, secondary buttons | `#2C2C2E` | `#EBF0EE` |
+| `--text` / `--text-secondary` / `--text-dim` | text (dim: future days only) | `#FFFFFF` / `#A1A1A6` / `#636366` | `#10231F` / `#3E4F4B` / `#7A8B87` |
+| `--within-budget` | ring, bars, within marker, protein | `#4CCB9F` Mint | `#1F6F66` Teal |
+| `--over-budget` | over ring, bars, marker | `#F5A524` amber | `#CF6F00` |
+| `--flame` / `--on-flame` | streak flame, count and "Days" **only**; never a ring | `#FF8A3D` / `#10231F` | `#C2550C` / `#FFFFFF` (the guide's `#C4560C` is 4.48:1 on white) |
+| `--done-core` / `--on-done-core` | a day with a workout: the circle inside the ring, and its icon | `#F5F7F6` / `#10231F` | `#10231F` / `#F5F7F6` |
+| `--ring-track` | calorie ring track; hollow ring of a day not counted yet | `#3A3A3C` | `#CFDAD6` |
+| `--accent` | selected day, active tab, links, focus ring | `#4CCB9F` | `#1F6F66` |
+| `--button` / `--on-button` | primary button | `#4CCB9F` / `#10231F` | `#1F6F66` / `#F5F7F6` |
+| `--neutral` | `not_set` marker and bar | `#6E6E73` | `#7A8B87` |
+
+`--over-budget` is one token shared by ring, bars, and marker. **No red anywhere**, and over budget never gets warning styling (it does not break the streak). The streak orange stays off rings so it never reads as "over".
+
+**Theme toggle:** a 40px sun/moon button at the right of every page's title (`aria-label` "Switch to light mode" / "Switch to dark mode"). The choice is saved in `localStorage` (`fitness-tracker.theme`) and applied before first paint by `public/theme-init.js` (a file, because the CSP allows same-origin scripts only). Colours ease for 150ms during a switch, not under `prefers-reduced-motion`. `theme-color` follows the page background.
+
+**Type:** the system font stack in both themes (SF Pro on iPhone). Outfit and DM Sans were tried and dropped (D116).
+
+**Mark:** a Mint ring around a Paper core on a Surface square (`web/public/favicon.svg`; the launch screen shows it above the "tali" wordmark; `apple-touch-icon.png` is the same, full-bleed).
 
 ## 8. Accessibility (required)
 
@@ -209,7 +222,7 @@ Skeleton cards while loading (no layout jump). Per-card error with a "Retry" but
 ## 11. Visual verification loop (the agent must do this)
 
 - API runs with `APP_ENV=test` and `NOW_OVERRIDE` so greeting and "today" are deterministic. `scripts/seed_demo.py --scenario <name>` loads data (including the Hevy sample as a Saturday session).
-- `make screenshots` renders each scenario at **393x852** (iPhone) and **1280x800** (desktop), dark scheme, to `docs/screenshots/`. Compare with sections 3, 5, and 12; fix; repeat.
+- `make screenshots` renders each scenario at **393x852** (iPhone) and **1280x800** (desktop), dark scheme, to `docs/screenshots/`; midweek also gets its four pages in the light theme at iPhone size (`midweek-*light-iphone.png`), switched with the toggle and checked across a reload. Compare with sections 3, 5, and 12; fix; repeat.
 - **Staging:** M1 (Slice 6a) renders only `midweek`, `at_risk`, and `edge_empty` at 393x852. The full set below, at both sizes, is due by M2 (Slice 6b).
 
 Scenarios:

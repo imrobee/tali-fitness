@@ -3,12 +3,15 @@ import type { Weight } from "../api/types";
 import { parseIsoDate } from "../lib/dates";
 import { bodyWeight } from "../lib/units";
 import {
+  averageVertices,
   changeLine,
   chartDays,
   chartDomain,
   goalLine,
+  labelledDots,
+  pointLabel,
   weightDayLabel,
-  weightHeadline,
+  weightLines,
   weightSummary,
   xFor,
   yFor,
@@ -18,8 +21,11 @@ import styles from "./WeightCard.module.css";
 
 const WIDTH = 320;
 const HEIGHT = 140;
+// The least room between two printed weights, in viewBox units: "174.6" at 10px is ~24 wide.
+const LABEL_GAP = 26;
 
-/** Weight and the goal: each weigh-in as a dot, the 7-day average as a line, the goal dashed. */
+/** Weight and the goal: each weigh-in as a labelled dot, the 7-day average as a line that bends
+    only at weigh-ins, the goal dashed. */
 export function WeightCard({ weight }: { weight: Weight }) {
   const unit = useWeightUnit();
   const days = chartDays(weight.days);
@@ -28,9 +34,14 @@ export function WeightCard({ weight }: { weight: Weight }) {
     weight.goal_kg,
   );
   const indexed = days.map((day, index) => ({ day, x: xFor(index, days.length, WIDTH) }));
-  const averagePoints = indexed
-    .filter(({ day }) => day.avg_7d_kg !== null)
-    .map(({ day, x }) => `${x.toFixed(1)},${yFor(day.avg_7d_kg ?? 0, domain, HEIGHT).toFixed(1)}`)
+  const dots = indexed.filter(({ day }) => day.weight_kg !== null);
+  const withLabel = labelledDots(
+    dots.map(({ x }) => x),
+    LABEL_GAP,
+  );
+  const labelledDates = new Set([...withLabel].map((i) => dots[i].day.date));
+  const averagePoints = averageVertices(days)
+    .map(({ index, avgKg }) => `${indexed[index].x.toFixed(1)},${yFor(avgKg, domain, HEIGHT).toFixed(1)}`)
     .join(" ");
   const change = changeLine(weight.change_7d_kg, unit);
   const last = days.at(-1);
@@ -38,9 +49,11 @@ export function WeightCard({ weight }: { weight: Weight }) {
   return (
     <Card title="Weight">
       <p className="visually-hidden">{weightSummary(weight, unit)}</p>
-      <p className={styles.headline} aria-hidden="true">
-        {weightHeadline(weight, unit)}
-      </p>
+      {weightLines(weight, unit).map((line) => (
+        <p key={line} className={`${styles.headline} num`} aria-hidden="true">
+          {line}
+        </p>
+      ))}
       {change && (
         <p className={styles.detail} aria-hidden="true">
           {change}
@@ -68,17 +81,26 @@ export function WeightCard({ weight }: { weight: Weight }) {
         {averagePoints && <polyline className={styles.average} points={averagePoints} />}
         {indexed.map(({ day, x }) =>
           day.weight_kg === null ? null : (
-            <circle
-              key={day.date}
-              className={styles.point}
-              cx={x}
-              cy={yFor(day.weight_kg, domain, HEIGHT)}
-              r={3}
-            >
+            <circle key={day.date} className={styles.point} cx={x} cy={yFor(day.weight_kg, domain, HEIGHT)} r={3}>
               <title>{weightDayLabel(day, unit)}</title>
             </circle>
           ),
         )}
+        {/* Each labelled dot's weight, just above it, drawn after every dot so no later dot
+            covers it. Spoken through the dots' titles instead. */}
+        {dots
+          .filter(({ day }) => labelledDates.has(day.date))
+          .map(({ day, x }) => (
+            <text
+              key={day.date}
+              className={`${styles.pointLabel} num`}
+              x={x}
+              y={yFor(day.weight_kg ?? 0, domain, HEIGHT) - 7}
+              aria-hidden="true"
+            >
+              {pointLabel(day.weight_kg ?? 0, unit)}
+            </text>
+          ))}
       </svg>
 
       <div className={styles.axis} aria-hidden="true">

@@ -8,16 +8,9 @@
   padding-left: 18px;
 }
 
-.setting {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.settingLabel {
-  font-weight: 600;
+/* The rule the weekend switch sets: the card's answer, so in the main text colour. */
+.rule {
+  margin: 0;
 }
 
 .help {
@@ -115,8 +108,8 @@
 }
 
 .primary {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--button);
+  color: var(--on-button);
 }
 
 .secondary {
