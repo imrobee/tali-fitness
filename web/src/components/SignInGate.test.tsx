@@ -6,7 +6,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { googleSignInUrl } from "../api/auth";
+import type { ReactNode } from "react";
 import { AccountCard } from "./AccountCard";
+import { Page } from "./Page";
 import { SignInGate } from "./SignInGate";
 
 afterEach(() => {
@@ -16,15 +18,32 @@ afterEach(() => {
 });
 
 /** A fake server: signed in or not, which method, and whether the dev key is right. */
-function fakeServer({ signedIn, method = "google" }: { signedIn: boolean; method?: string }) {
+function fakeServer({
+  signedIn,
+  method = "google",
+  demoUrl = null,
+}: {
+  signedIn: boolean;
+  method?: string;
+  demoUrl?: string | null;
+}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   let session = signedIn;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
-      if (url === "/auth/me") return new Response("{}", { status: session ? 200 : 401 });
-      if (url === "/auth/method") return new Response(JSON.stringify({ method }), { status: 200 });
+      if (url === "/auth/me") {
+        const body = JSON.stringify({ signed_in: true, demo: method === "demo" });
+        return new Response(body, { status: session ? 200 : 401 });
+      }
+      if (url === "/auth/method") {
+        return new Response(JSON.stringify({ method, demo_url: demoUrl }), { status: 200 });
+      }
+      if (url === "/auth/demo") {
+        session = method === "demo";
+        return new Response(null, { status: session ? 204 : 404 });
+      }
       if (url === "/auth/logout") {
         session = false;
         return new Response(null, { status: 204 });
@@ -40,14 +59,18 @@ function fakeServer({ signedIn, method = "google" }: { signedIn: boolean; method
   return calls;
 }
 
-function renderGate(path = "/") {
+function renderGate(path = "/", content?: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
         <SignInGate>
-          <p>The app</p>
-          <AccountCard />
+          {content ?? (
+            <>
+              <p>The app</p>
+              <AccountCard />
+            </>
+          )}
         </SignInGate>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -92,6 +115,32 @@ describe("SignInGate", () => {
     fireEvent.click(demo);
     expect(calls.length).toBe(before);
     expect(screen.getByRole("link", { name: "Sign in with Google" })).toBeTruthy();
+  });
+
+  it("links the Demo button to the demo service when the server names one", async () => {
+    fakeServer({ signedIn: false, demoUrl: "https://demo.example.com" });
+    renderGate("/");
+
+    const demo = await screen.findByRole("link", { name: "Demo version" });
+    expect(demo.getAttribute("href")).toBe("https://demo.example.com");
+  });
+
+  it("on the demo service, starts a visit at once and shows Demo data on every page", async () => {
+    const calls = fakeServer({ signedIn: false, method: "demo" });
+    renderGate("/", <Page title="Today">The app</Page>);
+
+    expect(await screen.findByText("The app")).toBeTruthy();
+    expect(screen.getByText("Demo data")).toBeTruthy();
+    const start = calls.find((call) => call.url === "/auth/demo");
+    expect(start?.init?.method).toBe("POST");
+  });
+
+  it("shows no Demo data badge to Rob", async () => {
+    fakeServer({ signedIn: true });
+    renderGate("/", <Page title="Today">The app</Page>);
+
+    expect(await screen.findByText("The app")).toBeTruthy();
+    expect(screen.queryByText("Demo data")).toBeNull();
   });
 
   it("in local key mode, signs in with the dev key and keeps it nowhere", async () => {

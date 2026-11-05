@@ -15,7 +15,8 @@ def app_timezone() -> ZoneInfo:
 
 def now() -> datetime:
     override = os.environ.get("NOW_OVERRIDE", "")
-    if override and os.environ.get("APP_ENV") in ("dev", "test"):
+    # demo too, for the local screenshots; the startup guards refuse it on a public demo.
+    if override and os.environ.get("APP_ENV") in ("dev", "test", "demo"):
         frozen = datetime.fromisoformat(override)
         if frozen.tzinfo is None:
             frozen = frozen.replace(tzinfo=app_timezone())

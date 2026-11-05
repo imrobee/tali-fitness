@@ -27,6 +27,7 @@ from app import (
 )
 from app.config import LOGIN_STATE_MINUTES, Settings, check_startup, load_settings
 from app.dashboard.router import router as dashboard_router
+from app.demo.router import router as demo_auth_router
 from app.errors import ApiError, handle_api_error
 from app.ingest.router import router as ingest_router
 from app.logs import install_log_redaction
@@ -59,6 +60,10 @@ def health() -> dict[str, str]:
 
 def add_sign_in(app: FastAPI, settings: Settings, google_transport) -> None:
     """The /auth routes for this AUTH_MODE (docs/AUTH_SPEC.md section 5)."""
+    if settings.auth_mode == "demo":
+        # Only the demo's own routes: no Google, no dev key, no real sessions.
+        app.include_router(demo_auth_router)
+        return
     if settings.auth_mode == "google":
         app.state.google = signin.google_client(settings, google_transport)
         # The login-state cookie: Authlib keeps the state, nonce and PKCE verifier in
@@ -81,22 +86,26 @@ def add_sign_in(app: FastAPI, settings: Settings, google_transport) -> None:
 
 
 def create_app(
-    settings: Settings | None = None, google_transport: httpx2.AsyncBaseTransport | None = None
+    settings: Settings | None = None,
+    google_transport: httpx2.AsyncBaseTransport | None = None,
+    environ: dict[str, str] | None = None,
 ) -> FastAPI:
     """Check the configuration, then build the app. A bad config raises ConfigError.
 
-    google_transport is for tests only: a fake Google, so no test calls the real one."""
+    google_transport and environ are for tests only: a fake Google, so no test calls the
+    real one, and the environment the demo guard checks (default: the real one)."""
     if settings is None:
         settings = load_settings()
-    check_startup(settings)
+    check_startup(settings, environ)
     install_log_redaction()
-    if settings.public_base_url.startswith("http://"):
+    if settings.public_base_url.startswith("http://") and settings.app_env != "demo":
         # Allowed on this Mac and the LAN in dev; production is HTTPS only (the guards).
         logger.warning("Plain HTTP: the Shortcut's ingest token travels unencrypted.")
 
-    # No /docs, /redoc or /openapi.json in production: openapi_url=None turns off all three.
-    production = settings.app_env == "production"
-    app = FastAPI(title="fitness-tracker API", openapi_url=None if production else "/openapi.json")
+    # No /docs, /redoc or /openapi.json on a public service (production or the demo):
+    # openapi_url=None turns off all three.
+    public = settings.app_env in ("production", "demo")
+    app = FastAPI(title="fitness-tracker API", openapi_url=None if public else "/openapi.json")
     # Routes read the settings through the get_settings dependency, not os.environ.
     app.state.settings = settings
     app.add_exception_handler(ApiError, handle_api_error)
@@ -105,7 +114,12 @@ def create_app(
     add_hardening(app, settings)
     add_sign_in(app, settings, google_transport)
     app.include_router(router)
-    app.include_router(ingest_router)
+    demo = settings.app_env == "demo"
+    if not demo:
+        # The demo takes no Shortcut pushes and never calls Airflow: these routes do not
+        # exist there (404), on top of the read-only rule.
+        app.include_router(ingest_router)
+        app.include_router(sync.router)
     app.include_router(dashboard_router)
     app.include_router(me.router)
     app.include_router(recovery.router)
@@ -115,5 +129,4 @@ def create_app(
     app.include_router(trends.router)
     app.include_router(weight.router)
     app.include_router(progress.router)
-    app.include_router(sync.router)
     return app

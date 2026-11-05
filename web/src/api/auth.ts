@@ -4,7 +4,14 @@
 
 import { ApiError } from "./client";
 
-export type SignInMethod = "google" | "key";
+// "demo": this server is the public demo (synthetic data, read-only, no sign-in).
+export type SignInMethod = "google" | "key" | "demo";
+
+/** How this server signs people in, and where its launch screen's Demo button goes. */
+export type SignInInfo = { method: SignInMethod; demoUrl: string | null };
+
+/** Who this browser is: signed in (Rob, or a demo visitor) or not. */
+export type Visit = { signedIn: true; demo: boolean } | { signedIn: false };
 
 /** The React Query key of "is this browser signed in?" (SignInGate). */
 export const AUTH_QUERY = ["auth"];
@@ -21,21 +28,31 @@ export function forgetOldKey(): void {
   }
 }
 
-/** True when the session cookie is valid; false on 401. Throws when the server can't be reached. */
-export async function checkSignedIn(): Promise<boolean> {
+/** Signed in when the session (or demo) cookie is valid; not on 401. Throws when the
+    server can't be reached. */
+export async function checkSignedIn(): Promise<Visit> {
   const response = await fetch("/auth/me", { credentials: "same-origin" });
-  if (response.status === 401) return false;
+  if (response.status === 401) return { signedIn: false };
   if (!response.ok) {
     throw new ApiError(response.status, "http_error", `The server answered ${response.status}.`);
   }
-  return true;
+  const body = await response.json();
+  return { signedIn: true, demo: body.demo === true };
 }
 
-/** Which sign-in screen this server wants: the Google button or the local dev key form. */
-export async function fetchSignInMethod(): Promise<SignInMethod> {
+/** Which sign-in screen this server wants: the Google button, the local dev key form, or
+    none at all (the demo). */
+export async function fetchSignInMethod(): Promise<SignInInfo> {
   const response = await fetch("/auth/method", { credentials: "same-origin" });
   const body = await response.json();
-  return body.method === "key" ? "key" : "google";
+  const method: SignInMethod = body.method === "key" || body.method === "demo" ? body.method : "google";
+  return { method, demoUrl: typeof body.demo_url === "string" ? body.demo_url : null };
+}
+
+/** The demo server only: start a visit (a signed cookie). True when it started. */
+export async function startDemo(): Promise<boolean> {
+  const response = await fetch("/auth/demo", { method: "POST", credentials: "same-origin" });
+  return response.ok;
 }
 
 /** A full-page link: Google's page opens in this tab, and no Google script runs in ours. */

@@ -1,24 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useLocation } from "react-router";
-import {
-  AUTH_QUERY,
-  checkSignedIn,
-  devSignIn,
-  fetchSignInMethod,
-  forgetOldKey,
-  googleSignInUrl,
-  type SignInMethod,
-} from "../api/auth";
+import { AUTH_QUERY, devSignIn, forgetOldKey, googleSignInUrl, type SignInMethod } from "../api/auth";
+import { loadAuth } from "../api/visit";
 import { UNAUTHORIZED_EVENT } from "../api/client";
 import styles from "./SignInGate.module.css";
-
-type Auth = { signedIn: true } | { signedIn: false; method: SignInMethod };
-
-async function loadAuth(): Promise<Auth> {
-  if (await checkSignedIn()) return { signedIn: true };
-  return { signedIn: false, method: await fetchSignInMethod() };
-}
 
 /** Shows the app only to a signed-in browser (UI_SPEC.md section 1); any 401 later brings
     the sign-in screen back. The server decides: this asks /auth/me, never storage. */
@@ -46,10 +32,18 @@ export function SignInGate({ children }: { children: ReactNode }) {
     );
   }
   if (auth.data.signedIn) return <>{children}</>;
-  return <SignInScreen method={auth.data.method} onSignedIn={recheck} />;
+  return <SignInScreen method={auth.data.method} demoUrl={auth.data.demoUrl} onSignedIn={recheck} />;
 }
 
-function SignInScreen({ method, onSignedIn }: { method: SignInMethod; onSignedIn: () => void }) {
+function SignInScreen({
+  method,
+  demoUrl,
+  onSignedIn,
+}: {
+  method: SignInMethod;
+  demoUrl: string | null;
+  onSignedIn: () => void;
+}) {
   const location = useLocation();
   return (
     <main className={styles.launch}>
@@ -74,10 +68,17 @@ function SignInScreen({ method, onSignedIn }: { method: SignInMethod; onSignedIn
             This app is limited to invited users only. To learn more about the app, check out the Demo
             version.
           </p>
-          {/* TODO: demo mode. A mock for now: it does nothing. */}
-          <button type="button" className={styles.demo}>
-            Demo version
-          </button>
+          {/* The demo is its own service, with its own database (DECISIONS D118): a plain
+              link to it. Without one configured, the button stays and does nothing. */}
+          {demoUrl ? (
+            <a className={styles.demo} href={demoUrl}>
+              Demo version
+            </a>
+          ) : (
+            <button type="button" className={styles.demo}>
+              Demo version
+            </button>
+          )}
         </div>
       </div>
       <CornerRing />

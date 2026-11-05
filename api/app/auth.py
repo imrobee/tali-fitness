@@ -16,6 +16,7 @@ from sqlalchemy import Engine
 from app import clock
 from app.config import Settings, get_settings
 from app.db import get_engine
+from app.demo.session import is_demo_visitor
 from app.errors import ApiError
 from app.sessions import cookie_name, find_session
 
@@ -26,6 +27,8 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 # The `sub` of a session made by the dev key form (AUTH_MODE=key, dev only). Switching
 # AUTH_MODE therefore ends the other mode's sessions.
 DEV_SUB = "dev-login"
+# What require_user returns on the demo service: a visitor, never an account.
+DEMO_VISITOR = "demo-visitor"
 
 
 def client_ip(request: Request) -> str:
@@ -65,7 +68,14 @@ def require_user(
     settings: Annotated[Settings, Depends(get_settings)],
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> str:
-    """FastAPI dependency: a valid session for the allowed account. Returns its `sub`."""
+    """FastAPI dependency: a valid session for the allowed account. Returns its `sub`.
+
+    On the demo service, only a demo cookie counts, and app.session is never read: the
+    demo has no accounts, and its database role could not read real sessions anyway."""
+    if settings.app_env == "demo":
+        if is_demo_visitor(request, settings):
+            return DEMO_VISITOR
+        raise ApiError(401, "unauthorized", "Start the demo first.")
     check_same_origin(request, settings)
     session_id = request.cookies.get(cookie_name(settings))
     sub = None

@@ -41,10 +41,28 @@ LIMITS = {
     "dev_login": (5, 60),
     "sign_in": (10, 60),
     "ingest": (60, 60),
+    # The demo is public: starting visits, and reading pages. A page load makes about 8
+    # requests, so 120 a minute is ~15 page views a minute from one address.
+    "demo_start": (10, 60),
+    "demo_read": (120, 60),
 }
 
+# The demo accepts these writes only; neither touches the database. Everything else that
+# is not a read gets 403, whatever route it names (DECISIONS D118).
+DEMO_ALLOWED_WRITES = {("POST", "/auth/demo"), ("POST", "/auth/logout")}
+READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+# Demo requests carry no body worth more than this (the two writes above send none).
+DEMO_MAX_BODY_BYTES = 1024
+DEMO_READ_ONLY = "Demo mode: changes aren't saved."
 
-def limit_for(path: str) -> str | None:
+
+def limit_for(path: str, demo: bool = False) -> str | None:
+    if demo:
+        if path == "/auth/demo":
+            return "demo_start"
+        if path.startswith("/api/v1/"):
+            return "demo_read"
+        return None
     if path == "/auth/dev-login":
         return "dev_login"
     if path in ("/auth/login", "/auth/callback"):
@@ -73,19 +91,53 @@ class RateLimiter:
         return True
 
 
+def error_response(status: int, code: str, message: str, headers=None) -> JSONResponse:
+    return JSONResponse(
+        status_code=status,
+        content={"error": {"code": code, "message": message}},
+        headers=headers,
+    )
+
+
+def demo_refusal(request: Request) -> JSONResponse | None:
+    """The demo's server-side read-only rule, before any route runs. None = let it through."""
+    content_length = request.headers.get("content-length")
+    if request.headers.get("transfer-encoding") or (
+        content_length and int(content_length) > DEMO_MAX_BODY_BYTES
+    ):
+        return error_response(413, "payload_too_large", "Too large for the demo.")
+    if request.method in READ_METHODS:
+        return None
+    if (request.method, request.url.path) in DEMO_ALLOWED_WRITES:
+        return None
+    return error_response(403, "demo_read_only", DEMO_READ_ONLY)
+
+
 def add_hardening(app: FastAPI, settings: Settings) -> None:
     app.state.rate_limiter = RateLimiter()
+    demo = settings.app_env == "demo"
+
+    if demo:
+        # Registered first, so it runs after the rate limit (Starlette runs the last-added
+        # middleware first): a flood of writes is still counted and slowed.
+        @app.middleware("http")
+        async def read_only(request: Request, call_next):
+            refusal = demo_refusal(request)
+            if refusal is not None:
+                return refusal
+            return await call_next(request)
 
     @app.middleware("http")
     async def rate_limit(request: Request, call_next):
-        name = limit_for(request.url.path)
+        name = limit_for(request.url.path, demo)
         if name is not None:
             limiter: RateLimiter = request.app.state.rate_limiter
             if not limiter.allow(name, client_ip(request), time.monotonic()):
                 logger.warning("rate_limited limit=%s client=%s", name, client_ip(request))
-                return JSONResponse(
-                    status_code=429,
-                    content={"error": {"code": "rate_limited", "message": "Too many requests."}},
+                return error_response(
+                    429,
+                    "rate_limited",
+                    "Too many requests.",
                     headers={"Retry-After": str(LIMITS[name][1])},
                 )
         return await call_next(request)

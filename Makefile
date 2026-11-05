@@ -32,11 +32,12 @@ strava-auth:
 DEMO := $(COMPOSE) --profile demo
 SCENARIOS := midweek at_risk edge_empty
 
-# Load one demo scenario: make seed-demo SCENARIO=at_risk (default midweek).
-# Then open http://localhost:5174 with the key "demo-key".
+# Build the demo database and load one scenario: make seed-demo SCENARIO=at_risk
+# (default midweek). Then open http://localhost:5174: it starts a demo visit by itself.
 seed-demo:
+	$(DEMO) run --rm --build demo-seed python /scripts/seed_demo.py setup
+	$(DEMO) run --rm demo-seed python /scripts/seed_demo.py load $(or $(SCENARIO),midweek)
 	$(DEMO) up -d --build --renew-anon-volumes --wait api-demo web-demo
-	$(DEMO) run --rm api-demo python /scripts/seed_demo.py $(or $(SCENARIO),midweek)
 
 test: test-api test-pipeline test-web
 
@@ -73,9 +74,10 @@ check: lint typecheck test secret-scan check-bundle
 # iPhone-size screenshots of each scenario into docs/screenshots/ (UI_SPEC.md 11).
 screenshots:
 	$(DEMO) up -d --build --renew-anon-volumes --wait api-demo web-demo
-	$(DEMO) build screenshots
+	$(DEMO) build screenshots demo-seed
 	for scenario in $(SCENARIOS); do \
-	  $(DEMO) run --rm api-demo python /scripts/seed_demo.py $$scenario && \
+	  $(DEMO) run --rm demo-seed python /scripts/seed_demo.py setup && \
+	  $(DEMO) run --rm demo-seed python /scripts/seed_demo.py load $$scenario && \
 	  $(DEMO) run --rm -e SCENARIO=$$scenario screenshots npx playwright test || exit 1; \
 	done
 

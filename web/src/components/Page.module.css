@@ -20,6 +20,20 @@
   margin-bottom: 12px; /* with the gap, 24px between the title (or greeting) and what follows */
 }
 
+/* "Demo data" on the public demo: words and an outline, not colour alone. Centred on the
+   40px theme toggle beside it. */
+.demoBadge {
+  flex: none;
+  align-self: center;
+  padding: 4px 10px;
+  border: 1px solid var(--brand-mint);
+  border-radius: var(--radius-pill);
+  color: var(--brand-mint);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .title {
   flex: 1;
   min-width: 0;

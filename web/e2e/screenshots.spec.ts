@@ -5,8 +5,6 @@ import { type Page, expect, test } from "@playwright/test";
 // this file. Every scenario gets its dashboard at iPhone and desktop size (UI_SPEC.md 11);
 // midweek also gets the Activities (with a session open), Nutrition and Me pages.
 const scenario = process.env.SCENARIO ?? "midweek";
-const baseUrl = process.env.BASE_URL ?? "http://web-demo:5173";
-const devKey = process.env.DEV_LOGIN_KEY ?? "demo-key";
 const OUT = "screenshots";
 
 const VIEWPORTS = [
@@ -19,8 +17,8 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
   // warm dev server, so the default 30s limit failed it now and then.
   test.setTimeout(90_000);
 
-  // The launch screen, before signing in. The demo stack signs in with the dev key, so the
-  // sign-in method is faked as Google here to picture what a real visitor sees.
+  // The launch screen, before the visit starts. The demo service has no launch screen (it
+  // starts a visit by itself), so the method is faked as Google to picture the real one.
   if (scenario === "midweek") {
     await page.route("**/auth/method", (route) => route.fulfill({ json: { method: "google" } }));
     for (const viewport of VIEWPORTS) {
@@ -38,13 +36,10 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await page.unroute("**/auth/method");
   }
 
-  // Sign in the way the dev key form does. page.request shares the page's cookies, so the
-  // session cookie it gets back signs the page in too. Origin: the API's CSRF check.
-  const signIn = await page.request.post("/auth/dev-login", {
-    data: { key: devKey },
-    headers: { Origin: baseUrl },
-  });
-  expect(signIn.status()).toBe(204);
+  // Start a demo visit, as opening the demo does. page.request shares the page's cookies,
+  // so the demo cookie it gets back opens the pages too.
+  const visit = await page.request.post("/auth/demo");
+  expect(visit.status()).toBe(204);
 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -82,15 +77,16 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
         await expect(page.getByRole("group", { name: "Calorie trend range" }).getByRole("button", { name: "Month" })).toHaveAttribute("aria-pressed", "true");
         await capture(page, "midweek-nutrition-month-iphone.png");
 
-        // Pounds: switched on the Me page, as a person would; every weight follows.
-        await page.goto("/me");
-        await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "lb" }).click();
+        // Pounds. The demo is read-only, so the saved unit can't change: the test rewrites
+        // the profile the API sends instead, and every weight on the page follows it.
+        await page.route("**/api/v1/me", async (route) => {
+          const response = await route.fetch();
+          await route.fulfill({ response, json: { ...(await response.json()), weight_unit: "lb" } });
+        });
         await page.goto("/nutrition?date=2026-10-17");
         await expect(page.getByText(/^Last weigh-in: [\d.]+ lb$/)).toBeVisible();
         await capture(page, "midweek-nutrition-lb-iphone.png");
-        await page.goto("/me");
-        await page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "kg" }).click();
-        await expect(page.getByRole("group", { name: "Weight unit" }).getByRole("button", { name: "kg" })).toHaveAttribute("aria-pressed", "true");
+        await page.unroute("**/api/v1/me");
       }
     }
 

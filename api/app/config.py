@@ -15,14 +15,30 @@ from urllib.parse import urlsplit
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from sqlalchemy.engine import make_url
 
 # Session and login lifetimes (AUTH_SPEC.md sections 4 and 6).
 SESSION_ABSOLUTE_DAYS = 60
 SESSION_IDLE_DAYS = 30
 LOGIN_STATE_MINUTES = 10
 
-# Values from .env.example that must never reach production.
-PLACEHOLDERS = {"change-me", "changemelocal"}
+# Values from .env.example and docker-compose.yml that must never reach production.
+LOCAL_DEMO_SESSION_SECRET = "local-demo-session-secret-only-for-this-mac-0001"
+PLACEHOLDERS = {"change-me", "changemelocal", LOCAL_DEMO_SESSION_SECRET}
+
+# The demo service (APP_ENV=demo) must start with none of these: no way to sign in as Rob,
+# no ingest, no Strava, no Airflow. Checked by name prefix against the whole environment,
+# so a variable this file does not even read still counts (DECISIONS D118).
+DEMO_FORBIDDEN_PREFIXES = (
+    "GOOGLE_",
+    "OAUTH_",
+    "ALLOWED_GOOGLE_",
+    "INGEST_TOKEN",
+    "DEV_LOGIN_KEY",
+    "STRAVA_",
+    "AIRFLOW_",
+    "POSTGRES_",
+)
 SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
@@ -34,8 +50,8 @@ class Settings(BaseModel):
     # frozen: settings cannot be changed by accident after startup.
     model_config = ConfigDict(frozen=True)
 
-    app_env: Literal["dev", "test", "production"]
-    auth_mode: Literal["google", "key"]
+    app_env: Literal["dev", "test", "production", "demo"]
+    auth_mode: Literal["google", "key", "demo"]
     public_base_url: str
     warehouse_url: SecretStr
     google_client_id: str | None = None
@@ -50,12 +66,19 @@ class Settings(BaseModel):
     airflow_url: str | None = None
     airflow_admin_user: str | None = None
     airflow_admin_password: SecretStr | None = None
+    # The demo service: signs its visitors' cookies. The real service: where its Demo
+    # button sends people.
+    demo_session_secret: SecretStr | None = None
+    demo_public_url: str | None = None
     # Read by Uvicorn itself; here only so the guards can check it.
     forwarded_allow_ips: str | None = None
 
     @property
     def cookie_secure(self) -> bool:
-        """Secure cookies are sent only over HTTPS: always on in production."""
+        """Secure cookies are sent only over HTTPS: always on in production, and on the
+        demo service whenever it is served over HTTPS."""
+        if self.app_env == "demo":
+            return self.public_base_url.startswith("https://")
         return self.app_env == "production"
 
     @property
@@ -83,6 +106,8 @@ ENV_NAMES = {
     "AIRFLOW_ADMIN_USER": "airflow_admin_user",
     "AIRFLOW_ADMIN_PASSWORD": "airflow_admin_password",
     "FORWARDED_ALLOW_IPS": "forwarded_allow_ips",
+    "DEMO_SESSION_SECRET": "demo_session_secret",
+    "DEMO_PUBLIC_URL": "demo_public_url",
 }
 
 
@@ -108,11 +133,16 @@ def get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def check_startup(settings: Settings) -> None:
-    """Raise ConfigError listing every problem, or return if the config is safe."""
+def check_startup(settings: Settings, environ: dict[str, str] | None = None) -> None:
+    """Raise ConfigError listing every problem, or return if the config is safe.
+
+    environ is the process environment (tests pass their own): the demo guard checks
+    variable names there, including ones Settings never reads."""
     problems = _problems_everywhere(settings)
     if settings.app_env == "production":
         problems += _problems_in_production(settings)
+    if settings.app_env == "demo":
+        problems += _problems_in_demo(settings, os.environ if environ is None else environ)
     if problems:
         raise ConfigError("Refusing to start: " + " ".join(problems))
 
@@ -123,6 +153,10 @@ def _problems_everywhere(settings: Settings) -> list[str]:
         problems.append("PUBLIC_BASE_URL must be http(s)://host[:port] with no path.")
     if settings.auth_mode == "key" and settings.app_env != "dev":
         problems.append("AUTH_MODE=key is allowed only when APP_ENV=dev.")
+    if (settings.auth_mode == "demo") != (settings.app_env == "demo"):
+        problems.append("AUTH_MODE=demo and APP_ENV=demo go together.")
+    if settings.demo_public_url is not None and not _is_origin_url(settings.demo_public_url):
+        problems.append("DEMO_PUBLIC_URL must be http(s)://host[:port] with no path.")
     if settings.auth_mode == "key" and settings.dev_login_key is None:
         problems.append("AUTH_MODE=key needs DEV_LOGIN_KEY.")
     if settings.auth_mode == "google":
@@ -180,6 +214,31 @@ def _problems_in_production(settings: Settings) -> list[str]:
         problems.append("NOW_OVERRIDE must be unset in production.")
     if not settings.cookie_secure:
         problems.append("Cookies must be Secure in production.")
+    return problems
+
+
+def _problems_in_demo(settings: Settings, environ: dict[str, str]) -> list[str]:
+    """The public demo can reach only its own synthetic database, and holds no secret of
+    the real app (docs/ARCHITECTURE.md section 13)."""
+    problems = []
+    database = make_url(settings.warehouse_url.get_secret_value()).database or ""
+    if not database.endswith("_demo"):
+        problems.append("APP_ENV=demo needs a WAREHOUSE_URL database whose name ends in _demo.")
+    present = sorted(
+        name for name in environ if environ[name] and name.startswith(DEMO_FORBIDDEN_PREFIXES)
+    )
+    if present:
+        problems.append(f"APP_ENV=demo must not have: {', '.join(present)}.")
+    secret = settings.demo_session_secret
+    if secret is None or len(secret.get_secret_value().encode()) < 32:
+        problems.append("APP_ENV=demo needs a DEMO_SESSION_SECRET of at least 32 bytes.")
+    elif settings.cookie_secure and secret.get_secret_value() in PLACEHOLDERS:
+        problems.append("DEMO_SESSION_SECRET is the local placeholder: set a real one.")
+    local = _is_local_url(settings.public_base_url)
+    if not local and not settings.public_base_url.startswith("https://"):
+        problems.append("PUBLIC_BASE_URL must start with https:// for a public demo.")
+    if not local and settings.now_override is not None:
+        problems.append("NOW_OVERRIDE is for local screenshots only, not a public demo.")
     return problems
 
 

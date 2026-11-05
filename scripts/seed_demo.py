@@ -1,12 +1,14 @@
-"""Load a demo scenario into the demo database (UI_SPEC.md section 11).
+"""Build the demo database and load a scenario into it (UI_SPEC.md section 11, D118).
 
-Usage (inside the api-demo container; see `make seed-demo` and `make screenshots`):
-    python /scripts/seed_demo.py midweek | at_risk | edge_empty
+Usage (in the demo-seed container; see `make seed-demo` and `make screenshots`):
+    python /scripts/seed_demo.py setup          # admin: roles, lock the real DBs, recreate
+    python /scripts/seed_demo.py load midweek   # writer: one scenario (or at_risk, edge_empty)
 
-Safety: it only ever touches a database whose name ends in "_demo". It drops and
-recreates that database, migrates it, and inserts one scenario. The real warehouse is
-never touched. The demo API runs with NOW_OVERRIDE=2026-10-17T14:00:00+08:00 (a
-Saturday afternoon), so every scenario is written relative to that day.
+Safety: it only ever touches a database whose name ends in "_demo". `setup` is the only
+step with an administrator's URL (DEMO_ADMIN_URL), and runs on this Mac only; `load`
+uses the demo writer (DEMO_SEED_URL), which owns the demo database and can open nothing
+else. The demo API runs with NOW_OVERRIDE=2026-10-17T14:00:00+08:00 (a Saturday
+afternoon), so every scenario is written relative to that day.
 """
 
 import json
@@ -15,10 +17,10 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import TextClause, create_engine, text
 from sqlalchemy.engine import make_url
+
+from app.demo.setup import DemoRoles, prepare_demo_database, require_demo_name
 
 TODAY = date(2026, 10, 17)  # Saturday; matches NOW_OVERRIDE of the demo API
 TARGET = {"budget": 1853, "protein": 130}
@@ -228,22 +230,6 @@ def date_key(day: date) -> int:
     return day.year * 10000 + day.month * 100 + day.day
 
 
-def recreate_database(url) -> None:
-    if not url.database.endswith("_demo"):
-        sys.exit(f"Refusing to touch database {url.database!r}: the name must end in _demo.")
-    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
-    with admin.connect() as conn:
-        conn.execute(sql("recreate_drop"))
-        conn.execute(sql("recreate_create"))
-    admin.dispose()
-
-    config = Config("/db/alembic.ini")
-    config.set_main_option(
-        "sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%")
-    )
-    command.upgrade(config, "head")
-
-
 def insert_scenario(engine, scenario: dict) -> None:
     with engine.begin() as conn:
         for sport, app_type, label in SPORTS:
@@ -409,16 +395,43 @@ def insert_food(conn, day, kcal, protein) -> None:
         )
 
 
-def main() -> None:
-    name = sys.argv[1] if len(sys.argv) > 1 else "midweek"
+def setup() -> None:
+    # hide_parameters: a failed role statement would otherwise print its password.
+    admin = create_engine(
+        make_url(os.environ["DEMO_ADMIN_URL"]), isolation_level="AUTOCOMMIT", hide_parameters=True
+    )
+    seed_url = make_url(os.environ["DEMO_SEED_URL"])
+    roles = DemoRoles(
+        reader=os.environ.get("DEMO_READER_ROLE", "demo_reader"),
+        reader_password=os.environ["DEMO_READER_PASSWORD"],
+        writer=seed_url.username,
+        writer_password=seed_url.password,
+    )
+    lock = [name for name in os.environ.get("DEMO_LOCK_DATABASES", "").split(",") if name]
+    prepare_demo_database(admin, seed_url.database, roles, lock)
+    admin.dispose()
+    print(f"Demo database {seed_url.database} ready; locked: {', '.join(lock) or 'none'}.")
+
+
+def load(name: str) -> None:
     if name not in SCENARIOS:
         sys.exit(f"Unknown scenario {name!r}. Choose one of: {', '.join(SCENARIOS)}.")
-    url = make_url(os.environ["WAREHOUSE_URL"])
-    recreate_database(url)
+    url = make_url(os.environ["DEMO_SEED_URL"])
+    require_demo_name(url.database)
     engine = create_engine(url)
     insert_scenario(engine, SCENARIOS[name])
     engine.dispose()
     print(f"Demo scenario {name!r} loaded into {url.database}.")
+
+
+def main() -> None:
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if command == "setup":
+        setup()
+    elif command == "load":
+        load(sys.argv[2] if len(sys.argv) > 2 else "midweek")
+    else:
+        sys.exit("Usage: seed_demo.py setup | load <scenario>")
 
 
 if __name__ == "__main__":
