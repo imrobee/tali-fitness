@@ -67,36 +67,38 @@
   line-height: 1;
 }
 
-/* The "?" after the title: a 24px circle with a 44px touch target around it. The negative
-   margin keeps the header row as tall as before. */
+/* The "?" after the title: quiet on purpose, a 16px outline circle in the dim color, 10px
+   from the title and centred on it. The touch target is still 44px; the negative
+   margins keep it from pushing the title row taller or the circle away from the title. */
 .help {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  margin: -10px -6px;
+  margin: -14px -14px -14px -12px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-dim);
   cursor: pointer;
 }
 
 .helpMark {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1.5px solid currentColor;
+  width: 16px;
+  height: 16px;
+  border: 1.25px solid currentColor;
   border-radius: 50%;
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1;
 }
 
-.help:hover {
-  color: var(--text);
+.help:hover,
+.help:focus-visible {
+  color: var(--text-secondary);
 }
 
 .help:focus-visible {
