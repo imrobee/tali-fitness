@@ -118,6 +118,21 @@ def sync_activities(
         access_token = (
             conn.execute(load_sql("ops/get_token.sql"), {"provider": PROVIDER}).one().access_token
         )
+    return sync_with_token(engine, client, access_token, now, backfill_days, detail_cap)
+
+
+def sync_with_token(
+    engine: Engine,
+    client,
+    access_token: str | None,
+    now: datetime,
+    backfill_days: int,
+    detail_cap: int = DETAIL_FETCH_CAP,
+) -> SyncResult:
+    """Steps 1-4 above, with the token already in hand. The public demo calls this with
+    its synthetic client and no token at all (DECISIONS D119): everything after the token
+    lookup is the same code the hourly DAG runs."""
+    with engine.connect() as conn:
         watermark = conn.execute(
             load_sql("ops/get_watermark.sql"), {"source": SOURCE}
         ).scalar_one_or_none()

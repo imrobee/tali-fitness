@@ -7,7 +7,7 @@ RUN := $(COMPOSE) run --rm --build
 RUFF := docker run --rm -v "$(CURDIR)":/io -w /io ghcr.io/astral-sh/ruff:0.16.10
 GITLEAKS := docker run --rm -v "$(CURDIR)":/repo ghcr.io/gitleaks/gitleaks:v8.30.1
 
-.PHONY: up down logs migrate strava-auth seed-demo test test-api test-pipeline test-web lint typecheck check screenshots db-reset secret-scan check-bundle
+.PHONY: up down logs migrate strava-auth seed-demo demo-reseed test test-api test-pipeline test-web lint typecheck check screenshots db-reset secret-scan check-bundle
 
 # --renew-anon-volumes: the web container keeps node_modules in an anonymous volume;
 # without this flag a rebuilt image would keep the old packages. Only anonymous volumes
@@ -36,8 +36,12 @@ SCENARIOS := midweek at_risk edge_empty
 # (default midweek). Then open http://localhost:5174: it starts a demo visit by itself.
 seed-demo:
 	$(DEMO) run --rm --build demo-seed python /scripts/seed_demo.py setup
+	$(DEMO) up -d --build --renew-anon-volumes --force-recreate --wait api-demo web-demo
 	$(DEMO) run --rm demo-seed python /scripts/seed_demo.py load $(or $(SCENARIO),midweek)
-	$(DEMO) up -d --build --renew-anon-volumes --wait api-demo web-demo
+
+# Rebuild the demo's data in place (idempotent; what the demo service does at start).
+demo-reseed:
+	$(DEMO) run --rm demo-seed python /scripts/seed_demo.py load $(or $(SCENARIO),midweek)
 
 test: test-api test-pipeline test-web
 

@@ -221,12 +221,12 @@ Skeleton cards while loading (no layout jump). Per-card error with a "Retry" but
 
 ## 11. Visual verification loop (the agent must do this)
 
-- API runs with `APP_ENV=test` and `NOW_OVERRIDE` so greeting and "today" are deterministic. `scripts/seed_demo.py --scenario <name>` loads data (including the Hevy sample as a Saturday session).
+- The demo API (`APP_ENV=demo`) runs with `NOW_OVERRIDE` so greeting and "today" are deterministic. `scripts/seed_demo.py load <name>` builds a scenario by replaying synthetic Strava and Shortcut payloads through the real pipeline (D119); the hosted demo builds `midweek` as of the real time instead.
 - `make screenshots` renders each scenario at **393x852** (iPhone) and **1280x800** (desktop), dark scheme, to `docs/screenshots/`; midweek also gets its four pages in the light theme at iPhone size (`midweek-*light-iphone.png`), switched with the toggle and checked across a reload. Compare with sections 3, 5, and 12; fix; repeat.
 - **Staging:** M1 (Slice 6a) renders only `midweek`, `at_risk`, and `edge_empty` at 393x852. The full set below, at both sizes, is due by M2 (Slice 6b).
 
 Scenarios:
-1. **midweek**: now Sat 2026-10-17 14:00. Mon Q (run), Tue Q over budget (strength), Wed recovery, Thu Q, Fri Q, Sat pending with 654 of 1,853 kcal and 21/130 g protein, Sun future. Greeting "Good afternoon, Rob". Saturday has 3 activities.
+1. **midweek** (also the public demo): now Sat 2026-10-17 14:00. A 12-day streak: this week Mon run, Tue run, Wed recovery, Thu strength, Fri run, Sat counted with 708 of 1,853 kcal (meals pushed before 13:05) and 3 activities (walk, Full Body, run); Sun future. Last week holds the one over-budget day (2,173). Greeting "Good afternoon, Sam" (a made-up athlete). Data and sync: both sources OK, 1 Strava failure in the last 7 days, 3 quarantined records, data quality 12 passed / 3 warnings / 0 failed.
 2. **fresh_monday**: now Mon 2026-10-19 15:55. Nothing logged today; prior week healthy; recovery card `available`.
 3. **over_budget**: 2,173 of 1,853.
 4. **at_risk**: yesterday not logged; streak shows the unchanged count and the quiet message; recovery card `blocked`.

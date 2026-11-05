@@ -27,6 +27,7 @@ services:
       AIRFLOW_URL: http://airflow:8080
       # Where the launch screen's Demo button goes: the demo stack below.
       DEMO_PUBLIC_URL: ${DEMO_PUBLIC_URL:-http://localhost:5174}
+      PYTHONPATH: /app:/opt/airflow # app (the API) and include (the pipeline, mounted below)
     # --factory: Uvicorn calls create_app(), which runs the startup guards first.
     command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -36,6 +37,10 @@ services:
       - ./db:/db # Alembic migrations and SQL files
       - ./docs/samples:/samples:ro # recorded payloads used as test fixtures
       - ./scripts:/scripts:ro # make_ingest_token.py, tested here
+      # The pipeline's code and SQL at their Airflow paths: the demo seed tests replay
+      # synthetic data through it (app/demo/replay.py, DECISIONS D119).
+      - ./pipeline/include:/opt/airflow/include:ro
+      - ./db:/opt/airflow/db:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,7 +103,9 @@ services:
     profiles: ["demo"]
     build: ./api
     environment:
-      PYTHONPATH: /app
+      PYTHONPATH: /app:/opt/airflow
+      # The screenshots' frozen "now"; unset, the demo is built as of the real time.
+      NOW_OVERRIDE: "2026-10-17T14:00:00+08:00"
       DEMO_ADMIN_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
       DEMO_SEED_URL: postgresql+psycopg://demo_writer:${DEMO_WRITER_PASSWORD:-localdemowriter}@postgres:5432/app_demo
       DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-localdemoreader}
@@ -108,6 +115,9 @@ services:
       - ./api:/app
       - ./db:/db
       - ./scripts:/scripts:ro
+      # The real pipeline code, at the paths it has in the Airflow image (D119).
+      - ./pipeline/include:/opt/airflow/include:ro
+      - ./db:/opt/airflow/db:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,10 +136,16 @@ services:
       DEMO_SESSION_SECRET: local-demo-session-secret-only-for-this-mac-0001
       PUBLIC_BASE_URL: http://localhost:5174
       NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
-    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+      # The start script rebuilds the demo as the writer, then serves as the reader.
+      DEMO_SEED_URL: postgresql+psycopg://demo_writer:${DEMO_WRITER_PASSWORD:-localdemowriter}@postgres:5432/app_demo
+      PYTHONPATH: /app:/opt/airflow
+    command: ["sh", "/scripts/demo_start.sh"]
     volumes:
       - ./api:/app
       - ./db:/db
+      - ./scripts:/scripts:ro
+      - ./pipeline/include:/opt/airflow/include:ro
+      - ./db:/opt/airflow/db:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,6 +153,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 5s
       retries: 20
+      start_period: 30s # the start script builds the demo first (about 5 seconds)
 
   web-demo:
     profiles: ["demo"]

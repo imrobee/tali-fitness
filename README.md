@@ -51,6 +51,7 @@ The launch screen's **Demo version** button opens a separate demo service with s
 - **A demo visit, not a sign-in.** Opening the demo sets a signed, 2-hour `demo_session` cookie (its own secret, no database row). The real app never reads it, and the demo never reads real sessions.
 - **Read-only, on the server.** Every write gets `403 demo_read_only` ("Demo mode: changes aren't saved."), and the sign-in, ingest and sync routes don't exist there. The database role refuses writes too.
 - **Limits:** 10 new visits and 120 reads a minute per address; bodies over 1 KB are refused.
+- **Built by the pipeline, not inserted.** The demo's data is synthetic Strava activity details (with Hevy text) and Shortcut batches, replayed through the real sync, Hevy parser, core load, ingest checks and the 15 data-quality checks. It includes the mess a real pipeline meets: unreadable set lines in quarantine, an unmapped exercise, a duplicate push, a timed-out sync and its retry. The seed is fixed and days count back from today, so the demo shows the same story on any date; the demo service rebuilds it each time it starts (about 5 seconds, 11 MB).
 
 ## Authentication and security
 
