@@ -1,5 +1,5 @@
 {
-  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. placement: modal (in the middle, no spotlight) or sheet (a bottom sheet on a phone, beside the card on a desktop). targets: CSS selectors on the page at route; the spotlight is one cut-out around all of them. within: optional, the first element matching it holds the targets (one gym session, not all of them). open: a selector to click first (it expands the session). {name} placeholders come from the demo's last rebuild (streak_days, best_streak, eaten, budget, n_checks, n_warnings, n_quarantined, lift_day), checked by tests; a sentence whose value is missing or zero is left out. Never quote the demo user's nickname. technical: shown when Technical details is on (sheet steps only). legend: streak or calendar, a small key drawn with the app's own icons. buttons: the footer, at most two (default: Back and Next).",
+  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. placement: modal (in the middle, no spotlight) or sheet (a bottom sheet on a phone, beside the card on a desktop). targets: CSS selectors on the page at route; the spotlight is one cut-out around all of them. within: optional, the first element matching it holds the targets (one gym session, not all of them). open: a selector to click first (it expands the session). {name} placeholders come from the demo's last rebuild (streak_days, best_streak, eaten, budget, n_checks, n_warnings, n_quarantined, lift_day), checked by tests; a sentence whose value is missing or zero is left out. Never quote the demo user's nickname. technical: shown when Technical details is on (sheet steps only). legend: streak or calendar, a small key drawn with the app's own icons. In body, a blank line (\\n\\n) starts a new paragraph and *words* are shown in italics. buttons: the footer, at most two (default: Back and Next).",
   "steps": [
     {
       "id": "welcome",
@@ -12,6 +12,14 @@
         { "label": "Skip", "does": "close" },
         { "label": "Show me around", "does": "next" }
       ]
+    },
+    {
+      "id": "name",
+      "route": "/",
+      "placement": "sheet",
+      "targets": ["[data-tour='streak']"],
+      "title": "The streak",
+      "body": "The name \"tali\" comes from the Filipino word for \"string\". Notice that each circle in the streak is attached to each other by a string? That is because the goal of the app is to help users not \"break the chain\" of good habits. This is rooted in the *Seinfeld Strategy*, a method of building good habits by visually tracking consistency over time.\n\nThe name \"tali\" is also a play on words for \"tally\", with the core identity of the app being a tracker for fitness metrics."
     },
     {
       "id": "streak",

@@ -124,6 +124,8 @@ def build_dashboard(
             {"start": current_week[0], "end": current_week[-1]},
         )
     }
+    # The current streak is today's island (fn_day_status counts islands of unbroken days).
+    today_row = status_by_day.get(today)
     week = []
     for index, day in enumerate(current_week):
         row = status_by_day.get(day)
@@ -142,6 +144,13 @@ def build_dashboard(
                 recovery_logged=row is not None and day <= today and row.recovery_logged,
                 primary_activity_type=primary_types.get(day),
                 calorie_status=current_nutrition[day].calorie_status,
+                in_streak=(
+                    row is not None
+                    and today_row is not None
+                    and day <= today
+                    and row.counted
+                    and row.island_id == today_row.island_id
+                ),
             )
         )
 

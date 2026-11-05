@@ -53,8 +53,17 @@ function show(value: string | number): string {
 }
 
 /** Fills {placeholders} from the story. A sentence whose value is missing or zero is
-    left out entirely, so the tour never says "a 0-day streak" or "… calories". */
+    left out entirely, so the tour never says "a 0-day streak" or "… calories". Paragraphs
+    (split by a blank line) are kept. */
 export function fill(text: string, story: Story): string {
+  return text
+    .split("\n\n")
+    .map((paragraph) => fillParagraph(paragraph, story))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function fillParagraph(text: string, story: Story): string {
   const sentences = text.split(/(?<=[.!?])\s+/);
   const kept = sentences.filter((sentence) =>
     [...sentence.matchAll(/\{(\w+)\}/g)].every((match) => present(story[match[1]])),
@@ -62,6 +71,26 @@ export function fill(text: string, story: Story): string {
   return kept
     .join(" ")
     .replace(/\{(\w+)\}/g, (_, name: string) => show(story[name] as string | number));
+}
+
+export interface TextPart {
+  text: string;
+  italic: boolean;
+}
+
+/** A body's paragraphs (split by a blank line), each a list of parts; *words* in asterisks
+    are italic. Nothing else is markup, so the words stay plain text in the data file. */
+export function paragraphs(text: string): TextPart[][] {
+  return text.split("\n\n").map((paragraph) =>
+    paragraph
+      .split(/(\*[^*]+\*)/)
+      .filter(Boolean)
+      .map((part) =>
+        part.length > 2 && part.startsWith("*") && part.endsWith("*")
+          ? { text: part.slice(1, -1), italic: true }
+          : { text: part, italic: false },
+      ),
+  );
 }
 
 /** The step's page. Without the value a route needs, the page without its query. */

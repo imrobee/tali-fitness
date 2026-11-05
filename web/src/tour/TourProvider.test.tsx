@@ -114,7 +114,7 @@ describe("the demo tour", () => {
     renderTour();
 
     expect((await dialog()).getAttribute("aria-modal")).toBe("true");
-    expect(screen.getByText("1 of 7")).toBeTruthy();
+    expect(screen.getByText("1 of 8")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Welcome to Tali Fitness!" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Show me around" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
@@ -136,9 +136,11 @@ describe("the demo tour", () => {
   it("quotes the demo's own numbers and announces each step", async () => {
     renderTour();
     fireEvent.click(await screen.findByRole("button", { name: "Show me around" }));
+    expect(await screen.findByText("Step 2 of 8: The streak")).toBeTruthy(); // the name
+    await next();
 
     expect(await screen.findByText(/The demo user is on a 10-day streak right now/)).toBeTruthy();
-    expect(screen.getByText("Step 2 of 7: The streak")).toBeTruthy();
+    expect(screen.getByText("Step 3 of 8: The streak")).toBeTruthy();
     await next();
     expect(await screen.findByText(/So far today, 1,068 of the 1,850 calorie budget/)).toBeTruthy();
   });
@@ -146,20 +148,20 @@ describe("the demo tour", () => {
   it("moves with the arrow keys", async () => {
     renderTour();
     fireEvent.keyDown(await dialog(), { key: "ArrowRight" });
-    expect(await screen.findByText("2 of 7")).toBeTruthy();
+    expect(await screen.findByText("2 of 8")).toBeTruthy();
 
     fireEvent.keyDown(await dialog(), { key: "ArrowLeft" });
-    expect(await screen.findByText("1 of 7")).toBeTruthy();
+    expect(await screen.findByText("1 of 8")).toBeTruthy();
   });
 
   it("opens the gym session before pointing at it", async () => {
     renderTour();
     fireEvent.click(await screen.findByRole("button", { name: "Show me around" }));
-    await next(3);
+    await next(4);
 
     expect(await screen.findByText("Page /activities?date=2026-10-15")).toBeTruthy();
     expect(await screen.findByText("Leg Press 125 kg × 10")).toBeTruthy();
-    expect(await screen.findByText("5 of 7")).toBeTruthy();
+    expect(await screen.findByText("6 of 8")).toBeTruthy();
   });
 
   it("shows the engineering only with Technical details on, and remembers the switch", async () => {
@@ -167,6 +169,9 @@ describe("the demo tour", () => {
     await dialog();
     expect(screen.queryByRole("switch")).toBeNull(); // not on the welcome
     fireEvent.click(screen.getByRole("button", { name: "Show me around" }));
+    expect(await screen.findByText(/comes from the Filipino word/)).toBeTruthy();
+    expect(screen.queryByRole("switch")).toBeNull(); // the name step has no technical words
+    await next();
 
     expect(await screen.findByText(/The demo user is on/)).toBeTruthy();
     expect(screen.queryByText(/One SQL function labels every day/)).toBeNull();
@@ -183,6 +188,7 @@ describe("the demo tour", () => {
     sessionStorage.setItem("tali.tour-details", "1");
     renderTour();
     fireEvent.click(await screen.findByRole("button", { name: "Show me around" }));
+    await next();
 
     expect(await screen.findByText(/One SQL function labels every day/)).toBeTruthy();
     expect((await screen.findByRole("switch", { name: "Technical details" })).getAttribute("aria-checked")).toBe("true");
@@ -208,6 +214,16 @@ describe("the demo tour", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(button);
+  });
+
+  it("shows the name step as two paragraphs, with the strategy in italics", async () => {
+    renderTour();
+    fireEvent.click(await screen.findByRole("button", { name: "Show me around" }));
+
+    const words = (await screen.findByText(/comes from the Filipino word/)).closest("#tour-text");
+    expect(words?.querySelectorAll("p")).toHaveLength(2);
+    expect(words?.querySelector("em")?.textContent).toBe("Seinfeld Strategy");
+    expect(words?.textContent).not.toContain("*");
   });
 
   it("ends with Explore the demo, or How it works", async () => {

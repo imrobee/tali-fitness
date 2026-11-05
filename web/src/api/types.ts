@@ -19,6 +19,8 @@ export interface StreakDay {
   recovery_logged: boolean; // logged by hand: only then does today show the snowflake
   primary_activity_type: string | null;
   calorie_status: CalorieStatus;
+  /** Counted, and part of the current streak: the card strings these days together. */
+  in_streak: boolean;
 }
 
 export interface Exercise {

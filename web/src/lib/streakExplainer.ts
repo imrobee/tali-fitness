@@ -62,6 +62,7 @@ export function exampleDays(example: ExplainerExample): { days: StreakDay[]; tod
       recovery_logged: false,
       primary_activity_type: look.activity,
       calorie_status: look.calories,
+      in_streak: false, // the examples are single circles; the string is the card's
     };
   });
   const last = example.days.length - 1;

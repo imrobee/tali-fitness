@@ -112,6 +112,13 @@
   font-weight: 700;
 }
 
+/* The step's words: one or more paragraphs. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .text {
   margin: 0;
   line-height: 1.45;

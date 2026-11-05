@@ -1,6 +1,7 @@
 import type { Dashboard } from "../api/types";
 import { FlameIcon } from "../icons";
 import { streakDayLabel, streakSummary } from "../lib/a11y";
+import { strungToNext } from "../lib/streakRing";
 import { useTour } from "../tour/context";
 import { Card } from "./Card";
 import { DayCircle } from "./DayCircle";
@@ -58,9 +59,12 @@ export function StreakCard({ streak, today }: Props) {
         <FlameCount count={streak.count} />
 
         <ol className={styles.week} aria-label="This week">
-          {streak.week.map((day) => (
+          {streak.week.map((day, index) => (
             <li key={day.date} className={styles.day}>
               <span className="visually-hidden">{streakDayLabel(day)}</span>
+              {/* The string between two days of the current streak (decoration: the count
+                  and each day's label already say it). */}
+              {strungToNext(streak.week, index) && <span className={styles.string} aria-hidden="true" data-string="" />}
               <DayCircle day={day} today={today} />
               <span className={styles.letter} aria-hidden="true">
                 {day.weekday}

@@ -1,0 +1,15 @@
+/* The "tali" wordmark (components/Wordmark.tsx): the letters follow the text colour. */
+.wordmark {
+  display: block;
+  height: auto;
+  color: var(--text);
+}
+
+.dotRing {
+  fill: none;
+  stroke: var(--brand-mint);
+}
+
+.dotCore {
+  fill: var(--text);
+}

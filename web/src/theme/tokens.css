@@ -32,6 +32,7 @@
   --ring-track: #3a3a3c; /* calorie ring track, and the hollow ring of a day not counted yet:
                            iOS grey 4, one step above --card-elevated so it shows on the card */
   --neutral: #6e6e73; /* not_set marker and bar */
+  --streak-string: #6e6e73; /* the string joining the days of the current streak */
   --accent: #4ccb9f; /* Mint: selected day, active tab, links, focus ring */
   --freeze-tint: rgba(76, 203, 159, 0.2); /* recovery circle: the accent, pale */
 
@@ -97,6 +98,7 @@
   --on-done-core: #f5f7f6;
   --ring-track: #cfdad6;
   --neutral: #7a8b87; /* 3.6:1 on --card */
+  --streak-string: #a9b8b4;
   --accent: #1f6f66; /* 6.0:1 on --card */
   --freeze-tint: rgba(31, 111, 102, 0.14);
 
@@ -118,6 +120,7 @@
     --neutral: #9a9aa0;
     --card-elevated: #3a3a3c;
     --ring-track: #48484a;
+    --streak-string: #9a9aa0;
   }
 
   :root[data-theme="light"] {

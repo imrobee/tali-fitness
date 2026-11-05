@@ -132,6 +132,7 @@ describe("SignInGate", () => {
 
     expect(await screen.findByText("The app")).toBeTruthy();
     expect(screen.getByText("Demo version")).toBeTruthy();
+    expect(document.querySelector('main svg[viewBox="0 0 230 140"]')).not.toBeNull(); // the wordmark
     const start = calls.find((call) => call.url === "/auth/demo");
     expect(start?.init?.method).toBe("POST");
   });
@@ -142,6 +143,9 @@ describe("SignInGate", () => {
 
     expect(await screen.findByText("The app")).toBeTruthy();
     expect(screen.queryByText("Demo version")).toBeNull();
+    // The wordmark is at the top on Rob's app too, as decoration (the h1 names the page).
+    const wordmark = document.querySelector('main svg[viewBox="0 0 230 140"]');
+    expect(wordmark?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("in local key mode, signs in with the dev key and keeps it nowhere", async () => {

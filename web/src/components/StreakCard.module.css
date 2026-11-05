@@ -54,10 +54,24 @@
 }
 
 .day {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
+}
+
+/* The string from this day's ring to the next one's: from the ring's outer edge (21px from
+   the centre of its 42px box) across the column gap to the next ring's edge. The width is
+   this column plus the 4px gap (.week), minus one ring. Drawn under the rings. */
+.string {
+  position: absolute;
+  top: 19.5px; /* the ring's centre line, for a 3px string */
+  left: calc(50% + 21px);
+  width: calc(100% + 4px - 42px);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--streak-string);
 }
 
 .letter {
@@ -149,6 +163,11 @@
 /* 200% zoom on a phone (about 200px wide): the rings are 42px and UI_SPEC 5.3 keeps them
    at full size, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
 @media (max-width: 240px) {
+  /* Wrapped onto three rows, a string would cross to the wrong ring. */
+  .string {
+    display: none;
+  }
+
   .week {
     grid-template-columns: repeat(3, minmax(42px, 1fr));
     column-gap: 2px; /* three 42px rings in about 133px */

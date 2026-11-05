@@ -108,15 +108,6 @@
   height: auto;
 }
 
-.dotRing {
-  fill: none;
-  stroke: var(--brand-mint);
-}
-
-.dotCore {
-  fill: var(--text);
-}
-
 .actions {
   display: flex;
   flex-direction: column;

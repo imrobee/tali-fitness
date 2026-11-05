@@ -39,7 +39,7 @@ for (const size of SIZES) {
       for (const [index, step] of STEPS.entries()) {
         const dialog = page.getByRole("dialog");
         await expect(dialog.getByText(`${index + 1} of ${STEPS.length}`)).toBeVisible();
-        await expect(dialog.getByRole("switch")).toHaveCount(step.placement === "sheet" ? 1 : 0);
+        await expect(dialog.getByRole("switch")).toHaveCount(step.technical ? 1 : 0);
         if (step.placement === "sheet") {
           const scope = step.within ? page.locator(step.within).first() : page.locator(":root");
           const targets = scope.locator(step.targets.join(", "));
@@ -52,6 +52,11 @@ for (const size of SIZES) {
           }
           await checkStep(page, targets, dialog, size.height);
           const technicalWords = dialog.getByText(step.technical?.slice(0, 30) ?? "");
+          if (!step.technical) {
+            await page.screenshot({ path: `screenshots/tour-${step.id}-${suffix}.png` });
+            await advance(dialog, step, index);
+            continue;
+          }
           const more = dialog.getByRole("button", { name: /^Show (more|technical details)$/ });
           if (await more.count()) {
             await page.screenshot({ path: `screenshots/tour-${step.id}-${suffix}.png` });

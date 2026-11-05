@@ -69,3 +69,12 @@ export function circleLook(
   if (day.state === "at_risk") return "at_risk";
   return "missed";
 }
+
+/**
+ * Whether the string runs from this day to the next (the streak's "chain", the "tali"):
+ * both days count and are part of the current streak. It starts on the day the streak
+ * began, or Monday if it began earlier, and stops at Sunday: the card shows one week.
+ */
+export function strungToNext(week: { in_streak: boolean }[], index: number): boolean {
+  return week[index].in_streak && index + 1 < week.length && week[index + 1].in_streak;
+}

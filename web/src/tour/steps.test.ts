@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { counter, fill, fillRoute, footer, hasSwitch, PLACEHOLDERS, STEPS, stepProblems } from "./steps";
+import { counter, fill, fillRoute, footer, hasSwitch, paragraphs, PLACEHOLDERS, STEPS, stepProblems } from "./steps";
 
 // The app's pages (App.tsx).
 const ROUTES = ["/", "/activities", "/nutrition", "/me"];
@@ -39,8 +39,8 @@ describe("the tour's steps (steps.json)", () => {
     expect(calories?.targets).toEqual(["[data-tour='calories']", "[data-tour='protein']"]);
   });
 
-  it("have the Technical details switch on steps 2 to 6 only", () => {
-    expect(STEPS.map(hasSwitch)).toEqual([false, true, true, true, true, true, false]);
+  it("have the Technical details switch only on the steps with technical words", () => {
+    expect(STEPS.map(hasSwitch)).toEqual([false, false, true, true, true, true, true, false]); // the name step has none
   });
 
   it("quote only values the demo's rebuild records, never the nickname", () => {
@@ -66,7 +66,7 @@ describe("the tour's steps (steps.json)", () => {
     expect(stepProblems(broken, ROUTES)).toEqual([
       "welcome: no page at /nowhere",
       "welcome: id used twice",
-      "calories: unknown value {nickname}",
+      "streak: unknown value {nickname}",
     ]);
   });
 });
@@ -84,6 +84,23 @@ describe("fill", () => {
 
   it("leaves out a sentence whose value is zero", () => {
     expect(fill("The ring. So far, {eaten} eaten. Tap it.", { eaten: 0 })).toBe("The ring. Tap it.");
+  });
+});
+
+describe("paragraphs", () => {
+  it("splits on a blank line and turns *words* into italics", () => {
+    expect(paragraphs("Rooted in the *Seinfeld Strategy*, a method.\n\nA second one.")).toEqual([
+      [
+        { text: "Rooted in the ", italic: false },
+        { text: "Seinfeld Strategy", italic: true },
+        { text: ", a method.", italic: false },
+      ],
+      [{ text: "A second one.", italic: false }],
+    ]);
+  });
+
+  it("keeps paragraphs through fill", () => {
+    expect(fill("One. A {streak_days}-day streak.\n\nTwo.", {})).toBe("One.\n\nTwo.");
   });
 });
 
@@ -107,7 +124,7 @@ describe("footer", () => {
 
   it("puts the main choice last (the primary button)", () => {
     expect(footer(STEPS[0], 0).map((button) => button.label)).toEqual(["Skip", "Show me around"]);
-    expect(footer(STEPS[6], 6).map((button) => button.label)).toEqual(["How it works", "Explore the demo"]);
+    expect(footer(STEPS[7], 7).map((button) => button.label)).toEqual(["How it works", "Explore the demo"]);
   });
 });
 

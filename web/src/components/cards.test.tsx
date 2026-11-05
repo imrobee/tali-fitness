@@ -74,6 +74,15 @@ const WEEK: StreakDay[] = [
 describe("StreakCard", () => {
   const streak = { count: 6, at_risk: true, message: "Yesterday isn't logged. Fill it in to keep your 6-day streak.", week: WEEK };
 
+  it("strings together the days of the current streak, and only those", () => {
+    // Mon-Thu count (in the streak); Friday at risk and Saturday pending don't count yet.
+    const week = WEEK.map((day) => ({ ...day, in_streak: day.state === "counted" }));
+    const { container } = wrap(<StreakCard streak={{ ...streak, week }} today={TODAY} />);
+
+    const strung = [...container.querySelectorAll("li")].map((day) => day.querySelector("[data-string]") !== null);
+    expect(strung).toEqual([true, true, true, false, false, false, false]);
+  });
+
   it("reads each circle and its marker as one sentence", () => {
     wrap(<StreakCard streak={streak} today={TODAY} />);
 

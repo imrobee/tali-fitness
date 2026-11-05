@@ -20,13 +20,30 @@
   margin-bottom: 12px; /* with the gap, 24px between the title (or greeting) and what follows */
 }
 
-/* The public demo's bar above the title: the badge and the tour button. */
-.demoBar {
-  display: flex;
+/* The bar above the title, on every page: the wordmark in the true middle (equal side
+   columns), and on the public demo the badge at the left and the tour at the right. As
+   tall as the tour button (44px), so the row is the same height on both apps. */
+.topBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+  min-height: var(--touch);
   margin-bottom: 12px;
+}
+
+.barStart {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.barEnd {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.wordmark {
+  width: 46px;
 }
 
 .tourButton {

@@ -30,6 +30,7 @@ import {
   fillRoute,
   footer,
   hasSwitch,
+  paragraphs,
   STEPS,
   type Story,
   type TourButton,
@@ -215,8 +216,14 @@ function TourStepView({
       const toOpen = toOpenOf(step);
       if (toOpen) toOpen.click();
       const targets = targetsOf(step);
+      // Loaded: no placeholder in the targets, nor in the session they belong to (its sets
+      // arrive after it opens, and the targets' own box isn't final until they do).
+      const scope = step.within ? document.querySelector(step.within) : null;
       const ready =
-        targets.length > 0 && !toOpen && targets.every((target) => !target.querySelector("[data-loading]"));
+        targets.length > 0 &&
+        !toOpen &&
+        !scope?.querySelector("[data-loading]") &&
+        targets.every((target) => !target.querySelector("[data-loading]"));
       if (ready) {
         const box = targetBox(step);
         const behavior = reducedMotion() ? "auto" : "smooth";
@@ -247,6 +254,11 @@ function TourStepView({
     if (reopen) reopen.click();
     const box = modal ? null : targetBox(step);
     const sheet = isSheet(viewport);
+    // Phone: a card above may finish loading after the scroll and shrink, pushing the
+    // target up off the screen. Put it back at the top (at once: this is a correction).
+    if (sheet && box && box.top < 0) {
+      window.scrollTo({ top: sheetScrollTop(box.top + window.scrollY), behavior: "auto" });
+    }
     setPhone(sheet);
     setSpot(box ? spotlight(box, viewport) : null);
     // Phone: clamp the technical words so the sheet never grows over the target.
@@ -386,9 +398,9 @@ function TourStepView({
           </h2>
           {!swapped && (
             <>
-              <p id="tour-text" className={styles.text}>
-                {fill(step.body, story)}
-              </p>
+              <div id="tour-text" className={styles.body}>
+                <RichText text={fill(step.body, story)} />
+              </div>
               {step.legend && <Legend kind={step.legend} />}
               {step.example && <Example example={step.example} />}
               {step.note && <p className={styles.note}>{step.note}</p>}
@@ -461,4 +473,14 @@ function Example({ example }: { example: ExplainerExample }) {
       <figcaption className={styles.exampleCaption}>{example.caption}</figcaption>
     </figure>
   );
+}
+
+/** A step's words: one <p> per paragraph, *words* in italics (steps.ts paragraphs()). */
+function RichText({ text }: { text: string }) {
+  return paragraphs(text).map((parts, index) => (
+    // Paragraphs never move or change order within a step, so their place is their key.
+    <p key={index} className={styles.text}>
+      {parts.map((part, at) => (part.italic ? <em key={at}>{part.text}</em> : part.text))}
+    </p>
+  ));
 }
