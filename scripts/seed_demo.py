@@ -5,26 +5,26 @@ Usage (in the demo-seed container; see `make seed-demo` and `make screenshots`):
     python /scripts/seed_demo.py load [scenario]    # writer: midweek (default), at_risk, edge_empty
 
 `load` replays the scenario's synthetic Strava and Shortcut payloads through the real
-pipeline code (app/demo/replay.py). It empties the demo database first, so it is safe to
-run again at any time: on a schedule, or each time the demo service starts.
+pipeline code (app/demo/replay.py), in one transaction under an advisory lock. It empties
+the demo database first, so it is safe to run again at any time: by hand
+(`make demo-reseed`) or by the daily GitHub Actions job (.github/workflows/demo-reseed.yml).
 
 The demo's "now" is NOW_OVERRIDE when set (the screenshots freeze Sat 2026-10-17 14:00),
 otherwise the real time, so the public demo's streak always ends today.
 
 Safety: it only ever touches a database whose name ends in "_demo". `setup` is the only
 step with an administrator's URL (DEMO_ADMIN_URL) and runs on this Mac only; `load` uses
-the demo writer (DEMO_SEED_URL), which owns the demo database and can open nothing else.
+demo_seed (DEMO_SEED_URL), which owns the demo database and can open nothing else.
 """
 
 import os
 import sys
-import time
 from datetime import UTC, datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 
-from app.demo.replay import replay
+from app.demo.replay import ReseedBusy, replay
 from app.demo.scenario import SCENARIOS, build
 from app.demo.setup import DemoRoles, prepare_demo_database
 
@@ -56,11 +56,14 @@ def load(name: str) -> None:
     if name not in SCENARIOS:
         sys.exit(f"Unknown scenario {name!r}. Choose one of: {', '.join(SCENARIOS)}.")
     engine = create_engine(make_url(os.environ["DEMO_SEED_URL"]), hide_parameters=True)
-    started = time.monotonic()
     scenario = build(name, demo_now())
-    replay(engine, scenario)
-    engine.dispose()
-    seconds = time.monotonic() - started
+    try:
+        seconds = replay(engine, scenario)
+    except ReseedBusy as busy:
+        print(busy)  # not a failure: the other rebuild gives the same result
+        return
+    finally:
+        engine.dispose()
     print(f"Demo scenario {name!r} as of {scenario.today} built in {seconds:.1f}s.")
 
 

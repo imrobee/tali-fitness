@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useSaveMe, useVacation } from "../api/hooks";
+import { useIsDemo } from "../api/visit";
+import { DEMO_SETTINGS_NOTE } from "../demo/copy";
 import type { Me } from "../api/types";
 import { CalendarIcon } from "../icons";
 import { openPicker } from "../lib/picker";
@@ -26,6 +28,7 @@ export function StreakRulesCard() {
 /** The weekend switch in its own card, with the rule it sets under it (UI_SPEC.md 6.3). */
 export function WeekendsCard({ me }: { me: Me }) {
   const save = useSaveMe();
+  const demo = useIsDemo();
   const weekends: Weekends = me.lenient_weekends ? "relaxed" : "strict";
   return (
     <Card
@@ -43,7 +46,7 @@ export function WeekendsCard({ me }: { me: Me }) {
       }
     >
       <p className={styles.rule}>{weekendRule(me.lenient_weekends)}</p>
-      <p className={styles.help}>Changes apply from today.</p>
+      <p className={styles.help}>{demo ? DEMO_SETTINGS_NOTE : "Changes apply from today."}</p>
       {save.isError && (
         <p className={styles.error} role="alert">
           {save.error.message}

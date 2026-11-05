@@ -16,7 +16,8 @@ from sqlalchemy.engine import make_url
 
 from app.config import Settings
 from app.db import get_engine
-from app.demo.replay import replay
+from app.demo import overrides
+from app.demo.replay import ReseedBusy, replay
 from app.demo.scenario import TZ, build
 from app.demo.setup import DemoRoles, prepare_demo_database
 from app.main import create_app
@@ -226,6 +227,42 @@ def test_the_raw_payloads_went_through_the_pipeline(engines, frozen):
     assert located == 0
 
 
+def test_the_panel_shows_when_the_demo_was_rebuilt(frozen):
+    rebuild = frozen.get("/api/v1/pipeline/health").json()["demo_rebuild"]
+
+    assert 0 < rebuild["duration_ms"] < 60_000
+
+
+def test_reseeding_never_touches_the_real_database(engines, migrated_engine, monkeypatch):
+    def fingerprint() -> dict:
+        with migrated_engine.connect() as conn:
+            tables = conn.execute(
+                text(
+                    "SELECT table_schema || '.' || table_name FROM information_schema.tables "
+                    "WHERE table_schema IN ('raw', 'core', 'ops', 'app') "
+                    "AND table_type = 'BASE TABLE'"
+                )
+            ).scalars().all()  # fmt: skip
+            return {
+                t: conn.execute(text(f"SELECT md5(string_agg(x::text, '')) FROM {t} x")).scalar()
+                for t in tables
+            }
+
+    before = fingerprint()
+    seeded(engines, FROZEN, monkeypatch)
+
+    assert fingerprint() == before
+
+
+def test_two_reseeds_at_once_run_one_at_a_time(engines):
+    """The advisory lock: while one rebuild's transaction holds it, another steps aside."""
+    writer = engines[0]
+    with writer.begin() as conn:
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('fitness-tracker demo reseed'))"))
+        with pytest.raises(ReseedBusy):
+            replay(create_engine(writer.url, hide_parameters=True), build("midweek", FROZEN))
+
+
 def test_the_seed_refuses_a_moment_in_the_future(engines):
     with pytest.raises(ValueError, match="future"):
         replay(engines[0], build("midweek", datetime.now(TZ) + timedelta(hours=2)))
@@ -234,6 +271,104 @@ def test_the_seed_refuses_a_moment_in_the_future(engines):
 def test_the_seed_refuses_a_database_not_named_demo(migrated_engine):
     with pytest.raises(ValueError, match="_demo"):
         replay(migrated_engine, build("midweek", FROZEN))
+
+
+# --- a visitor's own settings: applied at read time, never saved (D122) -------------------
+
+BUDGET_1700 = {"X-Demo-Settings": '{"calorie_budget": 1700}'}
+
+
+def week_markers(client: TestClient, headers=None) -> list[str]:
+    week = client.get("/api/v1/dashboard", headers=headers).json()["streak"]["week"]
+    return [day["calorie_status"] for day in week]
+
+
+def test_a_lower_budget_changes_the_streak_and_the_week_markers(frozen):
+    dashboard = frozen.get("/api/v1/dashboard", headers=BUDGET_1700).json()
+
+    assert dashboard["streak"]["count"] == 5
+    assert dashboard["calories"]["budget"] == 1700
+    assert week_markers(frozen, BUDGET_1700).count("over") == 3
+    assert week_markers(frozen).count("over") == 0
+
+
+def test_relaxed_weekends_apply_to_every_day_too(frozen):
+    relaxed = {"X-Demo-Settings": '{"calorie_budget": 1700, "lenient_weekends": true}'}
+
+    assert frozen.get("/api/v1/dashboard", headers=relaxed).json()["streak"]["count"] == 9
+
+
+def test_the_me_page_shows_the_visitors_settings_clamped(frozen):
+    wild = {"X-Demo-Settings": '{"calorie_budget": 99999, "protein_goal": -5, "nickname": "Ana"}'}
+    me = frozen.get("/api/v1/me", headers=wild).json()
+
+    assert me["targets"]["calorie_budget"] == 6000
+    assert me["targets"]["protein_goal"] == 0
+    assert me["nickname"] == "Ana"
+
+
+def test_settings_are_never_written(engines, frozen):
+    before = table_counts(engines[0])
+    with engines[0].connect() as conn:
+        targets = conn.execute(text("SELECT * FROM app.target_history")).all()
+
+    frozen.get("/api/v1/me", headers=BUDGET_1700)
+    saved = frozen.put("/api/v1/me", json={"targets": {"calorie_budget": 1700, "protein_goal": 1}})
+
+    assert saved.status_code == 403  # the real write route stays shut
+    assert table_counts(engines[0]) == before
+    with engines[0].connect() as conn:
+        assert conn.execute(text("SELECT * FROM app.target_history")).all() == targets
+
+
+def test_settings_never_reach_the_next_request_on_the_same_connection(engines, frozen):
+    one_connection = create_engine(READER_URL, pool_size=1, max_overflow=0)
+    demo_app.dependency_overrides[get_engine] = lambda: one_connection
+    try:
+        mine = frozen.get("/api/v1/dashboard", headers=BUDGET_1700).json()["streak"]["count"]
+        next_visitor = TestClient(demo_app)
+        next_visitor.post("/auth/demo")
+        theirs = next_visitor.get("/api/v1/dashboard").json()["streak"]["count"]
+    finally:
+        demo_app.dependency_overrides[get_engine] = lambda: engines[1]
+        one_connection.dispose()
+
+    assert (mine, theirs) == (5, 12)
+
+
+def test_settings_end_with_their_transaction_even_after_a_commit(engines, frozen):
+    """The guarantee itself: a value lasts one transaction, committed or not, so a pooled
+    connection (Neon's PgBouncer hands it to the next client) never carries it on."""
+    one_connection = create_engine(READER_URL, pool_size=1, max_overflow=0)
+    token = overrides.current.set(overrides.DemoSettings(calorie_budget=1700))
+    try:
+        with one_connection.begin() as conn:  # commits, unlike a page's read
+            inside = conn.execute(text("SELECT app.demo_setting('calorie_budget')")).scalar_one()
+    finally:
+        overrides.current.reset(token)
+    with one_connection.connect() as conn:
+        after = conn.execute(text("SELECT app.demo_setting('calorie_budget')")).scalar_one()
+    one_connection.dispose()
+
+    assert (inside, after) == ("1700", None)
+
+
+@pytest.mark.parametrize(
+    ("value", "status"),
+    [
+        ("not json", 422),
+        ('{"calorie_budget": "lots"}', 422),
+        ('{"nickname": "' + "x" * 600 + '"}', 413),
+    ],
+)
+def test_bad_settings_are_refused(frozen, value, status):
+    assert frozen.get("/api/v1/dashboard", headers={"X-Demo-Settings": value}).status_code == status
+
+
+def test_the_real_app_ignores_demo_settings(client):
+    plain = client.get("/api/v1/me").json()
+
+    assert client.get("/api/v1/me", headers=BUDGET_1700).json() == plain
 
 
 # --- last: these rebuild the demo database with another date or scenario ---------------

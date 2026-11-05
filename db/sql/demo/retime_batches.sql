@@ -4,4 +4,4 @@ SET received_at = CAST(:at AS timestamptz),
         WHEN applied_at IS NULL THEN NULL
         ELSE CAST(:at AS timestamptz) + interval '1 second'
     END
-WHERE received_at >= CAST(:since AS timestamptz)
+WHERE received_at = now()

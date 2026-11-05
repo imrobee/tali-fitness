@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AUTH_QUERY } from "../api/auth";
 import { MePage } from "./MePage";
 
 const ME = {
@@ -22,6 +23,7 @@ const ME = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  sessionStorage.clear();
 });
 
 function fakeApi() {
@@ -138,3 +140,66 @@ describe("Me page streak settings", () => {
     expect(puts).toEqual([]);
   });
 });
+
+describe("Me page on the demo", () => {
+  /** Every request's demo settings header, in order. */
+  function fakeDemoApi() {
+    const sent: { method: string; settings: string | null }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        if (url === "/api/v1/me") {
+          const settings = headers["X-Demo-Settings"] ?? null;
+          sent.push({ method: init?.method ?? "GET", settings });
+          const own = settings ? JSON.parse(settings) : {};
+          const budget = own.calorie_budget ?? ME.targets.calorie_budget;
+          return new Response(
+            JSON.stringify({ ...ME, targets: { ...ME.targets, calorie_budget: budget } }),
+            { status: 200 },
+          );
+        }
+        return new Promise(() => {});
+      }),
+    );
+    return sent;
+  }
+
+  function renderDemoMe() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(AUTH_QUERY, { signedIn: true, demo: true });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MePage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("keeps a new budget in the tab and never sends a write", async () => {
+    const sent = fakeDemoApi();
+    renderDemoMe();
+
+    const budget = (await screen.findByLabelText(/Calorie budget/)) as HTMLInputElement;
+    fireEvent.change(budget, { target: { value: "1700" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(budget.value).toBe("1700"));
+    expect(sent.every((request) => request.method === "GET")).toBe(true);
+    expect(sent.at(-1)?.settings).toContain('"calorie_budget":1700');
+    expect(screen.getAllByText(/never saved/)).toHaveLength(2); // under targets and weekends
+  });
+
+  it("puts the demo's own settings back with Reset demo", async () => {
+    sessionStorage.setItem("tali.demo-settings", '{"calorie_budget":1700}');
+    const sent = fakeDemoApi();
+    renderDemoMe();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset demo" }));
+
+    await waitFor(() => expect(sent.at(-1)?.settings).toBeNull());
+    expect(sessionStorage.getItem("tali.demo-settings")).toBeNull();
+  });
+});
+

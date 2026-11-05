@@ -1,0 +1,180 @@
+/* The demo tour (UI_SPEC.md section 12). Above everything, the bottom nav included. */
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+/* Covers the page and takes its clicks: the tour moves with Next and Back. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dim {
+  fill: var(--tour-dim);
+}
+
+/* The spotlight's edge: a line, so the cut-out shows without relying on contrast alone. */
+.ring {
+  fill: none;
+  stroke: var(--brand-mint);
+  stroke-width: 2;
+}
+
+.dialog {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  outline: none;
+}
+
+.dialog:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}
+
+/* Desktop: beside (or above/below) the spotlight, at the position the geometry gives.
+   320px: at 1280 wide, the 520px page column leaves about 340px either side. */
+.floating {
+  width: min(320px, calc(100vw - 32px));
+}
+
+/* Phone: a bottom sheet, clear of the home indicator. */
+.sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 60dvh;
+  overflow-y: auto;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .floating {
+    transition:
+      top 180ms var(--ease-out),
+      left 180ms var(--ease-out);
+  }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.counter {
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.title {
+  font-size: var(--fs-card);
+  font-weight: 700;
+}
+
+.text {
+  margin: 0;
+}
+
+.built {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+}
+
+.builtLabel {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lineage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--card-elevated);
+  font-size: var(--fs-small);
+}
+
+.chip code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.kind {
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* In the bottom sheet the words can run longer than the sheet: Back and Next stay
+   pinned to its bottom edge, so they are always on screen without scrolling. */
+.sheet .actions {
+  position: sticky;
+  bottom: calc(-20px - env(safe-area-inset-bottom));
+  margin: 4px -20px calc(-20px - env(safe-area-inset-bottom));
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--rule);
+}
+
+.next,
+.back,
+.skip {
+  min-height: var(--touch);
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.next {
+  border: 0;
+  background: var(--button);
+  color: var(--on-button);
+}
+
+.back {
+  border: 0;
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+.skip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.next:focus-visible,
+.back:focus-visible,
+.skip:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}

@@ -70,7 +70,7 @@ export interface Targets {
 export interface Me {
   nickname: string | null;
   timezone: string;
-  targets: (Targets & { effective_from: string }) | null;
+  targets: (Targets & { effective_from: string | null }) | null;
   weight_goal_kg: number | null;
   weight_unit: "kg" | "lb";
   lenient_weekends: boolean;
@@ -129,6 +129,8 @@ export interface PipelineHealth {
     checked_at: string | null;
     checks: DqCheck[];
   };
+  /** The demo only: when its synthetic data was last rebuilt. */
+  demo_rebuild?: { seeded_at: string; duration_ms: number } | null;
 }
 
 // GET /api/v1/activities and /activities/{id} (api/app/activities.py).

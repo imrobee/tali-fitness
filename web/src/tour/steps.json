@@ -1,0 +1,111 @@
+{
+  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. target: a data-tour name on the page at route (null: a dialog in the middle). {streak} is replaced with the streak on screen. lineage: only names that exist in the code: kind is source, endpoint, dag, task, table or function; api/tests/test_tour_lineage.py checks every one.",
+  "steps": [
+    {
+      "id": "welcome",
+      "route": "/",
+      "target": "page-title",
+      "placement": "bottom",
+      "title": "One app, three sources",
+      "text": "My training, running and nutrition data lives in separate apps that don't talk to each other, so I built a pipeline that joins them.",
+      "built": "React and FastAPI over a PostgreSQL warehouse, loaded by Airflow. Everything here is synthetic data, built by the real pipeline.",
+      "lineage": [
+        { "kind": "source", "name": "Strava API" },
+        { "kind": "source", "name": "iOS Shortcut (Apple Health)" },
+        { "kind": "source", "name": "Manual entries" }
+      ]
+    },
+    {
+      "id": "streak",
+      "route": "/",
+      "target": "streak",
+      "placement": "bottom",
+      "title": "A {streak}-day streak",
+      "text": "A day counts when food is logged within budget and there's a workout. Rest days and recovery days are allowed, within rules.",
+      "built": "One SQL function decides every day's status; the streak is a window-function count over it.",
+      "lineage": [
+        { "kind": "table", "name": "core.fact_activity" },
+        { "kind": "table", "name": "core.fact_dietary_sample" },
+        { "kind": "table", "name": "app.recovery_day" },
+        { "kind": "function", "name": "mart.fn_day_status" },
+        { "kind": "function", "name": "mart.fn_streak" },
+        { "kind": "endpoint", "name": "GET /api/v1/dashboard" }
+      ]
+    },
+    {
+      "id": "calories",
+      "route": "/",
+      "target": "calories",
+      "placement": "top",
+      "title": "Food, from Apple Health",
+      "text": "An iPhone Shortcut pushes each meal's calories and protein after it's logged.",
+      "built": "A token-protected POST, checked sample by sample. A batch sent twice is recognised by its SHA-256 and stored once.",
+      "lineage": [
+        { "kind": "endpoint", "name": "POST /api/v1/ingest/health" },
+        { "kind": "table", "name": "raw.health_batches" },
+        { "kind": "table", "name": "raw.health_samples" },
+        { "kind": "table", "name": "core.fact_dietary_sample" },
+        { "kind": "function", "name": "mart.fn_daily_nutrition" }
+      ]
+    },
+    {
+      "id": "calendar",
+      "route": "/activities",
+      "target": "calendar",
+      "placement": "bottom",
+      "title": "Every workout, from Strava",
+      "text": "Runs and walks from the Apple Watch, and lifting sessions logged in Hevy, all arrive through Strava.",
+      "built": "Airflow syncs Strava every hour: the list call, then each activity's detail, picking up from a watermark. Loads are idempotent upserts.",
+      "lineage": [
+        { "kind": "dag", "name": "strava_sync" },
+        { "kind": "task", "name": "sync_activities" },
+        { "kind": "task", "name": "transform_core" },
+        { "kind": "table", "name": "raw.strava_activities" },
+        { "kind": "table", "name": "core.fact_activity" },
+        { "kind": "endpoint", "name": "GET /api/v1/calendar" }
+      ]
+    },
+    {
+      "id": "records",
+      "route": "/activities",
+      "target": "records",
+      "placement": "top",
+      "title": "Free text in, set-level records out",
+      "text": "Hevy writes each workout into the Strava description as plain text. A parser turns it into one row per set.",
+      "built": "A small grammar with golden tests. A line it can't read goes to quarantine with a reason; the rest of the session still loads.",
+      "lineage": [
+        { "kind": "task", "name": "parse_hevy" },
+        { "kind": "table", "name": "core.fact_set" },
+        { "kind": "table", "name": "core.dim_exercise" },
+        { "kind": "table", "name": "ops.quarantine" },
+        { "kind": "endpoint", "name": "GET /api/v1/records" }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "route": "/me",
+      "target": "data-sync",
+      "placement": "top",
+      "title": "The pipeline watches itself",
+      "text": "When each source last synced, failed runs, quarantined lines, and 15 data-quality checks. This demo has a timed-out sync and its retry, and a few warnings.",
+      "built": "Every run is a row in ops.pipeline_runs. A second DAG runs the checks, each one a plain SQL file, and stores the results.",
+      "lineage": [
+        { "kind": "dag", "name": "data_quality" },
+        { "kind": "table", "name": "ops.pipeline_runs" },
+        { "kind": "table", "name": "ops.quarantine" },
+        { "kind": "table", "name": "ops.dq_results" },
+        { "kind": "endpoint", "name": "GET /api/v1/pipeline/health" }
+      ]
+    },
+    {
+      "id": "done",
+      "route": "/",
+      "target": null,
+      "placement": "center",
+      "title": "That's the tour",
+      "text": "Look around: every page works, and nothing you change is saved.",
+      "built": "The demo is its own service on its own database, with a read-only role and no real credentials.",
+      "lineage": []
+    }
+  ]
+}

@@ -27,7 +27,9 @@ from app import (
 )
 from app.config import LOGIN_STATE_MINUTES, Settings, check_startup, load_settings
 from app.dashboard.router import router as dashboard_router
+from app.demo.overrides import add_demo_settings
 from app.demo.router import router as demo_auth_router
+from app.demo.self_heal import SelfHeal
 from app.errors import ApiError, handle_api_error
 from app.ingest.router import router as ingest_router
 from app.logs import install_log_redaction
@@ -89,11 +91,13 @@ def create_app(
     settings: Settings | None = None,
     google_transport: httpx2.AsyncBaseTransport | None = None,
     environ: dict[str, str] | None = None,
+    github_transport: httpx2.BaseTransport | None = None,
 ) -> FastAPI:
     """Check the configuration, then build the app. A bad config raises ConfigError.
 
-    google_transport and environ are for tests only: a fake Google, so no test calls the
-    real one, and the environment the demo guard checks (default: the real one)."""
+    google_transport, environ and github_transport are for tests only: a fake Google and
+    a fake GitHub, so no test calls the real ones, and the environment the demo guard
+    checks (default: the real one)."""
     if settings is None:
         settings = load_settings()
     check_startup(settings, environ)
@@ -112,6 +116,9 @@ def create_app(
     app.add_exception_handler(RequestValidationError, handle_validation_error)
 
     add_hardening(app, settings)
+    if settings.app_env == "demo":
+        add_demo_settings(app)  # a visitor's own Me settings, per request (D122)
+        app.state.self_heal = SelfHeal(settings, github_transport)  # stale data (D121)
     add_sign_in(app, settings, google_transport)
     app.include_router(router)
     demo = settings.app_env == "demo"

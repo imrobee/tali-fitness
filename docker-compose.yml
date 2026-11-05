@@ -41,6 +41,9 @@ services:
       # synthetic data through it (app/demo/replay.py, DECISIONS D119).
       - ./pipeline/include:/opt/airflow/include:ro
       - ./db:/opt/airflow/db:ro
+      # For test_tour_lineage.py: the tour's steps and the DAGs whose names they quote.
+      - ./web/src/tour:/tour:ro
+      - ./pipeline/dags:/opt/airflow/dags:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,7 +110,7 @@ services:
       # The screenshots' frozen "now"; unset, the demo is built as of the real time.
       NOW_OVERRIDE: "2026-10-17T14:00:00+08:00"
       DEMO_ADMIN_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
-      DEMO_SEED_URL: postgresql+psycopg://demo_writer:${DEMO_WRITER_PASSWORD:-localdemowriter}@postgres:5432/app_demo
+      DEMO_SEED_URL: postgresql+psycopg://demo_seed:${DEMO_SEED_PASSWORD:-localdemoseed}@postgres:5432/app_demo
       DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-localdemoreader}
       DEMO_LOCK_DATABASES: app,airflow
     command: ["python", "/scripts/seed_demo.py"]
@@ -136,16 +139,12 @@ services:
       DEMO_SESSION_SECRET: local-demo-session-secret-only-for-this-mac-0001
       PUBLIC_BASE_URL: http://localhost:5174
       NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
-      # The start script rebuilds the demo as the writer, then serves as the reader.
-      DEMO_SEED_URL: postgresql+psycopg://demo_writer:${DEMO_WRITER_PASSWORD:-localdemowriter}@postgres:5432/app_demo
-      PYTHONPATH: /app:/opt/airflow
-    command: ["sh", "/scripts/demo_start.sh"]
+    # Serves only. The demo is rebuilt elsewhere (demo-seed here; a scheduled GitHub
+    # Actions job when hosted, DECISIONS D121), so this service holds demo_reader alone.
+    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
     volumes:
       - ./api:/app
       - ./db:/db
-      - ./scripts:/scripts:ro
-      - ./pipeline/include:/opt/airflow/include:ro
-      - ./db:/opt/airflow/db:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,7 +152,6 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 5s
       retries: 20
-      start_period: 30s # the start script builds the demo first (about 5 seconds)
 
   web-demo:
     profiles: ["demo"]

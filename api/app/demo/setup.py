@@ -3,7 +3,7 @@
 Run by an administrator, never by the demo service: `scripts/seed_demo.py setup` locally,
 or the same steps by hand on the host (docs/ARCHITECTURE.md section 13).
 
-- demo_writer owns the demo database: it runs the migrations and loads the synthetic data.
+- demo_seed owns the demo database: it runs the migrations and loads the synthetic data.
 - demo_reader can only SELECT in it: it is the only credential the demo API has.
 - Neither can connect to the real warehouse or Airflow's database: CONNECT is revoked from
   PUBLIC there, so only their owner (and superusers) can open them.
@@ -97,6 +97,9 @@ def prepare_demo_database(admin: Engine, database: str, roles: DemoRoles, lock: 
     migrate(writer_url)
     writer = create_engine(writer_url, hide_parameters=True)
     with writer.begin() as conn:
+        # The demo's own bookkeeping (demo.seed_state), then the reader's grants.
+        conn.execute(load_sql("demo/seed_state_schema.sql"))
+        conn.execute(load_sql("demo/seed_state_table.sql"))
         run_built(conn, "demo/reader_grants.sql", {"role": roles.reader})
     writer.dispose()
     return writer_url

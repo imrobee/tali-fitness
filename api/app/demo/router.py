@@ -3,10 +3,13 @@ demo mode: there is no Google sign-in, dev key or server-side session here."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
+from sqlalchemy import Engine
 
+from app import clock
 from app.auth import require_user
 from app.config import Settings, get_settings
+from app.db import get_engine
 from app.demo.session import clear_demo_cookie, set_demo_cookie
 from app.signin import SignedIn, SignInMethod
 
@@ -20,11 +23,19 @@ def method() -> SignInMethod:
 
 
 @router.post("/demo", status_code=204)
-def start_demo(response: Response, settings: Annotated[Settings, Depends(get_settings)]) -> None:
+def start_demo(
+    request: Request,
+    response: Response,
+    background: BackgroundTasks,
+    settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> None:
     """Anyone may start a demo visit: it opens only synthetic data. No Origin check, unlike
     the real app: there is nothing to forge, since the visit itself is public. Rate
-    limited (app/security.py)."""
+    limited (app/security.py). Never rebuilds the data itself; after answering, it asks
+    for a rebuild if the data is over a day old (app/demo/self_heal.py)."""
     set_demo_cookie(response, settings)
+    background.add_task(request.app.state.self_heal.check, engine, clock.now())
 
 
 @router.get("/me", response_model=SignedIn)

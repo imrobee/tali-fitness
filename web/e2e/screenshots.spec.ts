@@ -15,7 +15,7 @@ const VIEWPORTS = [
 test(`screenshots: ${scenario}`, async ({ page }) => {
   // midweek captures about twenty pages (both sizes plus the light theme): around 20s on a
   // warm dev server, so the default 30s limit failed it now and then.
-  test.setTimeout(90_000);
+  test.setTimeout(180_000); // plus the tour: about 15 more pictures
 
   // The launch screen, before the visit starts. The demo service has no launch screen (it
   // starts a visit by itself), so the method is faked as Google to picture the real one.
@@ -40,6 +40,9 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
   // so the demo cookie it gets back opens the pages too.
   const visit = await page.request.post("/auth/demo");
   expect(visit.status()).toBe(204);
+  // The tour starts by itself on a first visit; the page screenshots are taken without it
+  // (the tour gets its own below).
+  await page.addInitScript(() => window.localStorage.setItem("tali.tour-seen", "1"));
 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -98,6 +101,14 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     }
   }
 
+  // The demo tour (UI_SPEC.md section 12): a bottom sheet at 375 wide, beside the card on
+  // desktop, and in landscape. Viewport-sized pictures: the tour sits on the screen.
+  if (scenario === "midweek") {
+    await tourShots(page, { width: 375, height: 667 }, "iphone", ["welcome", "streak", "calories", "calendar", "records", "pipeline", "done"]);
+    await tourShots(page, { width: 1280, height: 800 }, "desktop", ["streak", "records", "pipeline"]);
+    await tourShots(page, { width: 667, height: 375 }, "landscape", ["calories"]);
+  }
+
   // The light theme, at phone size: switched with the header toggle, kept across a reload.
   if (scenario === "midweek") {
     await page.setViewportSize({ width: 393, height: 852 });
@@ -120,6 +131,26 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
   }
 });
+
+/** Take the tour from the start, saving the named steps as tour-<step>-<size>.png. */
+async function tourShots(page: Page, size: { width: number; height: number }, label: string, wanted: string[]) {
+  const ids = ["welcome", "streak", "calories", "calendar", "records", "pipeline", "done"];
+  await page.setViewportSize(size);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Take the tour" }).click();
+  for (const [index, id] of ids.entries()) {
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText(`${index + 1} of ${ids.length}`)).toBeVisible();
+    if (wanted.includes(id)) {
+      await page.waitForTimeout(400); // the smooth scroll to the card settles
+      await page.screenshot({ path: `${OUT}/tour-${id}-${label}.png` });
+    }
+    if (id === wanted.at(-1)) break;
+    await dialog.getByRole("button", { name: "Next" }).click();
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
 
 async function capture(page: Page, file: string) {
   // A full-page capture paints the fixed bottom nav where the first screen ends, over the

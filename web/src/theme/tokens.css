@@ -47,6 +47,7 @@
   --google-border: #8e918f;
   --google-text: #e3e3e3;
   --deco-ring-opacity: 0.1; /* the faint ring in the corner */
+  --tour-dim: rgba(0, 0, 0, 0.66); /* the demo tour's dimming around the spotlight */
 
   /* Type: the system face (SF Pro on iPhone) */
   --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
@@ -108,6 +109,7 @@
   --google-border: #747775;
   --google-text: #1f1f1f;
   --deco-ring-opacity: 0.14;
+  --tour-dim: rgba(16, 35, 31, 0.55);
 }
 
 @media (prefers-contrast: more) {

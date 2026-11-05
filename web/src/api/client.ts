@@ -1,6 +1,8 @@
 // One way to call the API. The browser sends the session cookie by itself (same origin);
 // every failure becomes an ApiError with the server's code and message
-// ({"error": {"code", "message"}}).
+// ({"error": {"code", "message"}}). On the demo, a visitor's own settings ride along.
+
+import { demoSettingsHeader } from "../demo/settings";
 
 export class ApiError extends Error {
   status: number;
@@ -22,6 +24,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
+      ...demoSettingsHeader(),
       ...init.headers,
     },
   });

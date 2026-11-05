@@ -5,8 +5,10 @@ roles, the real test database locked against them. The demo app runs on the read
 role only, exactly as the demo service does.
 """
 
+import json
 import os
 
+import httpx2
 import pytest
 from conftest import TEST_SETTINGS, sign_in
 from fastapi.testclient import TestClient
@@ -291,3 +293,141 @@ def test_a_failed_role_statement_does_not_show_the_password(demo_database, capsy
     assert "canarypw0042" not in str(caught.value)
     assert "canarypw0042" not in capsys.readouterr().err
     assert caught.value.__cause__ is None and caught.value.__suppress_context__
+
+
+# --- demo_reader can change nothing, anywhere -----------------------------------------------
+
+
+def demo_tables(demo_database) -> list[str]:
+    with demo_database["writer"].connect() as conn:
+        return conn.execute(
+            text(
+                "SELECT table_schema || '.' || table_name FROM information_schema.tables "
+                "WHERE table_schema IN ('raw', 'core', 'ops', 'app', 'demo') "
+                "AND table_type = 'BASE TABLE' ORDER BY 1"
+            )
+        ).scalars().all()  # fmt: skip
+
+
+@pytest.mark.parametrize("statement", ["DELETE FROM {}", "UPDATE {} SET {} = {}", "TRUNCATE {}"])
+def test_the_reader_can_change_no_demo_table(demo_database, statement):
+    tables = demo_tables(demo_database)
+    assert len(tables) > 20
+    refused = 0
+    for table in tables:
+        with demo_database["writer"].connect() as conn:
+            column = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema || '.' || table_name = :t "
+                    # an ordinary column: an identity one is refused before privileges are
+                    "AND is_identity = 'NO' AND is_generated = 'NEVER' "
+                    "ORDER BY ordinal_position"
+                ),
+                {"t": table},
+            ).scalars().first()  # fmt: skip
+        sql = statement.format(table, column, column)
+        with pytest.raises(ProgrammingError, match="permission denied"):
+            with demo_database["reader"].begin() as conn:
+                conn.execute(text(sql))
+        refused += 1
+    assert refused == len(tables)
+
+
+# --- the demo's own credentials can't reach the demo service either --------------------------
+
+
+def test_the_demo_service_refuses_to_start_with_the_seed_credential():
+    from app.config import ConfigError, check_startup
+
+    with pytest.raises(ConfigError, match="DEMO_SEED_URL"):
+        check_startup(DEMO_SETTINGS, {"DEMO_SEED_URL": "postgresql://demo_seed:x@db/app_demo"})
+
+
+# --- self-heal: a stale demo asks GitHub Actions for a rebuild (D121) ----------------------
+
+
+class FakeGitHub:
+    def __init__(self, fail: bool = False) -> None:
+        self.calls: list = []
+        self.fail = fail
+        self.transport = httpx2.MockTransport(self.answer)
+
+    def answer(self, request):
+        self.calls.append(request)
+        if self.fail:
+            raise httpx2.ConnectError("GitHub is down")
+        return httpx2.Response(200, json={"workflow_run_id": 1})
+
+
+def healing_client(demo_database, github: FakeGitHub, token: bool = True) -> TestClient:
+    settings = DEMO_SETTINGS.model_copy(
+        update={
+            "demo_reseed_token": SecretStr("canary-github-token-0001") if token else None,
+            "demo_reseed_repo": "imrobee/fitness-tracker",
+        }
+    )
+    app = create_app(settings, environ={}, github_transport=github.transport)
+    app.dependency_overrides[get_engine] = lambda: demo_database["reader"]
+    return TestClient(app)
+
+
+def set_seeded(demo_database, hours_ago: float | None) -> None:
+    with demo_database["writer"].begin() as conn:
+        conn.execute(text("DELETE FROM demo.seed_state"))
+        if hours_ago is not None:
+            conn.execute(
+                text(
+                    "INSERT INTO demo.seed_state VALUES (1, 'midweek', now(), "
+                    "now() - make_interval(secs => :s), 4000)"
+                ),
+                {"s": hours_ago * 3600},
+            )
+
+
+def test_a_stale_demo_asks_github_once_and_the_visitor_never_waits(demo_database, caplog):
+    set_seeded(demo_database, hours_ago=30)
+    github = FakeGitHub()
+    client = healing_client(demo_database, github)
+
+    assert client.post("/auth/demo").status_code == 204
+    assert client.post("/auth/demo").status_code == 204  # within 30 minutes: not again
+
+    assert len(github.calls) == 1
+    call = github.calls[0]
+    assert call.method == "POST"
+    assert str(call.url) == (
+        "https://api.github.com/repos/imrobee/fitness-tracker/actions/workflows/"
+        "demo-reseed.yml/dispatches"
+    )
+    assert json.loads(call.content) == {"ref": "main"}
+    assert call.headers["X-GitHub-Api-Version"] == "2026-03-10"
+    assert "canary-github-token" not in caplog.text
+
+
+def test_fresh_data_asks_for_nothing(demo_database):
+    set_seeded(demo_database, hours_ago=2)
+    github = FakeGitHub()
+
+    healing_client(demo_database, github).post("/auth/demo")
+
+    assert github.calls == []
+
+
+def test_without_a_token_nothing_is_asked(demo_database):
+    set_seeded(demo_database, hours_ago=None)
+    github = FakeGitHub()
+
+    healing_client(demo_database, github, token=False).post("/auth/demo")
+
+    assert github.calls == []
+
+
+def test_github_being_down_does_not_stop_the_visit(demo_database):
+    set_seeded(demo_database, hours_ago=None)
+    github = FakeGitHub(fail=True)
+    client = healing_client(demo_database, github)
+
+    assert client.post("/auth/demo").status_code == 204
+    assert client.get("/api/v1/dashboard").status_code == 200
+    assert len(github.calls) == 1

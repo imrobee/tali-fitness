@@ -23,7 +23,7 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
   const shown = open ? records : records.slice(0, COLLAPSED_RECORDS);
   const hidden = records.length - COLLAPSED_RECORDS;
   return (
-    <Card title="Personal records">
+    <Card title="Personal records" tour="records">
       {records.length === 0 ? (
         <p className={styles.muted}>Records appear once a lifting session with weights is read.</p>
       ) : (

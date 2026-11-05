@@ -1,11 +1,10 @@
--- The demo replays months of pipeline runs in seconds. The run bookkeeping uses the
--- database clock (now()), so after each replayed step, its rows are moved to the moment
--- the step stands for. Only rows written since the step began (:since) are touched.
+-- The demo replays months of pipeline runs in seconds, in one transaction. Bookkeeping
+-- stamped with now() is moved to the moment the replayed step stands for. now() is fixed
+-- for the whole transaction, so "= now()" picks out exactly this step's new rows.
 UPDATE ops.pipeline_runs
 SET started_at  = CAST(:at AS timestamptz),
     finished_at = CASE
         WHEN finished_at IS NULL THEN NULL
         ELSE CAST(:at AS timestamptz) + interval '25 seconds'
     END
-WHERE started_at >= CAST(:since AS timestamptz)
-   OR finished_at >= CAST(:since AS timestamptz)
+WHERE started_at = now() OR finished_at = now()

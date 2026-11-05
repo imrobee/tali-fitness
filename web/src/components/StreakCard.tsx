@@ -68,7 +68,7 @@ export function StreakCard({ streak, today }: Props) {
   const todayState = streak.week.find((day) => day.date === today)?.state;
 
   return (
-    <Card title="Your streak" aside={<FlameCount count={streak.count} compact />}>
+    <Card title="Your streak" tour="streak" aside={<FlameCount count={streak.count} compact />}>
       <p className="visually-hidden">{streakSummary(streak.count, todayState, streak.at_risk)}</p>
       <div className={styles.body}>
         <FlameCount count={streak.count} />

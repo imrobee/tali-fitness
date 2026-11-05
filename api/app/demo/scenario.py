@@ -41,11 +41,16 @@ class Activity:
     description: str | None = None  # Hevy text for WeightTraining, else None
 
 
+# When the day's food is logged, and each entry's share of the day: (local time, share).
+MEALS = (("08:00", 0.25), ("12:30", 0.35), ("16:00", 0.10), ("19:00", 0.30))
+
+
 @dataclass
 class Day:
     activities: list[Activity] = field(default_factory=list)
     food: tuple[int, int] | None = None  # (kcal, protein grams) for the whole day
     weight_kg: float | None = None  # a morning weigh-in
+    meals: tuple[tuple[str, float], ...] = MEALS
 
 
 @dataclass(frozen=True)
@@ -165,11 +170,23 @@ def weight_on(n: int, rng: random.Random) -> float | None:
     return round(74.2 + n * 0.012 + rng.uniform(-0.25, 0.25), 1)
 
 
+def natural_meals(rng: random.Random) -> tuple[tuple[str, float], ...]:
+    """A real person's day of logging: three to five entries at slightly different times
+    each day, not the same four every day (the shares still add up to the whole day)."""
+    plans = (
+        (("07:40", 0.30), ("13:10", 0.40), ("19:45", 0.30)),
+        (("08:15", 0.20), ("12:20", 0.30), ("15:30", 0.15), ("19:10", 0.35)),
+        (("09:30", 0.35), ("14:00", 0.30), ("20:30", 0.35)),
+        (("07:05", 0.20), ("10:30", 0.10), ("12:45", 0.30), ("16:15", 0.10), ("19:30", 0.30)),
+    )
+    return plans[rng.randrange(len(plans))]
+
+
 def tour_days(today: date, rng: random.Random) -> dict[date, Day]:
     """The public demo: a 12-day streak ending today, with history behind it.
 
     Day 12 ago is empty, so the streak starts on day 11 ago. Inside the streak: one day
-    over budget (allowed once), one logged recovery day, a day with two sessions, and
+    over budget (allowed once), two logged recovery days, a day with two sessions, and
     lifting sessions carrying the mess above (one of them 37 days ago). Today has three
     activities and food logged so far (only what happened before the demo's "now" is
     ever synced)."""
@@ -178,17 +195,18 @@ def tour_days(today: date, rng: random.Random) -> dict[date, Day]:
     recent = {
         11: ([run("Morning Run", "06:30", 32)], (1702, 118)),
         10: ([lift("Upper Body", "17:10", 61, upper_body(10))], (1788, 131)),
-        9: ([run("Morning Run", "06:30", 36)], (1645, 122)),
+        9: ([], (1645, 122)),  # a second logged recovery day
         8: (
             [run("Morning Run", "06:30", 30), lift("Upper Body", "17:10", 58, upper_body(8))],
             (1810, 140),
         ),
         7: ([run("Tempo Run", "06:15", 38)], (2173, 141)),  # over budget, once
-        6: ([lift("Upper Body", "17:10", 64, upper_body(6, [RPE_NOTE]))], (1724, 127)),
-        5: ([run("Morning Run", "06:30", 41)], (1689, 122)),
-        4: ([run("Long Run", "07:00", 74)], (1835, 129)),
+        # The last week: busy, but not the same every day.
+        6: ([lift("Upper Body", "18:40", 64, upper_body(6, [RPE_NOTE]))], (1724, 127)),
+        5: ([run("Easy Run", "19:15", 41)], (1689, 122)),
+        4: ([run("Long Run", "07:25", 74)], (1835, 129)),
         3: ([], (1610, 116)),  # a logged recovery day (no workout)
-        2: ([lift("Upper Body", "17:10", 57, upper_body(2, [UNMAPPED]))], (1755, 131)),
+        2: ([lift("Upper Body", "12:15", 57, upper_body(2, [UNMAPPED]))], (1755, 131)),
         1: ([run("Easy Run", "18:40", 29)], (1740, 126)),
     }
     for n, (activities, food) in recent.items():
@@ -207,6 +225,8 @@ def tour_days(today: date, rng: random.Random) -> dict[date, Day]:
     )
     for day, plan in days.items():
         plan.weight_kg = weight_on((today - day).days, rng)
+        if day != today:  # today keeps the plain plan: the screenshots count its meals
+            plan.meals = natural_meals(rng)
     return days
 
 
@@ -263,8 +283,8 @@ def build(name: str, now: datetime) -> Scenario:
     rng = random.Random(SEED)
     if name == "midweek":
         return Scenario(
-            "midweek", today, now, "Sam", TARGET, WEIGHT_GOAL_KG,
-            recovery=[today - timedelta(days=3)],
+            "midweek", today, now, "Taiki", TARGET, WEIGHT_GOAL_KG,
+            recovery=[today - timedelta(days=9), today - timedelta(days=3)],
             days=tour_days(today, rng),
             events=tour_events(today, now),
         )  # fmt: skip
@@ -296,7 +316,7 @@ def at_risk(today: date, now: datetime) -> Scenario:
         Event(now - timedelta(minutes=30), "dq"),
     ]
     return Scenario(
-        "at_risk", today, now, "Sam", TARGET, WEIGHT_GOAL_KG, [], days,
+        "at_risk", today, now, "Taiki", TARGET, WEIGHT_GOAL_KG, [], days,
         sorted(events, key=lambda event: event.at),
     )  # fmt: skip
 
@@ -392,9 +412,6 @@ class SyntheticStrava:
         return copy.deepcopy(self.details[activity_id])
 
 
-MEALS = (("08:00", 0.25), ("12:30", 0.35), ("16:00", 0.10), ("19:00", 0.30))
-
-
 def day_samples(day: date, plan: Day, until: datetime) -> list[dict]:
     """The Shortcut's samples for one day: a weigh-in and four meals, up to `until`."""
     samples = []
@@ -402,7 +419,7 @@ def day_samples(day: date, plan: Day, until: datetime) -> list[dict]:
         samples.append(sample("body_mass", plan.weight_kg, "kg", at(day, "07:00")))
     if plan.food is not None:
         kcal, protein = plan.food
-        for hhmm, share in MEALS:
+        for hhmm, share in plan.meals:
             if at(day, hhmm) <= until:
                 samples.append(sample("dietary_energy", round(kcal * share), "kcal", at(day, hhmm)))
                 samples.append(

@@ -20,11 +20,37 @@
   margin-bottom: 12px; /* with the gap, 24px between the title (or greeting) and what follows */
 }
 
-/* "Demo data" on the public demo: words and an outline, not colour alone. Centred on the
-   40px theme toggle beside it. */
+/* The public demo's bar above the title: the badge and the tour button. */
+.demoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tourButton {
+  min-height: var(--touch);
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--brand-mint);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tourButton:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* "Demo data" on the public demo: words and an outline, not colour alone. */
 .demoBadge {
   flex: none;
-  align-self: center;
   padding: 4px 10px;
   border: 1px solid var(--brand-mint);
   border-radius: var(--radius-pill);

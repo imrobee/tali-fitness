@@ -9,12 +9,14 @@ interface CardProps {
   /** Small grey text at the right of the title row. */
   aside?: ReactNode;
   label?: string;
+  /** The demo tour's name for this card (data-tour), when a tour step points at it. */
+  tour?: string;
   children: ReactNode;
 }
 
-export function Card({ title, to, aside, label, children }: CardProps) {
+export function Card({ title, to, aside, label, tour, children }: CardProps) {
   return (
-    <section className={styles.card} aria-label={label}>
+    <section className={styles.card} aria-label={label} data-tour={tour}>
       <div className={styles.header}>
         <h2 className={styles.title}>
           {to ? (

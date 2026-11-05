@@ -38,8 +38,12 @@ DEMO_FORBIDDEN_PREFIXES = (
     "STRAVA_",
     "AIRFLOW_",
     "POSTGRES_",
+    # The demo's rebuild credentials: only the reseed job and the local setup hold them.
+    "DEMO_SEED_URL",
+    "DEMO_ADMIN_URL",
 )
 SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 
 
 class ConfigError(Exception):
@@ -70,6 +74,10 @@ class Settings(BaseModel):
     # button sends people.
     demo_session_secret: SecretStr | None = None
     demo_public_url: str | None = None
+    # The demo service: may ask GitHub Actions to rebuild stale demo data (D121). A
+    # fine-grained token with Actions: write on this one repository, nothing else.
+    demo_reseed_token: SecretStr | None = None
+    demo_reseed_repo: str | None = None
     # Read by Uvicorn itself; here only so the guards can check it.
     forwarded_allow_ips: str | None = None
 
@@ -108,6 +116,8 @@ ENV_NAMES = {
     "FORWARDED_ALLOW_IPS": "forwarded_allow_ips",
     "DEMO_SESSION_SECRET": "demo_session_secret",
     "DEMO_PUBLIC_URL": "demo_public_url",
+    "DEMO_RESEED_TOKEN": "demo_reseed_token",
+    "DEMO_RESEED_REPO": "demo_reseed_repo",
 }
 
 
@@ -239,6 +249,10 @@ def _problems_in_demo(settings: Settings, environ: dict[str, str]) -> list[str]:
         problems.append("PUBLIC_BASE_URL must start with https:// for a public demo.")
     if not local and settings.now_override is not None:
         problems.append("NOW_OVERRIDE is for local screenshots only, not a public demo.")
+    if settings.demo_reseed_token is not None and not REPO.fullmatch(
+        settings.demo_reseed_repo or ""
+    ):
+        problems.append("DEMO_RESEED_TOKEN needs DEMO_RESEED_REPO as owner/name.")
     return problems
 
 

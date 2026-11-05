@@ -45,6 +45,20 @@ export function clockTime(iso: string): string {
   return CLOCK.format(new Date(iso));
 }
 
+const DAY_AND_TIME = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Manila",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** The demo only: when its data was last rebuilt, and how long that took. A date, not
+    "ago": the local demo's clock is frozen, but the rebuild happened at a real time. */
+export function demoRebuildLine(seededAt: string, durationMs: number): string {
+  return `Demo data rebuilt ${DAY_AND_TIME.format(new Date(seededAt))}, in ${(durationMs / 1000).toFixed(1)} s`;
+}
+
 /** Reasons from the API, in the words the panel shows. */
 const REASON_TEXT: Record<string, string> = {
   invalid_sample: "Invalid health sample",

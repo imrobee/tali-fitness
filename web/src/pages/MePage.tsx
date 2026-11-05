@@ -1,6 +1,8 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { isOffline } from "../api/client";
 import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
+import { useIsDemo } from "../api/visit";
+import { DEMO_SETTINGS_NOTE } from "../demo/copy";
 import { StreakRulesCard, VacationCard, WeekendsCard } from "../components/StreakSettings";
 import { Toggle } from "../components/Toggle";
 import { toKg, type WeightUnit, weightNumber } from "../lib/units";
@@ -54,6 +56,7 @@ export function MePage() {
 
 function ProfileForm({ me }: { me: Me }) {
   const save = useSaveMe();
+  const demo = useIsDemo();
   const [nickname, setNickname] = useState(me.nickname ?? "");
   const [calorieBudget, setCalorieBudget] = useState(
     me.targets ? String(me.targets.calorie_budget) : "",
@@ -155,7 +158,9 @@ function ProfileForm({ me }: { me: Me }) {
             />
           }
         />
-        <p className={styles.help}>Changes apply from today. Past days keep their old targets.</p>
+        <p className={styles.help}>
+          {demo ? DEMO_SETTINGS_NOTE : "Changes apply from today. Past days keep their old targets."}
+        </p>
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={save.isPending}>
             Save changes

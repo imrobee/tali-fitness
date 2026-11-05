@@ -1,17 +1,26 @@
 import type { ReactNode } from "react";
-import styles from "./Page.module.css";
 import { useIsDemo } from "../api/visit";
+import { useTour } from "../tour/context";
+import styles from "./Page.module.css";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** A page: one <main>, one h1 (UI_SPEC.md section 8), the theme toggle at its right. On
-    the public demo, a "Demo data" badge sits beside it on every page. */
+    the public demo, a bar above it on every page: the "Demo data" badge and the tour. */
 export function Page({ title, children }: { title: ReactNode; children: ReactNode }) {
   const demo = useIsDemo();
+  const tour = useTour();
   return (
     <main className={styles.page}>
-      <div className={styles.header}>
+      {demo && (
+        <div className={styles.demoBar}>
+          <span className={styles.demoBadge}>Demo data</span>
+          <button type="button" className={styles.tourButton} onClick={tour.start}>
+            Take the tour
+          </button>
+        </div>
+      )}
+      <div className={styles.header} data-tour="page-title">
         <h1 className={styles.title}>{title}</h1>
-        {demo && <span className={styles.demoBadge}>Demo data</span>}
         <ThemeToggle />
       </div>
       {children}
