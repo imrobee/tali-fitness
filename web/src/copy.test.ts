@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
+import page from "./pages/howItWorks.json";
 import tour from "./tour/steps.json";
 
 // The words a first-time visitor reads (the tour, and the How it works page): plain US
 // English, the app's full name, no em dashes, no hype, and no person's name. The demo
 // user's nickname is checked against the scenario in api/tests/test_tour_claims.py.
 
-const PAGES = import.meta.glob("./pages/HowItWorksPage.tsx", { query: "?raw", import: "default", eager: true });
+const PAGE_SOURCE = import.meta.glob("./pages/HowItWorksPage.tsx", { query: "?raw", import: "default", eager: true });
+
+/** Every string in a JSON file except its "_readme" note to the editor. */
+function strings(value: unknown, where: string): { where: string; text: string }[] {
+  if (typeof value === "string") return [{ where, text: value }];
+  if (Array.isArray(value)) return value.flatMap((item) => strings(item, where));
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .filter(([key]) => key !== "_readme" && key !== "href")
+      .flatMap(([key, item]) => strings(item, `${where} ${key}`));
+  }
+  return [];
+}
 
 /** Every string a visitor can read: the tour's words, and the page's text in JSX. */
 function visibleCopy(): { where: string; text: string }[] {
@@ -15,13 +28,13 @@ function visibleCopy(): { where: string; text: string }[] {
       text,
     })),
   );
-  const pages = Object.entries(PAGES).flatMap(([where, source]) =>
+  const pages = Object.entries(PAGE_SOURCE).flatMap(([where, source]) =>
     // Text between tags, and quoted strings: enough to catch a stray word.
     [...String(source).matchAll(/>([^<>{}]+)</g), ...String(source).matchAll(/"([^"\n]{12,})"/g)].map(
       (match) => ({ where, text: match[1] }),
     ),
   );
-  return [...steps, ...pages].filter((item) => item.text.trim());
+  return [...steps, ...strings(page, "howItWorks.json"), ...pages].filter((item) => item.text.trim());
 }
 
 const NAMES = /\b(Rob|Robee|Feliciano|Taiki)\b/;

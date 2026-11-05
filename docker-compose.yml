@@ -41,10 +41,11 @@ services:
       # synthetic data through it (app/demo/replay.py, DECISIONS D119).
       - ./pipeline/include:/opt/airflow/include:ro
       - ./db:/opt/airflow/db:ro
-      # For test_tour_lineage.py: the tour's steps and the DAGs whose names they quote.
+      # For test_tour_claims.py: the tour's and How it works' words, and what they claim
+      # about the DAG schedules and the reseed workflow's cron.
       - ./web/src/tour:/tour:ro
+      - ./web/src/pages/howItWorks.json:/pages/howItWorks.json:ro
       - ./pipeline/dags:/opt/airflow/dags:ro
-      # For test_tour_claims.py: "rebuilt every few hours" is the reseed workflow's cron.
       - ./.github/workflows:/workflows:ro
     depends_on:
       postgres:

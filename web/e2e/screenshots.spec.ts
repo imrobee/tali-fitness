@@ -103,11 +103,21 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
 
   // The demo tour has its own walk-through (e2e/tour.spec.ts).
   if (scenario === "midweek") {
-    // How it works (UI_SPEC.md section 13), open to anyone.
-    for (const viewport of VIEWPORTS) {
+    // How it works (UI_SPEC.md section 13), open to anyone: at 375x812 and on desktop.
+    for (const viewport of [
+      { name: "375", width: 375, height: 812 },
+      { name: "desktop", width: 1280, height: 800 },
+    ]) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto("/how-it-works");
-      await expect(page.getByRole("heading", { name: "How the data flows" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Where the data comes from" })).toBeVisible();
+      // No sideways scroll, and how many screens tall it is (for the "Jump to" decision).
+      const size = await page.evaluate(() => ({
+        wide: document.documentElement.scrollWidth,
+        tall: document.documentElement.scrollHeight,
+      }));
+      expect(size.wide).toBeLessThanOrEqual(viewport.width);
+      console.log(`how-it-works at ${viewport.name}: ${(size.tall / viewport.height).toFixed(1)} screens`);
       await capture(page, `how-it-works-${viewport.name}.png`);
     }
   }

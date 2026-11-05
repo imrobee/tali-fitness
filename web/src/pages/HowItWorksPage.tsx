@@ -1,163 +1,81 @@
 import { Link } from "react-router";
+import { useStory } from "../api/visit";
 import { Card } from "../components/Card";
 import { Page } from "../components/Page";
-import data from "../tour/flow.json";
+import { GitHubIcon, LinkedInIcon } from "../icons";
+import { fill, type Story } from "../tour/steps";
+import data from "./howItWorks.json";
 import styles from "./HowItWorksPage.module.css";
 
 // How it works (UI_SPEC.md section 13): open to anyone, signed in or not, and calls no
-// API, so it shows at once even while the demo service is still waking up.
+// API, so it shows at once even while the demo service is still waking up. The words
+// live in howItWorks.json.
 
-const REPO = "https://github.com/imrobee/fitness-tracker";
-const LINKS = [
-  { label: "Code on GitHub", href: REPO },
-  { label: "README", href: `${REPO}#readme` },
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/robeefeliciano" },
-];
+type Section = { id: string; title: string; text: string; without?: string };
+const SECTIONS = data.sections as Section[];
+const ICONS = { github: GitHubIcon, linkedin: LinkedInIcon } as const;
 
-const STACK = [
-  ["Warehouse", "PostgreSQL 16: raw, core (star schema), mart (SQL functions), ops, app"],
-  ["Orchestration", "Apache Airflow 3.3.2, two DAGs (Strava sync, data quality)"],
-  ["API", "Python 3.13, FastAPI, SQLAlchemy Core with SQL in .sql files, Alembic"],
-  ["Web", "React 19, TypeScript, Vite, TanStack Query; installable on an iPhone"],
-  ["Quality", "pytest against a real Postgres, Vitest, Playwright screenshots, gitleaks, CI on every push"],
-] as const;
-
-type Name = { kind: string; name: string };
-type Flow = { id: string; title: string; steps: { text: string; names: Name[] }[] };
-const FLOWS = data.flows as Flow[];
+/** A section's words with the demo's numbers filled in, sentence by sentence. A sentence
+    whose number isn't known (a signed-out visit: the page asks the server nothing)
+    becomes the section's `without` sentence, or is left out. */
+function sectionText(section: Section, story: Story): string {
+  return section.text
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => fill(sentence, story) || section.without || "")
+    .filter(Boolean)
+    .join(" ");
+}
 
 export function HowItWorksPage() {
+  // The tour's numbers, when this browser is on a demo visit; read from the cache only.
+  const story = useStory();
   return (
     <Page title="How it works">
-      <p className={styles.lede}>
-        My training, running and nutrition data lives in separate apps that don't talk to each other, so I
-        built a pipeline that joins them.
-      </p>
+      <p className={styles.intro}>{data.intro}</p>
 
-      <Card title="Architecture">
-        <figure className={styles.figure}>
-          <figcaption className="visually-hidden">
-            Three sources feed one PostgreSQL warehouse: Strava through an hourly Airflow sync, Apple Health
-            through an iPhone Shortcut posting to the API, and settings typed into the app. The API reads the
-            warehouse's business rules and serves this web app.
-          </figcaption>
-          <div className={styles.diagram} aria-hidden="true">
-            <div className={styles.row}>
-              <Box title="Strava API" note="runs, walks, Hevy lifting" />
-              <Box title="iOS Shortcut" note="Apple Health: food, weight" />
-              <Box title="This app" note="targets, recovery days" />
-            </div>
-            <div className={styles.row}>
-              <Arrow label="hourly pull" />
-              <Arrow label="POST, bearer token" />
-              <Arrow label="JSON" />
-            </div>
-            <div className={styles.row}>
-              <Box title="Airflow" note="sync, parse, 15 checks" />
-              <Box title="FastAPI" note="ingest and pages" wide />
-            </div>
-            <div className={styles.single}>
-              <Arrow label="idempotent loads" />
-            </div>
-            <div className={styles.warehouse}>
-              <span className={styles.boxTitle}>PostgreSQL</span>
-              <span className={styles.layers}>
-                <code>raw</code> → <code>core</code> → <code>mart</code>
-                <span className={styles.aside}>
-                  {" "}
-                  + <code>ops</code> (runs, quarantine, checks) + <code>app</code> (settings)
-                </span>
+      <figure className={styles.figure}>
+        <ol className={styles.stages}>
+          {data.diagram.stages.map((stage, index) => (
+            <li key={stage.title} className={styles.stage}>
+              <span className={styles.number} aria-hidden="true">
+                {index + 1}
               </span>
-            </div>
-            <div className={styles.single}>
-              <Arrow label="business rules, read time" />
-            </div>
-            <div className={styles.single}>
-              <Box title="This web app" note="React, on an iPhone home screen" />
-            </div>
-          </div>
-        </figure>
-      </Card>
-
-      <Card title="How the data flows">
-        <div className={styles.flows}>
-          {FLOWS.map((flow) => (
-            <section key={flow.id} className={styles.flow} aria-labelledby={`flow-${flow.id}`}>
-              <h3 id={`flow-${flow.id}`} className={styles.flowTitle}>
-                {flow.title}
-              </h3>
-              <ol className={styles.steps}>
-                {flow.steps.map((step) => (
-                  <li key={step.text} className={styles.step}>
-                    <p>{step.text}</p>
-                    <ul className={styles.names} aria-label="Names in the code">
-                      {step.names.map((item) => (
-                        <li key={item.name} className={styles.chip}>
-                          <span className={styles.kind}>{item.kind}</span> <code>{item.name}</code>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ol>
-            </section>
+              <span>
+                <span className={styles.stageTitle}>{stage.title}</span>
+                <span className={styles.stageText}>{stage.text}</span>
+              </span>
+            </li>
           ))}
+        </ol>
+        <figcaption className={styles.caption}>{data.diagram.caption}</figcaption>
+      </figure>
+
+      {SECTIONS.map((section) => (
+        <section key={section.id} className={styles.section} aria-labelledby={`how-${section.id}`}>
+          <h2 id={`how-${section.id}`} className={styles.heading}>
+            {section.title}
+          </h2>
+          <p className={styles.text}>{sectionText(section, story)}</p>
+        </section>
+      ))}
+
+      <Card title={data.profile.title}>
+        <div className={styles.profile}>
+          {data.profile.links.map((link) => {
+            const Icon = ICONS[link.icon as keyof typeof ICONS];
+            return (
+              <a key={link.href} className={styles.profileLink} href={link.href} target="_blank" rel="noreferrer">
+                <Icon className={styles.profileIcon} />
+                {link.label}
+              </a>
+            );
+          })}
         </div>
       </Card>
 
-      <Card title="The stack">
-        <dl className={styles.stack}>
-          {STACK.map(([term, detail]) => (
-            <div key={term} className={styles.stackRow}>
-              <dt>{term}</dt>
-              <dd>{detail}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
-
-      <Card title="The demo">
-        <p className={styles.text}>
-          The demo is its own service on its own database. It holds a read-only database login and no real
-          credentials, so it can't reach my data or change anything. Its data is synthetic Strava and Shortcut
-          payloads, run through the same pipeline code every day.
-        </p>
-      </Card>
-
-      <Card title="Links">
-        <ul className={styles.links}>
-          {LINKS.map((link) => (
-            <li key={link.href}>
-              <a className={styles.link} href={link.href} target="_blank" rel="noreferrer">
-                {link.label}
-              </a>
-            </li>
-          ))}
-          <li>
-            <Link className={styles.link} to="/">
-              Back to the app
-            </Link>
-          </li>
-        </ul>
-      </Card>
+      <Link className={styles.back} to="/">
+        Back to the app
+      </Link>
     </Page>
-  );
-}
-
-function Box({ title, note, wide = false }: { title: string; note: string; wide?: boolean }) {
-  return (
-    <div className={`${styles.box} ${wide ? styles.wide : ""}`}>
-      <span className={styles.boxTitle}>{title}</span>
-      <span className={styles.boxNote}>{note}</span>
-    </div>
-  );
-}
-
-function Arrow({ label }: { label: string }) {
-  return (
-    <div className={styles.arrow}>
-      <span className={styles.arrowLine}>↓</span>
-      <span className={styles.arrowLabel}>{label}</span>
-    </div>
   );
 }

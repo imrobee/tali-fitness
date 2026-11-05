@@ -1,164 +1,140 @@
-.lede {
-  margin: 0 0 12px;
+/* How it works (UI_SPEC.md section 13): short sections of plain prose, a three-stage
+   picture, and the profile links. Readable at 320px, in either theme. */
+
+.intro {
+  margin: 0 0 20px;
   font-size: var(--fs-card);
+  line-height: 1.45;
+}
+
+/* The picture: three numbered stages joined by a line, big enough to read on a phone
+   without zooming (no tap-to-enlarge needed). */
+.figure {
+  margin: 0 0 28px;
+}
+
+.stages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-inner);
+  background: var(--card);
+}
+
+/* The line from one stage down to the next. */
+.stage + .stage::before {
+  content: "";
+  position: absolute;
+  top: -13px;
+  left: 31px;
+  width: 2px;
+  height: 12px;
+  background: var(--accent);
+}
+
+.number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-button);
+  font-weight: 700;
+}
+
+.stageTitle {
+  display: block;
+  font-size: var(--fs-card);
+  font-weight: 700;
+}
+
+.stageText {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.9375rem; /* 15 */
   line-height: 1.4;
+}
+
+.caption {
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+
+.section {
+  margin: 0 0 24px;
+}
+
+.heading {
+  margin: 0 0 6px;
+  font-size: var(--fs-card);
+  font-weight: 700;
 }
 
 .text {
   margin: 0;
+  font-size: 0.9375rem; /* 15: prose, a touch larger than the cards' body text */
+  line-height: 1.55;
 }
 
-/* The architecture, drawn with boxes: readable at 320px, and in either theme. */
-.figure {
-  margin: 0;
-}
-
-.diagram {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.row {
+/* Two button-style links, side by side; stacked on a very narrow screen. */
+.profile {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.single {
-  display: flex;
-  justify-content: center;
-}
-
-.box,
-.warehouse {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-inner);
-  background: var(--card-elevated);
-  text-align: center;
-}
-
-.wide {
-  grid-column: span 2;
-}
-
-.warehouse {
-  border: 1.5px solid var(--brand-mint);
-}
-
-.boxTitle {
-  font-weight: 600;
-}
-
-.boxNote,
-.aside {
-  color: var(--text-secondary);
-  font-size: var(--fs-small);
-}
-
-.layers code,
-.chip code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-}
-
-.arrow {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: var(--text-secondary);
-  font-size: var(--fs-small);
-  text-align: center;
-}
-
-.arrowLine {
-  color: var(--brand-mint);
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.flows {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.flowTitle {
-  margin: 0 0 6px;
-  font-size: var(--fs-body);
-  font-weight: 700;
-}
-
-.steps {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
-  margin: 0;
-  padding-left: 20px;
 }
 
-.step p {
-  margin: 0 0 6px;
-}
-
-.names {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.chip {
-  padding: 3px 8px;
-  border-radius: 8px;
-  background: var(--card-elevated);
-  font-size: var(--fs-small);
-}
-
-.kind {
-  color: var(--text-secondary);
-}
-
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-}
-
-.stackRow dt {
-  font-weight: 600;
-}
-
-.stackRow dd {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.link {
+.profileLink {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: var(--touch);
-  color: var(--accent);
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
   font-weight: 600;
+  text-decoration: none;
 }
 
-.link:focus-visible {
-  outline: 2px solid var(--accent);
+.profileIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* The way back: a full-width button at the very bottom, outside the profile card. */
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  margin-top: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profileLink:focus-visible,
+.back:focus-visible {
+  outline: 2px solid var(--brand-mint);
   outline-offset: 2px;
-  border-radius: 4px;
 }
