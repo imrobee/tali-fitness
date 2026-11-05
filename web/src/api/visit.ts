@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AUTH_QUERY, checkSignedIn, fetchSignInMethod, type SignInMethod, startDemo } from "./auth";
 
 export type Auth =
-  | { signedIn: true; demo: boolean }
+  | { signedIn: true; demo: boolean; story?: Record<string, string | number | null> | null }
   | { signedIn: false; method: SignInMethod; demoUrl: string | null };
 
 export async function loadAuth(): Promise<Auth> {
@@ -13,7 +13,9 @@ export async function loadAuth(): Promise<Auth> {
   if (visit.signedIn) return visit;
   const { method, demoUrl } = await fetchSignInMethod();
   // The demo server has no sign-in: opening it is pressing Demo, so start the visit.
-  if (method === "demo" && (await startDemo())) return { signedIn: true, demo: true };
+  // The demo server has no sign-in: opening it is pressing Demo, so start the visit, then
+  // ask again for the numbers the tour quotes.
+  if (method === "demo" && (await startDemo())) return checkSignedIn() as Promise<Auth>;
   return { signedIn: false, method, demoUrl };
 }
 
@@ -23,3 +25,10 @@ export function useIsDemo(): boolean {
   const auth = useQueryClient().getQueryData<Auth>(AUTH_QUERY);
   return auth?.signedIn === true && auth.demo;
 }
+
+/** The demo's story numbers from its last rebuild (the tour quotes them), or {}. */
+export function useStory(): Record<string, string | number | null> {
+  const auth = useQueryClient().getQueryData<Auth>(AUTH_QUERY);
+  return (auth?.signedIn === true && auth.story) || {};
+}
+

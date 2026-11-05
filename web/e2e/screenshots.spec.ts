@@ -59,13 +59,13 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await capture(page, `${scenario}-${viewport.name}.png`);
 
     if (scenario === "midweek") {
-      // Activities filtered to Saturday from the calendar, which leads the page.
-      await page.goto("/activities?date=2026-10-17");
+      // Activities filtered to Thursday's gym session, opened to its sets.
+      await page.goto("/activities?date=2026-10-15");
       await expect(page.getByRole("heading", { level: 1, name: "Activities" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Personal records" })).toBeVisible();
-      await page.getByRole("button", { name: /Full Body/ }).click();
-      await expect(page.getByText("20 kg × 8")).toBeVisible();
+      await page.getByRole("button", { name: /Lower Body/ }).click();
+      await expect(page.getByText("125 kg × 10").first()).toBeVisible();
       await capture(page, `midweek-activities-${viewport.name}.png`);
 
       await page.goto("/nutrition?date=2026-10-17");
@@ -101,13 +101,8 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     }
   }
 
-  // The demo tour (UI_SPEC.md section 12): a bottom sheet at 375 wide, beside the card on
-  // desktop, and in landscape. Viewport-sized pictures: the tour sits on the screen.
+  // The demo tour has its own walk-through (e2e/tour.spec.ts).
   if (scenario === "midweek") {
-    await tourShots(page, { width: 375, height: 667 }, "iphone", ["welcome", "streak", "calories", "calendar", "records", "pipeline", "done"]);
-    await tourShots(page, { width: 1280, height: 800 }, "desktop", ["streak", "records", "pipeline"]);
-    await tourShots(page, { width: 667, height: 375 }, "landscape", ["calories"]);
-
     // How it works (UI_SPEC.md section 13), open to anyone.
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -139,26 +134,6 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
   }
 });
-
-/** Take the tour from the start, saving the named steps as tour-<step>-<size>.png. */
-async function tourShots(page: Page, size: { width: number; height: number }, label: string, wanted: string[]) {
-  const ids = ["welcome", "streak", "calories", "calendar", "records", "pipeline", "done"];
-  await page.setViewportSize(size);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Take the tour" }).click();
-  for (const [index, id] of ids.entries()) {
-    const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText(`${index + 1} of ${ids.length}`)).toBeVisible();
-    if (wanted.includes(id)) {
-      await page.waitForTimeout(400); // the smooth scroll to the card settles
-      await page.screenshot({ path: `${OUT}/tour-${id}-${label}.png` });
-    }
-    if (id === wanted.at(-1)) break;
-    await dialog.getByRole("button", { name: "Next" }).click();
-  }
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-}
 
 async function capture(page: Page, file: string) {
   // A full-page capture paints the fixed bottom nav where the first screen ends, over the

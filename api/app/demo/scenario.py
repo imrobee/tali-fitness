@@ -24,9 +24,9 @@ TIMEZONE = "Asia/Manila"
 TZ = ZoneInfo(TIMEZONE)
 STRAVA_TIMEZONE = "(GMT+08:00) Asia/Manila"  # as Strava writes it (docs/samples)
 FIRST_ACTIVITY_ID = 9_000_000_001  # far from real Strava ids
-TARGET = {"budget": 1853, "protein": 130}
+TARGET = {"budget": 1850, "protein": 130}
 WEIGHT_GOAL_KG = 73.0
-HISTORY_DAYS = 165  # oldest day with data, counted back from today
+WINDOW_DAYS = 36  # the demo covers today and the 35 days before it
 
 
 # --- what a day holds ---------------------------------------------------------------------
@@ -104,39 +104,48 @@ def hevy_text(exercises: list[tuple[str, str | None, list[str]]]) -> str:
     return "\n".join(lines)
 
 
-def kg(value: float) -> str:
-    return f"{value:g} kg"
+def kg_x(value: float) -> str:
+    return f"{value:g} kg x"
 
 
-def upper_body(n: int, extra: list | None = None) -> str:
-    """An upper-body session `n` days ago, a little heavier every three weeks, so the
-    personal records card has records to show."""
-    step = (HISTORY_DAYS - n) // 21
-    bench, pulldown_lb, raise_kg = 15 + 1.25 * step, 30 + 2.5 * step, 5 + 0.5 * (step // 2)
+def upper_body(session: int, extra: list | None = None) -> str:
+    """Session `session` (0 = the first in the window): a little heavier each time, so the
+    personal records card has records to show. Every exercise is in the muscle map."""
+    bench, row_lb = 17.5 + 1.25 * session, 70 + 5 * session
     exercises = [
-        ("Incline Bench Press (Dumbbell)", None, [f"{kg(bench)} x 8"] * 3),
-        ("Lat Pulldown (Cable)", None, [f"{pulldown_lb:g} lbs x 12"] * 3),
-        ("Lateral Raise (Dumbbell)", None, [f"{kg(raise_kg)} x 12"] * 2),
+        (
+            "Incline Bench Press (Dumbbell)",
+            None,
+            [f"{kg_x(bench)} 10", f"{kg_x(bench)} 8", f"{kg_x(bench)} 8"],
+        ),
+        ("Lat Pulldown (Cable)", "Squeeze at the bottom", [f"{row_lb:g} lbs x 12"] * 3),
+        ("Lateral Raise (Dumbbell)", None, [f"{kg_x(6 + 0.5 * (session // 2))} 12"] * 3),
+        ("Triceps Rope Pushdown (Cable)", None, [f"{kg_x(15 + 1.25 * (session // 2))} 12"] * 3),
+        ("Preacher Curl (Barbell)", None, [f"{kg_x(15 + 1.25 * (session // 2))} 10"] * 3),
     ]
     return hevy_text(exercises + (extra or []))
 
 
-# Today's session: the screenshots open it and look for "20 kg × 8".
-FULL_BODY = hevy_text(
-    [
-        ("Incline Bench Press (Dumbbell)", None, ["20 kg x 8", "22.5 kg x 6"]),
-        ("Lat Pulldown (Cable)", "Squeeze at the bottom", ["40 lbs x 12"]),
-        ("Goblet Squat (Kettlebell)", None, ["15 reps"]),
-        ("Plank", None, ["1min 30s"]),
+def lower_body(session: int) -> str:
+    """Four exercises: the tour opens one of these sessions, and on a 375x812 phone it must
+    fit on screen beside the tour's sheet, sets and all."""
+    press = 80 + 5 * session
+    exercises = [
+        ("Leg Press (Machine)", None, [f"{kg_x(press)} 10"] * 3),
+        ("Goblet Squat (Kettlebell)", None, [f"{kg_x(16 + 2 * (session // 2))} 12"] * 3),
+        ("Lying Leg Curl (Machine)", None, [f"{kg_x(25 + 2.5 * (session // 2))} 12"] * 3),
+        ("Plank", None, ["1min 0s", "1min 0s", "1min 15s"]),
     ]
-)
+    return hevy_text(exercises)
 
-# The realistic mess (the Data and sync panel's story). Each is ordinary Hevy text that
-# the real parser cannot read; it quarantines the line and loads the rest of the session.
-RPE_NOTE = ("Triceps Rope Pushdown (Cable)", None, ["15 kg x 12", "15 kg x 10 @ RPE 9"])
-DECIMAL_DISTANCE = ("Rowing (Machine)", None, ["1.5km - 8min"])  # whole km only
-# Not in db/seeds/exercise_muscle_map.csv: lands in the "unmapped exercises" check.
-UNMAPPED = ("Landmine Press (Barbell)", None, ["20 kg x 10", "20 kg x 10"])
+
+# The realistic mess, all in one session 14 days ago (the Data and sync panel's story).
+# Ordinary Hevy text the real parser cannot read: it quarantines those lines, with a
+# reason, and loads the rest of the session.
+MESS = [
+    ("Cable Core Pallof Press (Cable)", None, ["10 kg x 12", "10 kg x 12 @ RPE 8"]),
+    ("Rowing (Machine)", None, ["1.5km - 8min"]),  # whole kilometres only: the header is left empty
+]
 
 
 # --- the days -----------------------------------------------------------------------------
@@ -150,24 +159,16 @@ def lift(title: str, start: str, minutes: int, text: str) -> Activity:
     return Activity("WeightTraining", title, time.fromisoformat(start), minutes, text)
 
 
-def history_day(n: int, rng: random.Random) -> Day:
-    """An older day, `n` days ago: about three sessions a week and food on most days."""
-    activities = []
-    if n % 7 in (0, 4):
-        activities.append(run("Morning Run", "06:30", 28 + rng.randint(0, 12)))
-    if n % 7 == 2:
-        activities.append(lift("Upper Body", "17:10", 50 + rng.randint(0, 10), upper_body(n)))
-    if n % 14 == 5:
-        activities.append(run("Long Run", "07:00", 66 + rng.randint(0, 16)))
-    food = None if n % 9 == 0 else (1690 + rng.randint(0, 380), 104 + rng.randint(0, 28))
-    return Day(activities, food)
-
-
-def weight_on(n: int, rng: random.Random) -> float | None:
-    """A weigh-in most mornings for the last 90 days, drifting down towards the goal."""
-    if n > 90 or n % 6 == 5:
-        return None
-    return round(74.2 + n * 0.012 + rng.uniform(-0.25, 0.25), 1)
+# The story, in days before today (DECISIONS D124). Three streaks: days 35 to 20 (16 days,
+# the best), 18 to 11 (8 days), and 9 to today (10 with today's run and meals, 9 before
+# them). Days 19 and 10 have nothing logged, which is what ends a streak.
+MISSED = {19, 10}
+REST = {33, 30, 27, 24, 21, 16, 13, 7, 1}  # food logged, no workout: a rest day
+RECOVERY = 3  # a logged recovery day: no workout, food within budget
+OVER_BUDGET = 5  # one day over budget (allowed once)
+TWO_SESSIONS = 6  # a run in the morning and lifting in the evening
+LIFTS = [34, 31, 28, 25, 22, 17, 14, 8, 6, 2]  # alternate upper and lower body
+MESSY_LIFT = 14
 
 
 def natural_meals(rng: random.Random) -> tuple[tuple[str, float], ...]:
@@ -182,51 +183,53 @@ def natural_meals(rng: random.Random) -> tuple[tuple[str, float], ...]:
     return plans[rng.randrange(len(plans))]
 
 
-def tour_days(today: date, rng: random.Random) -> dict[date, Day]:
-    """The public demo: a 12-day streak ending today, with history behind it.
-
-    Day 12 ago is empty, so the streak starts on day 11 ago. Inside the streak: one day
-    over budget (allowed once), two logged recovery days, a day with two sessions, and
-    lifting sessions carrying the mess above (one of them 37 days ago). Today has three
-    activities and food logged so far (only what happened before the demo's "now" is
-    ever synced)."""
-    days = {today - timedelta(days=n): history_day(n, rng) for n in range(HISTORY_DAYS, 12, -1)}
-    days[today - timedelta(days=12)] = Day()
-    recent = {
-        11: ([run("Morning Run", "06:30", 32)], (1702, 118)),
-        10: ([lift("Upper Body", "17:10", 61, upper_body(10))], (1788, 131)),
-        9: ([], (1645, 122)),  # a second logged recovery day
-        8: (
-            [run("Morning Run", "06:30", 30), lift("Upper Body", "17:10", 58, upper_body(8))],
-            (1810, 140),
-        ),
-        7: ([run("Tempo Run", "06:15", 38)], (2173, 141)),  # over budget, once
-        # The last week: busy, but not the same every day.
-        6: ([lift("Upper Body", "18:40", 64, upper_body(6, [RPE_NOTE]))], (1724, 127)),
-        5: ([run("Easy Run", "19:15", 41)], (1689, 122)),
-        4: ([run("Long Run", "07:25", 74)], (1835, 129)),
-        3: ([], (1610, 116)),  # a logged recovery day (no workout)
-        2: ([lift("Upper Body", "12:15", 57, upper_body(2, [UNMAPPED]))], (1755, 131)),
-        1: ([run("Easy Run", "18:40", 29)], (1740, 126)),
-    }
-    for n, (activities, food) in recent.items():
-        days[today - timedelta(days=n)] = Day(activities, food)
-    # An older session with a line the parser can't read: still open in quarantine, but
-    # outside the 30-day parse-coverage check, which warns rather than fails (D119).
-    older = days[today - timedelta(days=37)]
-    older.activities = [lift("Upper Body", "17:10", 55, upper_body(37, [DECIMAL_DISTANCE]))]
-    days[today] = Day(
+def workout(n: int, rng: random.Random) -> list[Activity]:
+    """What day `n` ago held: a lifting session, a run, or both."""
+    if n in MISSED or n in REST or n == RECOVERY:
+        return []
+    if n in LIFTS:
+        session = LIFTS.index(n)
+        extra = MESS if n == MESSY_LIFT else None
+        text = upper_body(session, extra) if session % 2 == 0 else lower_body(session)
+        title = "Upper Body" if session % 2 == 0 else "Lower Body"
+        start = "18:20" if n == TWO_SESSIONS else rng.choice(["07:30", "12:15", "18:40"])
+        session_lift = lift(title, start, 55 + rng.randint(0, 15), text)
+        if n == TWO_SESSIONS:
+            return [run("Morning Run", "06:20", 30), session_lift]
+        return [session_lift]
+    title, start = rng.choice(
         [
-            Activity("Walk", "Morning Walk", time(7, 10), 45),
-            lift("Full Body", "10:30", 68, FULL_BODY),
-            run("Lunch Run", "12:20", 30),
-        ],
-        (1180, 74),  # the whole day's plan; only meals before "now" are pushed
+            ("Morning Run", "06:15"),
+            ("Easy Run", "18:30"),
+            ("Tempo Run", "06:40"),
+            ("Lunch Run", "12:10"),
+        ]
     )
-    for day, plan in days.items():
-        plan.weight_kg = weight_on((today - day).days, rng)
-        if day != today:  # today keeps the plain plan: the screenshots count its meals
-            plan.meals = natural_meals(rng)
+    return [run(title, start, 25 + rng.randint(0, 20))]
+
+
+def tour_days(today: date, rng: random.Random) -> dict[date, Day]:
+    """The public demo: 36 days ending today, built back from today (no weekday matters,
+    so the story is the same on any date)."""
+    days = {}
+    for n in range(WINDOW_DAYS - 1, 0, -1):
+        if n in MISSED:
+            days[today - timedelta(days=n)] = Day()
+            continue
+        if n == OVER_BUDGET:
+            food = (2240, 128)
+        else:
+            food = (1610 + rng.randint(0, 210), 112 + rng.randint(0, 26))
+        weigh_in = None if n % 5 == 4 else round(74.6 - (35 - n) * 0.03 + rng.uniform(-0.2, 0.2), 1)
+        days[today - timedelta(days=n)] = Day(workout(n, rng), food, weigh_in, natural_meals(rng))
+    # Today, so far: a morning run and the morning's meals (only those before "now" are
+    # ever synced or pushed).
+    days[today] = Day(
+        [run("Morning Run", "06:40", 34)],
+        (1780, 126),
+        74.0,
+        (("07:30", 0.25), ("12:30", 0.35), ("16:00", 0.10), ("19:30", 0.30)),
+    )
     return days
 
 
@@ -238,27 +241,15 @@ def at(day: date, hhmm: str) -> datetime:
 
 
 def tour_events(today: date, now: datetime) -> list[Event]:
-    """How the data arrived. History is backfilled by Strava's first sync (two runs: the
-    first stops at the 50-detail cap). The Shortcut pushes every evening; it went quiet
-    for three days five weeks ago (a data-quality run flagged it, then it recovered); one
-    push arrived twice; one sync timed out and its retry succeeded."""
+    """How the data arrived, with no failures (Rob, 2026-11-05). The Shortcut pushes every
+    evening, one push arrives twice (the duplicate check absorbs it), Strava syncs every
+    evening, and the data-quality checks run every evening of the last week."""
     events = []
-    quiet = {today - timedelta(days=n) for n in (40, 39, 38)}
-    for n in range(HISTORY_DAYS, 0, -1):
+    for n in range(WINDOW_DAYS - 1, 0, -1):
         day = today - timedelta(days=n)
-        if day not in quiet:
-            events.append(Event(at(day, "21:30"), "health", day, resend=(n == 5)))
-    events.append(Event(at(today - timedelta(days=38), "23:00"), "dq"))  # flags the quiet Shortcut
-    events.append(Event(at(today - timedelta(days=14), "22:00"), "strava"))  # backfill, part 1
-    events.append(Event(at(today - timedelta(days=14), "23:00"), "strava"))  # backfill, part 2
-    for n in range(13, 0, -1):
-        day = today - timedelta(days=n)
-        if n == 3:
-            events.append(Event(at(day, "22:00"), "strava", fail=True))
-            events.append(Event(at(day, "22:30"), "strava"))  # the retry
-        else:
-            events.append(Event(at(day, "22:00"), "strava"))
-        if n <= 6:
+        events.append(Event(at(day, "21:30"), "health", day, resend=(n == 4)))
+        events.append(Event(at(day, "22:00"), "strava"))
+        if n <= 7:
             events.append(Event(at(day, "23:00"), "dq"))
     events += today_events(today, now)
     return sorted(events, key=lambda event: event.at)
@@ -284,7 +275,7 @@ def build(name: str, now: datetime) -> Scenario:
     if name == "midweek":
         return Scenario(
             "midweek", today, now, "Taiki", TARGET, WEIGHT_GOAL_KG,
-            recovery=[today - timedelta(days=9), today - timedelta(days=3)],
+            recovery=[today - timedelta(days=RECOVERY)],
             days=tour_days(today, rng),
             events=tour_events(today, now),
         )  # fmt: skip

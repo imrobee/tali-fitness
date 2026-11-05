@@ -6,5 +6,8 @@ CREATE TABLE IF NOT EXISTS demo.seed_state (
     scenario    text NOT NULL,
     as_of       timestamptz NOT NULL,
     seeded_at   timestamptz NOT NULL,
-    duration_ms integer NOT NULL CHECK (duration_ms >= 0)
+    duration_ms integer NOT NULL CHECK (duration_ms >= 0),
+    -- The numbers the tour quotes, worked out once per rebuild (D124): never a live value
+    -- that could be zero.
+    story       jsonb NOT NULL DEFAULT '{}'
 )

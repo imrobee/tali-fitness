@@ -146,6 +146,8 @@ router = APIRouter(prefix="/auth")
 class SignedIn(BaseModel):
     signed_in: bool
     demo: bool = False  # true only on the demo service: the web app shows "Demo data"
+    # The demo only: numbers the tour quotes (streak_days, best_streak, n_checks, lift_day).
+    story: dict | None = None
 
 
 class SignInMethod(BaseModel):

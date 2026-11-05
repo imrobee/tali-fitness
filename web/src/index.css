@@ -66,3 +66,10 @@ button {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* While the demo tour runs: room under the page, so even its last card can scroll clear of
+   the tour's bottom sheet (UI_SPEC.md section 12). */
+body.tour-open {
+  padding-bottom: 70dvh;
+}
+

@@ -1,8 +1,8 @@
-"""Every name the demo tour and the How it works page quote exists in the code
-(web/src/tour/steps.json and flow.json).
+"""Every name the How it works page quotes exists in the code (web/src/tour/flow.json).
 
-The tour's "where this comes from" chips name real tables, SQL functions, Airflow DAGs and
-tasks, and API endpoints. A renamed table or task fails here, not in front of a recruiter.
+Its data flow names real tables, SQL functions, Airflow DAGs and tasks, and API
+endpoints. A renamed table or task fails here, not in front of a recruiter. (The tour
+no longer names code; test_tour_claims.py checks the facts its words state.)
 """
 
 import json
@@ -15,12 +15,11 @@ from sqlalchemy import text
 
 from app.main import create_app
 
-STEPS = json.loads(Path("/tour/steps.json").read_text())["steps"]
 # The How it works page's data flow quotes names the same way (web/src/tour/flow.json).
 FLOWS = json.loads(Path("/tour/flow.json").read_text())["flows"]
 DAGS = "\n".join(path.read_text() for path in Path("/opt/airflow/dags").glob("*.py"))
 SOURCES = {"Strava API", "iOS Shortcut (Apple Health)", "Manual entries"}
-ITEMS = [(step["id"], item["kind"], item["name"]) for step in STEPS for item in step["lineage"]] + [
+ITEMS = [
     (flow["id"], item["kind"], item["name"])
     for flow in FLOWS
     for step in flow["steps"]
@@ -34,7 +33,7 @@ def endpoints() -> set[str]:
 
 
 def test_there_is_something_to_check():
-    assert len(ITEMS) > 20
+    assert len(ITEMS) > 10
 
 
 @pytest.mark.parametrize(("step", "kind", "name"), ITEMS)

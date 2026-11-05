@@ -36,7 +36,8 @@ export function Card({ title, to, aside, label, tour, children }: CardProps) {
 
 /** A grey placeholder bar at the size of the value it stands in for. */
 export function Bar({ width, height }: { width: number | string; height: number }) {
-  return <span className={styles.bar} style={{ width, height }} aria-hidden="true" />;
+  // data-loading: the demo tour waits until a card it points at has none of these left.
+  return <span className={styles.bar} style={{ width, height }} aria-hidden="true" data-loading="" />;
 }
 
 /** One sentence and a Retry button, inside the card that failed (UI_SPEC.md 10). */

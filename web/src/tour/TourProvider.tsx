@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -10,15 +9,36 @@ import {
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router";
-import type { Dashboard } from "../api/types";
-import { useIsDemo } from "../api/visit";
+import { useIsDemo, useStory } from "../api/visit";
 import { markTourSeen, TourContext, tourSeen } from "./context";
-import { dialogPosition, isSheet, type Rect, sheetScrollTop, spotlight } from "./geometry";
-import { counter, fill, STEPS, type TourStep } from "./steps";
+import {
+  dialogPosition,
+  isSheet,
+  type Rect,
+  sheetRoom,
+  sheetScrollTop,
+  spotlight,
+  technicalLines,
+  union,
+} from "./geometry";
+import { Legend } from "./Legend";
+import {
+  counter,
+  fill,
+  fillRoute,
+  footer,
+  hasSwitch,
+  STEPS,
+  type Story,
+  type TourButton,
+  type TourStep,
+} from "./steps";
 import styles from "./Tour.module.css";
 
-// How long to wait for a step's card to appear (its page may still be loading).
+// How long to wait for a step's card to load (its page may still be fetching).
 const FIND_TIMEOUT_MS = 8000;
+// "Technical details" on or off, for this browser tab.
+const DETAILS_KEY = "tali.tour-details";
 
 function reducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -29,16 +49,45 @@ function viewportSize() {
   return { width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight };
 }
 
-function targetOf(step: TourStep): HTMLElement | null {
-  return step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
+/** Where the step's selectors look: the page, or the first element matching `within`. */
+function scopeOf(step: TourStep): ParentNode | null {
+  return step.within ? document.querySelector(step.within) : document;
 }
 
-/** The demo tour (UI_SPEC.md section 12): the page dims, the step's card is cut out of
-    the dimming, and a dialog explains it. Starts by itself on a first demo visit. */
+/** Every element the step points at (two cards, or a session's first exercises). */
+function targetsOf(step: TourStep): HTMLElement[] {
+  const scope = scopeOf(step);
+  if (!scope) return [];
+  return step.targets.flatMap((selector) => [...scope.querySelectorAll<HTMLElement>(selector)]);
+}
+
+/** The step's closed session, to open (null when there is none, or it is open). */
+function toOpenOf(step: TourStep): HTMLElement | null {
+  return step.open ? (scopeOf(step)?.querySelector<HTMLElement>(step.open) ?? null) : null;
+}
+
+/** One box around all of them, in viewport pixels; null when none is on the page. */
+function targetBox(step: TourStep): Rect | null {
+  return union(targetsOf(step).map((element) => element.getBoundingClientRect()));
+}
+
+function detailsOnAtStart(): boolean {
+  try {
+    return window.sessionStorage.getItem(DETAILS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** The demo tour (UI_SPEC.md section 12): the page dims, the step's card is cut out of the
+    dimming, and a dialog (a bottom sheet on a phone) explains it in plain words; the
+    Technical details switch adds the engineering. Starts by itself on a first demo visit. */
 export function TourProvider({ children }: { children: ReactNode }) {
   const demo = useIsDemo();
+  const story = useStory();
   // Open from the first render on a first demo visit (the gate has already loaded).
   const [index, setIndex] = useState<number | null>(() => (demo && !tourSeen() ? 0 : null));
+  const [details, setDetails] = useState(detailsOnAtStart);
   const opener = useRef<HTMLElement | null>(null);
 
   const start = useCallback(() => {
@@ -50,20 +99,40 @@ export function TourProvider({ children }: { children: ReactNode }) {
     // Back to whatever had focus before (the Tour button), if it is still on the page.
     if (opener.current?.isConnected) opener.current.focus();
   }, []);
+  const toggleDetails = useCallback(() => {
+    setDetails((on) => {
+      try {
+        window.sessionStorage.setItem(DETAILS_KEY, on ? "0" : "1");
+      } catch {
+        // Storage blocked: the switch still works for this page.
+      }
+      return !on;
+    });
+  }, []);
 
-  // Once seen, it never starts by itself again in this browser.
+  // Once seen, it never starts by itself again in this browser. While it runs, the page
+  // gets room at the bottom, so even its last card can scroll clear of the sheet.
   useEffect(() => {
     if (index !== null) markTourSeen();
+    document.body.classList.toggle("tour-open", index !== null);
   }, [index]);
 
   const controls = useMemo(() => ({ start, running: index !== null }), [start, index]);
+  const step = index === null ? null : STEPS[index];
   return (
     <TourContext.Provider value={controls}>
       {children}
+      {/* Announces each step; always on the page, so screen readers notice the change. */}
+      <p className="visually-hidden" aria-live="polite">
+        {index !== null && step ? `Step ${counter(index, STEPS.length)}: ${fill(step.title, story)}` : ""}
+      </p>
       {index !== null && (
         <TourStepView
           key={index} // a fresh view per step: no spotlight left over from the last one
           index={index}
+          story={story}
+          details={details}
+          onToggleDetails={toggleDetails}
           onBack={() => setIndex(Math.max(0, index - 1))}
           onNext={() => (index + 1 < STEPS.length ? setIndex(index + 1) : close())}
           onClose={close}
@@ -73,50 +142,66 @@ export function TourProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function TourStepView({
-  index,
-  onBack,
-  onNext,
-  onClose,
-}: {
+interface ViewProps {
   index: number;
+  story: Story;
+  details: boolean;
+  onToggleDetails: () => void;
   onBack: () => void;
   onNext: () => void;
   onClose: () => void;
-}) {
+}
+
+function lineHeightOf(element: HTMLElement): number {
+  const style = window.getComputedStyle(element);
+  const height = Number.parseFloat(style.lineHeight);
+  return Number.isFinite(height) ? height : Number.parseFloat(style.fontSize) * 1.45;
+}
+
+function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, onClose }: ViewProps) {
   const step = STEPS[index];
+  const modal = step.placement === "modal";
+  const route = fillRoute(step.route, story);
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
   const dialog = useRef<HTMLDivElement>(null);
+  const technical = useRef<HTMLParagraphElement>(null);
+  const [found, setFound] = useState(modal);
   const [spot, setSpot] = useState<Rect | null>(null);
-  const [found, setFound] = useState(step.target === null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-  const [sheet, setSheet] = useState(() => isSheet(viewportSize()));
-
-  const streak = queryClient.getQueryData<Dashboard>(["dashboard", "today"])?.streak.count;
-  const title = fill(step.title, { streak });
-  const last = index === STEPS.length - 1;
+  const [phone, setPhone] = useState(() => isSheet(viewportSize()));
+  // Phone, Technical details on: the lines of technical words that fit (null: all), and
+  // whether "Show more" has swapped them in for the body.
+  const [clamp, setClamp] = useState<{ lines: number; lineHeight: number } | null>(null);
+  const [swappedChoice, setSwapped] = useState(false);
+  const showTechnical = details && hasSwitch(step);
+  const swapped = swappedChoice && showTechnical; // switching details off goes back to the body
 
   // 1. Go to the step's page.
   useEffect(() => {
-    if (location.pathname !== step.route) navigate(step.route);
-  }, [step.route, location.pathname, navigate]);
+    if (location.pathname + location.search !== route) navigate(route);
+  }, [route, location.pathname, location.search, navigate]);
 
-  // 2. Wait for its card, then bring it into view.
+  // 2. Wait for its cards to finish loading (and open the gym session), then bring them
+  //    into view: on a phone at the top of the screen, clear of the sheet.
   useEffect(() => {
-    if (step.target === null) return;
+    if (modal) return;
     let frame = 0;
     const startedAt = performance.now();
     const look = () => {
-      const target = targetOf(step);
-      if (target) {
+      const toOpen = toOpenOf(step);
+      if (toOpen) toOpen.click();
+      const targets = targetsOf(step);
+      const ready =
+        targets.length > 0 && !toOpen && targets.every((target) => !target.querySelector("[data-loading]"));
+      if (ready) {
+        const box = targetBox(step);
         const behavior = reducedMotion() ? "auto" : "smooth";
-        if (isSheet(viewportSize())) {
-          const top = target.getBoundingClientRect().top + window.scrollY;
-          window.scrollTo({ top: sheetScrollTop(top), behavior });
-        } else {
-          target.scrollIntoView({ block: "center", behavior });
+        if (box && isSheet(viewportSize())) {
+          window.scrollTo({ top: sheetScrollTop(box.top + window.scrollY), behavior });
+        } else if (box) {
+          const middle = box.top + window.scrollY + box.height / 2;
+          window.scrollTo({ top: Math.max(0, middle - viewportSize().height / 2), behavior });
         }
         setFound(true);
       } else if (performance.now() - startedAt < FIND_TIMEOUT_MS) {
@@ -127,20 +212,35 @@ function TourStepView({
     };
     frame = requestAnimationFrame(look);
     return () => cancelAnimationFrame(frame);
-  }, [step]);
+  }, [step, modal]);
 
   // 3. Measure, and measure again whenever the page scrolls or the screen changes
-  //    (rotation, the on-screen keyboard, a card finishing loading and growing).
+  //    (rotation, the on-screen keyboard, a card growing).
   const measure = useCallback(() => {
     const viewport = viewportSize();
-    const target = targetOf(step);
-    const box = target?.getBoundingClientRect();
-    const nextSpot = box ? spotlight(box, viewport) : null;
-    setSpot(nextSpot);
-    setSheet(isSheet(viewport));
-    const size = dialog.current?.getBoundingClientRect() ?? { width: 320, height: 240 };
-    setPosition(dialogPosition(nextSpot, size, viewport, step.placement));
-  }, [step]);
+    // The page may re-render under the tour (a list refreshing closes an opened session):
+    // open it again.
+    const reopen = toOpenOf(step);
+    if (reopen) reopen.click();
+    const box = modal ? null : targetBox(step);
+    const sheet = isSheet(viewport);
+    setPhone(sheet);
+    setSpot(box ? spotlight(box, viewport) : null);
+    // Phone: clamp the technical words so the sheet never grows over the target.
+    const words = technical.current;
+    const sheetBox = dialog.current;
+    if (sheet && box && words && sheetBox && !swapped) {
+      const more = sheetBox.querySelector<HTMLElement>("[data-more]")?.offsetHeight ?? 0;
+      const others = sheetBox.offsetHeight - words.offsetHeight - more;
+      const lineHeight = lineHeightOf(words);
+      const lines = technicalLines(sheetRoom(box.height, viewport.height), others, words.scrollHeight, lineHeight);
+      setClamp(lines === null ? null : { lines, lineHeight });
+    } else if (!sheet) {
+      setClamp(null);
+    }
+    const size = sheetBox?.getBoundingClientRect() ?? { width: 320, height: 240 };
+    setPosition(dialogPosition(box ? spotlight(box, viewport) : null, size, viewport, "bottom"));
+  }, [step, modal, swapped]);
 
   useLayoutEffect(() => {
     if (!found) return;
@@ -150,25 +250,37 @@ function TourStepView({
       frame = requestAnimationFrame(measure);
     };
     later();
+    // Also every half second: a card can be replaced, not just resized, by a re-render.
+    const poll = window.setInterval(later, 500);
     window.addEventListener("scroll", later, { passive: true });
     window.addEventListener("resize", later);
     window.visualViewport?.addEventListener("resize", later);
     const growth = new ResizeObserver(later);
-    const target = targetOf(step);
-    if (target) growth.observe(target);
+    for (const target of targetsOf(step)) growth.observe(target);
+    if (dialog.current) growth.observe(dialog.current);
     return () => {
       cancelAnimationFrame(frame);
+      window.clearInterval(poll);
       window.removeEventListener("scroll", later);
       window.removeEventListener("resize", later);
       window.visualViewport?.removeEventListener("resize", later);
       growth.disconnect();
     };
-  }, [found, measure, step]);
+  }, [found, measure, step, showTechnical]);
 
   // 4. Focus the dialog on each step, so a screen reader reads it from the top.
   useEffect(() => {
     if (found) dialog.current?.focus();
   }, [found, index]);
+
+  function press(button: TourButton) {
+    if (button.does === "next") onNext();
+    else if (button.does === "back") onBack();
+    else {
+      onClose();
+      if (button.does === "link" && button.to) navigate(button.to);
+    }
+  }
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
@@ -183,92 +295,122 @@ function TourStepView({
       const focusable = dialog.current?.querySelectorAll<HTMLElement>("button, a[href]");
       if (!focusable?.length) return;
       const first = focusable[0];
-      const lastOne = focusable[focusable.length - 1];
+      const last = focusable[focusable.length - 1];
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
         event.preventDefault();
-        lastOne.focus();
-      } else if (!event.shiftKey && document.activeElement === lastOne) {
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
         first.focus();
       }
     }
   }
 
-  const style = sheet || !position ? undefined : { top: position.top, left: position.left };
+  const sheet = phone && !modal;
+  const layout = modal ? styles.modal : sheet ? styles.sheet : styles.floating;
+  const style = !modal && !sheet && position ? { top: position.top, left: position.left } : undefined;
+  const buttons = footer(step, index);
+  // Skip sits at the top of the middle steps; the first and last have their own footer.
+  const skipAtTop = !step.buttons;
+  const clamped = sheet && showTechnical && !swapped && clamp !== null;
+  const technicalStyle = clamped
+    ? { WebkitLineClamp: Math.max(clamp.lines, 1), maxHeight: clamp.lines * clamp.lineHeight }
+    : undefined;
+
   return (
     <div className={styles.layer}>
-      {/* The dimming, with the step's card cut out of it. Decoration: the dialog says it all. */}
+      {/* The dimming, with the step's cards cut out of it (none for the modal steps).
+          Decoration: the dialog says it all. */}
       <svg className={styles.overlay} aria-hidden="true">
         <defs>
           <mask id="tour-cutout">
             <rect width="100%" height="100%" fill="white" />
-            {spot && <rect x={spot.left} y={spot.top} width={spot.width} height={spot.height} rx={24} fill="black" />}
+            {spot && <rect x={spot.left} y={spot.top} width={spot.width} height={spot.height} rx={20} fill="black" />}
           </mask>
         </defs>
         <rect className={styles.dim} width="100%" height="100%" mask="url(#tour-cutout)" />
-        {spot && (
-          <rect className={styles.ring} x={spot.left} y={spot.top} width={spot.width} height={spot.height} rx={24} />
-        )}
       </svg>
 
       <div
         ref={dialog}
-        className={`${styles.dialog} ${sheet ? styles.sheet : styles.floating}`}
+        className={`${styles.dialog} ${layout}`}
         style={style}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-title"
-        aria-describedby="tour-text"
+        aria-describedby={swapped ? "tour-technical" : "tour-text"}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         hidden={!found}
+        data-tour-dialog=""
       >
-        <div className={styles.top}>
-          <span className={styles.counter}>{counter(index, STEPS.length)}</span>
-          <button type="button" className={styles.skip} onClick={onClose}>
-            {last ? "Close" : "Skip tour"}
-          </button>
-        </div>
-        <h2 id="tour-title" className={styles.title}>
-          {title}
-        </h2>
-        <div id="tour-text">
-          <p className={styles.text}>{step.text}</p>
-          <p className={styles.built}>
-            <span className={styles.builtLabel}>How it's built: </span>
-            {step.built}
-          </p>
-        </div>
-        {step.lineage.length > 0 && (
-          <ul className={styles.lineage} aria-label="Where this comes from">
-            {step.lineage.map((item) => (
-              <li key={item.name} className={styles.chip}>
-                <span className={styles.kind}>{item.kind}</span> <code>{item.name}</code>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className={styles.actions}>
-          {index > 0 && (
-            <button type="button" className={styles.back} onClick={onBack}>
-              Back
-            </button>
+        <div className={styles.content}>
+          <div className={styles.top}>
+            <span className={styles.counter}>{counter(index, STEPS.length)}</span>
+            {skipAtTop && (
+              <button type="button" className={styles.skip} onClick={onClose}>
+                Skip tour
+              </button>
+            )}
+          </div>
+          <h2 id="tour-title" className={styles.title}>
+            {fill(step.title, story)}
+          </h2>
+          {!swapped && (
+            <>
+              <p id="tour-text" className={styles.text}>
+                {fill(step.body, story)}
+              </p>
+              {step.legend && <Legend kind={step.legend} />}
+            </>
           )}
-          {step.link && (
+          {showTechnical && step.technical && (
+            <div className={styles.technical} id="tour-technical">
+              <p ref={technical} className={clamped ? styles.clamp : undefined} style={technicalStyle}>
+                {fill(step.technical, story)}
+              </p>
+              {(clamped || swapped) && (
+                <button
+                  type="button"
+                  className={styles.more}
+                  data-more=""
+                  aria-expanded={swapped}
+                  aria-controls="tour-technical"
+                  onClick={() => setSwapped(!swapped)}
+                >
+                  {swapped ? "Show less" : clamp?.lines === 0 ? "Show technical details" : "Show more"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className={styles.footer}>
+          {hasSwitch(step) ? (
             <button
               type="button"
-              className={styles.back}
-              onClick={() => {
-                onClose();
-                navigate(step.link!.to);
-              }}
+              role="switch"
+              aria-checked={details}
+              className={styles.switch}
+              onClick={onToggleDetails}
             >
-              {step.link.label}
+              <span className={styles.switchTrack} aria-hidden="true" />
+              Technical details
             </button>
+          ) : (
+            <span />
           )}
-          <button type="button" className={styles.next} onClick={onNext}>
-            {last ? "Explore freely" : "Next"}
-          </button>
+          <div className={styles.buttons}>
+            {buttons.map((button, position) => (
+              <button
+                key={button.label}
+                type="button"
+                className={position === buttons.length - 1 ? styles.primary : styles.secondary}
+                onClick={() => press(button)}
+              >
+                {button.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

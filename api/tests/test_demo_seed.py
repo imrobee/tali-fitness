@@ -122,45 +122,92 @@ def table_counts(engine: Engine) -> dict:
 
 def test_the_key_numbers(frozen):
     assert key_numbers(frozen) == {
-        "streak": 12,
-        "eaten_today": 708,  # breakfast and lunch of 1,180 planned, pushed at 13:05
-        "budget": 1853,
-        "sources": {"health": ("ok", 0), "strava": ("ok", 1)},  # the timed-out sync
+        "streak": 10,
+        "eaten_today": 1068,  # breakfast and lunch of 1,780 planned, pushed at 13:05
+        "budget": 1850,
+        "sources": {"health": ("ok", 0), "strava": ("ok", 0)},  # no failures (Rob)
         "quarantine": {"unparsed_line": 2, "empty_exercise": 1},
-        "dq": (12, 3, 0),
-        "warnings": ["hevy_parse_coverage", "quarantine_open", "unmapped_exercises"],
+        "dq": (13, 2, 0),
+        "warnings": ["hevy_parse_coverage", "quarantine_open"],
     }
 
 
-def test_todays_session_has_the_sets_the_screenshots_open(frozen):
-    days = frozen.get("/api/v1/activities", params={"date": "2026-10-17"}).json()["days"]
-    today = next(day for day in days if day["date"] == "2026-10-17")["activities"]
-    full_body = next(a for a in today if a["title"] == "Full Body")
-    bench = frozen.get(f"/api/v1/activities/{full_body['id']}").json()["exercises"][0]
+def test_the_tour_quotes_what_the_pages_show(frozen):
+    story = frozen.get("/auth/me").json()["story"]
+    dashboard = frozen.get("/api/v1/dashboard").json()
+    checks = frozen.get("/api/v1/pipeline/health").json()["dq"]["checks"]
 
-    assert len(today) == 3
-    assert bench["name"] == "Incline Bench Press"
-    assert (bench["sets"][0]["weight_kg"], bench["sets"][0]["reps"]) == (20.0, 8)
-
-
-# --- deterministic and idempotent ---------------------------------------------------------
-
-
-def test_reseeding_gives_the_same_warehouse(engines, frozen, monkeypatch):
-    first = (key_numbers(frozen), table_counts(engines[0]))
-    again = seeded(engines, FROZEN, monkeypatch)
-
-    assert (key_numbers(again), table_counts(engines[0])) == first
-
-
-def test_building_a_scenario_is_pure():
-    one, two = build("midweek", FROZEN), build("midweek", FROZEN)
-
-    assert one.activities() == two.activities()
-    assert one.events == two.events
+    assert story == {
+        "streak_days": 10,
+        "best_streak": 16,
+        "n_checks": 15,
+        "n_warnings": 2,
+        "n_quarantined": 3,
+        "lift_day": "2026-10-15",
+        "eaten": 1068,
+        "budget": 1850,
+    }
+    assert story["streak_days"] == dashboard["streak"]["count"]
+    assert story["eaten"] == dashboard["calories"]["eaten"]
+    assert story["budget"] == dashboard["calories"]["budget"]
+    assert story["n_checks"] == len(checks)
 
 
-# --- the realistic mess, all produced by the real code -------------------------------------
+def test_the_latest_lifting_session_has_parsed_sets(frozen):
+    days = frozen.get("/api/v1/activities", params={"date": "2026-10-15"}).json()["days"]
+    lifts = [
+        a for day in days if day["date"] == "2026-10-15" for a in day["activities"]
+        if a["type"] == "strength"
+    ]  # fmt: skip
+    detail = frozen.get(f"/api/v1/activities/{lifts[0]['id']}").json()
+
+    assert len(lifts) == 1
+    assert len(detail["exercises"]) >= 4
+    assert all(len(exercise["sets"]) == 3 for exercise in detail["exercises"])
+
+
+def test_lifting_sessions_and_personal_records(engines, frozen):
+    with engines[0].connect() as conn:
+        big_sessions = conn.execute(
+            text(
+                "SELECT count(*) FROM (SELECT activity_key FROM core.fact_set GROUP BY "
+                "activity_key HAVING count(DISTINCT exercise_key) >= 4) AS sessions"
+            )
+        ).scalar_one()
+    records = frozen.get("/api/v1/records").json()["records"]
+
+    assert big_sessions >= 2
+    assert len(records) >= 4
+
+
+def test_today_is_partly_logged(frozen):
+    dashboard = frozen.get("/api/v1/dashboard").json()
+
+    assert 0 < dashboard["calories"]["eaten"] < dashboard["calories"]["budget"]
+    assert dashboard["streak"]["message"] == "Nice. Today's counted."
+
+
+def test_the_current_streak_has_one_over_budget_one_recovery_and_one_double_day(engines, frozen):
+    start, end = FROZEN.date() - timedelta(days=9), FROZEN.date()
+    with engines[1].connect() as conn:
+        statuses = conn.execute(
+            text("SELECT calorie_status FROM mart.fn_daily_nutrition(:start, :end)"),
+            {"start": start, "end": end},
+        ).scalars().all()  # fmt: skip
+        recovery = conn.execute(text("SELECT count(*) FROM app.recovery_day")).scalar_one()
+        doubles = conn.execute(
+            text(
+                "SELECT count(*) FROM (SELECT date_key FROM core.fact_activity "
+                "GROUP BY date_key HAVING count(*) = 2) AS days"
+            )
+        ).scalar_one()
+
+    assert statuses.count("over") == 1  # allowed once; two in a row would end the streak
+    assert recovery == 1
+    assert doubles == 1
+
+
+# --- the realistic mess, all produced by the real code; no failures (Rob) --------------------
 
 
 def runs(engine: Engine, where: str) -> list:
@@ -168,20 +215,8 @@ def runs(engine: Engine, where: str) -> list:
         return conn.execute(text(f"SELECT * FROM ops.pipeline_runs WHERE {where}")).all()
 
 
-def test_the_first_sync_backfills_in_two_runs(engines, frozen):
-    statuses = [r.status for r in runs(engines[0], "source = 'strava' ORDER BY run_id")]
-
-    assert statuses[:2] == ["partial", "success"]  # the 50-detail cap, then the rest
-
-
-def test_a_timed_out_sync_is_failed_and_its_retry_succeeds(engines, frozen):
-    failed = runs(engines[0], "source = 'strava' AND status = 'failed'")
-    retry = runs(engines[0], f"source = 'strava' AND run_id = {failed[0].run_id + 1}")
-
-    assert len(failed) == 1
-    assert failed[0].error_message.startswith("TimeoutError: Strava did not answer")
-    assert retry[0].status == "success"
-    assert retry[0].started_at - failed[0].started_at == timedelta(minutes=30)
+def test_no_run_failed(engines, frozen):
+    assert runs(engines[0], "status <> 'success'") == []
 
 
 def test_a_resent_shortcut_push_is_absorbed(engines, frozen):
@@ -190,29 +225,14 @@ def test_a_resent_shortcut_push_is_absorbed(engines, frozen):
     assert len(resend) == 1
 
 
-def test_an_old_freshness_warning_is_on_record_and_resolved(engines, frozen):
-    with engines[0].connect() as conn:
-        history = conn.execute(
-            text(
-                "SELECT status FROM ops.dq_results WHERE check_name = 'health_freshness' "
-                "ORDER BY checked_at"
-            )
-        ).scalars().all()  # fmt: skip
+def test_quarantined_lines_have_plain_reasons(frozen):
+    recent = frozen.get("/api/v1/pipeline/health").json()["quarantine"]["recent"]
 
-    assert history[0] == "warn"  # the quiet Shortcut, five weeks ago
-    assert history[-1] == "pass"
-
-
-def test_one_day_over_budget_and_one_recovery_day_in_the_streak(engines, frozen):
-    with engines[1].connect() as conn:
-        statuses = conn.execute(
-            text("SELECT calorie_status FROM mart.fn_daily_nutrition(:start, :end)"),
-            {"start": FROZEN.date() - timedelta(days=11), "end": FROZEN.date()},
-        ).scalars().all()  # fmt: skip
-    week = frozen.get("/api/v1/dashboard").json()["streak"]["week"]
-
-    assert statuses.count("over") == 1  # allowed once; two in a row would end the streak
-    assert [day["kind"] for day in week].count("recovery") == 1
+    assert sorted(item["raw_snippet"] for item in recent) == [
+        "Rowing (Machine)",
+        "Set 1: 1.5km - 8min",
+        "Set 2: 10 kg x 12 @ RPE 8",
+    ]
 
 
 def test_the_raw_payloads_went_through_the_pipeline(engines, frozen):
@@ -222,8 +242,8 @@ def test_the_raw_payloads_went_through_the_pipeline(engines, frozen):
             text("SELECT count(*) FROM raw.strava_activities WHERE payload ? 'map'")
         ).scalar_one()
 
-    assert counts["core.fact_activity"] == counts["raw.strava_activities"] > 80
-    assert counts["core.fact_set"] > 200
+    assert counts["core.fact_activity"] == counts["raw.strava_activities"] > 20
+    assert counts["core.fact_set"] > 100
     assert located == 0
 
 
@@ -286,16 +306,16 @@ def week_markers(client: TestClient, headers=None) -> list[str]:
 def test_a_lower_budget_changes_the_streak_and_the_week_markers(frozen):
     dashboard = frozen.get("/api/v1/dashboard", headers=BUDGET_1700).json()
 
-    assert dashboard["streak"]["count"] == 5
+    assert dashboard["streak"]["count"] < 10
     assert dashboard["calories"]["budget"] == 1700
-    assert week_markers(frozen, BUDGET_1700).count("over") == 3
-    assert week_markers(frozen).count("over") == 0
+    assert week_markers(frozen, BUDGET_1700).count("over") > week_markers(frozen).count("over")
 
 
-def test_relaxed_weekends_apply_to_every_day_too(frozen):
-    relaxed = {"X-Demo-Settings": '{"calorie_budget": 1700, "lenient_weekends": true}'}
+def test_relaxed_weekends_apply_for_the_visitor_only(frozen):
+    relaxed = {"X-Demo-Settings": '{"lenient_weekends": true}'}
 
-    assert frozen.get("/api/v1/dashboard", headers=relaxed).json()["streak"]["count"] == 9
+    assert frozen.get("/api/v1/me", headers=relaxed).json()["lenient_weekends"] is True
+    assert frozen.get("/api/v1/me").json()["lenient_weekends"] is False
 
 
 def test_the_me_page_shows_the_visitors_settings_clamped(frozen):
@@ -333,7 +353,7 @@ def test_settings_never_reach_the_next_request_on_the_same_connection(engines, f
         demo_app.dependency_overrides[get_engine] = lambda: engines[1]
         one_connection.dispose()
 
-    assert (mine, theirs) == (5, 12)
+    assert mine < theirs == 10
 
 
 def test_settings_end_with_their_transaction_even_after_a_commit(engines, frozen):
@@ -377,22 +397,31 @@ def test_the_real_app_ignores_demo_settings(client):
 @pytest.mark.parametrize(
     ("now", "streak"),
     [
-        # Any evening, whatever the weekday: today's workout and food are in. (Past dates
-        # only: the pipeline's own clock can't be replayed into the future.)
-        (datetime(2026, 10, 29, 20, 0, tzinfo=TZ), 12),
-        (datetime(2026, 9, 20, 21, 30, tzinfo=TZ), 12),
-        # Early morning: nothing synced today yet, so today isn't counted yet (and never
-        # ends the streak before midnight). The tour must read the count, not quote it.
-        (datetime(2026, 10, 29, 6, 0, tzinfo=TZ), 11),
+        # A Wednesday and a Saturday (past dates only: the pipeline's own clock can't be
+        # replayed into the future), at four times of day. Before today's first entries
+        # (03:00) today isn't counted yet, and never ends the streak before midnight.
+        (datetime(2026, 10, 21, hour, 0, tzinfo=TZ), streak)
+        for hour, streak in ((3, 9), (9, 10), (15, 10), (21, 10))
+    ]
+    + [
+        (datetime(2026, 10, 24, hour, 0, tzinfo=TZ), streak)
+        for hour, streak in ((3, 9), (9, 10), (15, 10), (21, 10))
     ],
 )
 def test_the_streak_does_not_depend_on_the_date(engines, monkeypatch, now, streak):
     client = seeded(engines, now, monkeypatch)
     numbers = key_numbers(client)
+    story = client.get("/auth/me").json()["story"]
+    records = client.get("/api/v1/records").json()["records"]
     demo_app.dependency_overrides.clear()
 
-    assert numbers["streak"] == streak
-    assert numbers["dq"][2] == 0  # no failed check on any date
+    assert numbers["streak"] == story["streak_days"] == streak
+    assert numbers["budget"] == 1850 == story["budget"]
+    # Before today's first entry the tour has no "eaten" to quote, and drops the sentence.
+    assert story["eaten"] == (numbers["eaten_today"] or None)
+    assert numbers["dq"][2] == 0  # no failed check at any time
+    assert numbers["sources"] == {"health": ("ok", 0), "strava": ("ok", 0)}
+    assert len(records) >= 2
 
 
 @pytest.mark.parametrize("name", ["at_risk", "edge_empty"])

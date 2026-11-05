@@ -11,7 +11,9 @@ export type SignInMethod = "google" | "key" | "demo";
 export type SignInInfo = { method: SignInMethod; demoUrl: string | null };
 
 /** Who this browser is: signed in (Rob, or a demo visitor) or not. */
-export type Visit = { signedIn: true; demo: boolean } | { signedIn: false };
+export type Visit =
+  | { signedIn: true; demo: boolean; story: Record<string, string | number | null> | null }
+  | { signedIn: false };
 
 /** The React Query key of "is this browser signed in?" (SignInGate). */
 export const AUTH_QUERY = ["auth"];
@@ -37,7 +39,7 @@ export async function checkSignedIn(): Promise<Visit> {
     throw new ApiError(response.status, "http_error", `The server answered ${response.status}.`);
   }
   const body = await response.json();
-  return { signedIn: true, demo: body.demo === true };
+  return { signedIn: true, demo: body.demo === true, story: body.story ?? null };
 }
 
 /** Which sign-in screen this server wants: the Google button, the local dev key form, or

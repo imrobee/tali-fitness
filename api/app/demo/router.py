@@ -9,7 +9,7 @@ from sqlalchemy import Engine
 from app import clock
 from app.auth import require_user
 from app.config import Settings, get_settings
-from app.db import get_engine
+from app.db import get_engine, load_sql
 from app.demo.session import clear_demo_cookie, set_demo_cookie
 from app.signin import SignedIn, SignInMethod
 
@@ -39,8 +39,14 @@ def start_demo(
 
 
 @router.get("/me", response_model=SignedIn)
-def me(_visitor: Annotated[str, Depends(require_user)]) -> SignedIn:
-    return SignedIn(signed_in=True, demo=True)
+def me(
+    _visitor: Annotated[str, Depends(require_user)],
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> SignedIn:
+    """Signed in, on the demo; with the numbers the tour quotes from the last rebuild."""
+    with engine.connect() as conn:
+        state = conn.execute(load_sql("demo/seed_state_read.sql")).first()
+    return SignedIn(signed_in=True, demo=True, story=state.story if state else None)
 
 
 @router.post("/logout", status_code=204)

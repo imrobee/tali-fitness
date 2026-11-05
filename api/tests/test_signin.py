@@ -82,7 +82,7 @@ def test_the_allowed_account_gets_a_session_and_goes_home(anonymous, engine):
     session_cookie = next(c for c in cookies if c.startswith("session="))
     assert "HttpOnly" in session_cookie and "SameSite=lax" in session_cookie
     assert sessions(engine) == [TEST_SUB]
-    assert anonymous.get("/auth/me").json() == {"signed_in": True, "demo": False}
+    assert anonymous.get("/auth/me").json() == {"signed_in": True, "demo": False, "story": None}
 
 
 def test_the_login_state_is_cleared_after_the_callback(anonymous):
@@ -251,7 +251,7 @@ def test_in_key_mode_the_right_key_signs_in(key_mode, engine):
 
     assert key_mode.post("/auth/dev-login", json={"key": DEV_KEY}).status_code == 204
 
-    assert key_mode.get("/auth/me").json() == {"signed_in": True, "demo": False}
+    assert key_mode.get("/auth/me").json() == {"signed_in": True, "demo": False, "story": None}
     assert key_mode.get("/api/v1/dashboard").status_code == 200
 
 

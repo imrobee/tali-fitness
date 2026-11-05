@@ -44,6 +44,8 @@ services:
       # For test_tour_lineage.py: the tour's steps and the DAGs whose names they quote.
       - ./web/src/tour:/tour:ro
       - ./pipeline/dags:/opt/airflow/dags:ro
+      # For test_tour_claims.py: "rebuilt every few hours" is the reseed workflow's cron.
+      - ./.github/workflows:/workflows:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,8 +109,8 @@ services:
     build: ./api
     environment:
       PYTHONPATH: /app:/opt/airflow
-      # The screenshots' frozen "now"; unset, the demo is built as of the real time.
-      NOW_OVERRIDE: "2026-10-17T14:00:00+08:00"
+      # Real time, like the hosted demo. Only `make screenshots` freezes it (D124).
+      NOW_OVERRIDE: ${DEMO_NOW_OVERRIDE:-}
       DEMO_ADMIN_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
       DEMO_SEED_URL: postgresql+psycopg://demo_seed:${DEMO_SEED_PASSWORD:-localdemoseed}@postgres:5432/app_demo
       DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-localdemoreader}
@@ -138,7 +140,8 @@ services:
       # Signs demo visitors' cookies on this Mac only; the guard refuses it over HTTPS.
       DEMO_SESSION_SECRET: local-demo-session-secret-only-for-this-mac-0001
       PUBLIC_BASE_URL: http://localhost:5174
-      NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
+      # Real time, like the hosted demo. Only `make screenshots` freezes it (D124).
+      NOW_OVERRIDE: ${DEMO_NOW_OVERRIDE:-}
     # Serves only. The demo is rebuilt elsewhere (demo-seed here; a scheduled GitHub
     # Actions job when hosted, DECISIONS D121), so this service holds demo_reader alone.
     command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
@@ -179,6 +182,7 @@ services:
       BASE_URL: http://web-demo:5173
     volumes:
       - ./web/e2e:/app/e2e:ro
+      - ./web/src/tour:/app/tour:ro # the tour's steps, for e2e/tour.spec.ts
       - ./web/playwright.config.ts:/app/playwright.config.ts:ro
       - ./docs/screenshots:/app/screenshots
 

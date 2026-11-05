@@ -17,6 +17,7 @@ makes sure only one rebuild runs at a time.
 Runs as demo_seed, which owns the demo database and can open no other.
 """
 
+import json
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ from datetime import timedelta
 
 from sqlalchemy import Connection, Engine
 
+from app.dashboard.build import best_streak
 from app.db import load_sql
 from app.demo.scenario import TZ, Event, Scenario, SyntheticStrava, health_body
 from app.demo.setup import require_demo_name
@@ -97,9 +99,42 @@ def replay(engine: Engine, scenario: Scenario) -> float:
                 "scenario": scenario.name,
                 "as_of": scenario.now,
                 "duration_ms": round(seconds * 1000),
+                "story": json.dumps(story(conn, scenario)),
             },
         )
     return time.monotonic() - started
+
+
+def story(conn: Connection, scenario: Scenario) -> dict:
+    """The numbers the tour quotes, read from what was just built, with the same queries
+    the dashboard uses, so the tour can never say something the pages don't show."""
+    today = scenario.today
+    streak = conn.execute(load_sql("api/streak.sql"), {"today": today}).one()
+    days = conn.execute(load_sql("api/day_status.sql"), {"today": today}).all()
+    lift_days = [
+        day
+        for day, plan in scenario.days.items()
+        if day < today and any(a.sport == "WeightTraining" for a in plan.activities)
+    ]
+    checks = conn.execute(load_sql("api/pipeline_dq_latest.sql")).all()
+    quarantined = conn.execute(load_sql("api/pipeline_quarantine_counts.sql")).all()
+    # Today's calories so far and the budget, as the calorie card shows them. None (the
+    # tour then drops the sentence) before today's first entry or without a budget.
+    nutrition = conn.execute(
+        load_sql("api/daily_nutrition.sql"), {"start": today, "end": today}
+    ).one_or_none()
+    eaten = round(nutrition.kcal) if nutrition and nutrition.kcal else None
+    budget = nutrition.calorie_budget if nutrition else None
+    return {
+        "streak_days": streak.streak,
+        "best_streak": best_streak(days),
+        "n_checks": len(CHECKS),
+        "n_warnings": sum(1 for check in checks if check.status == "warn"),
+        "n_quarantined": sum(row.open_count for row in quarantined),
+        "lift_day": max(lift_days).isoformat() if lift_days else None,
+        "eaten": eaten,
+        "budget": budget,
+    }
 
 
 def enter_manual_entries(conn: Connection, scenario: Scenario) -> None:

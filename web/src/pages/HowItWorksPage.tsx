@@ -11,7 +11,7 @@ const REPO = "https://github.com/imrobee/fitness-tracker";
 const LINKS = [
   { label: "Code on GitHub", href: REPO },
   { label: "README", href: `${REPO}#readme` },
-  { label: "Rob Feliciano on LinkedIn", href: "https://www.linkedin.com/in/robeefeliciano" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/in/robeefeliciano" },
 ];
 
 const STACK = [

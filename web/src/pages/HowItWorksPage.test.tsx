@@ -48,6 +48,6 @@ describe("How it works", () => {
     const href = (name: string) => screen.getByRole("link", { name }).getAttribute("href");
     expect(href("Code on GitHub")).toBe("https://github.com/imrobee/fitness-tracker");
     expect(href("README")).toBe("https://github.com/imrobee/fitness-tracker#readme");
-    expect(href("Rob Feliciano on LinkedIn")).toBe("https://www.linkedin.com/in/robeefeliciano");
+    expect(href("LinkedIn")).toBe("https://www.linkedin.com/in/robeefeliciano");
   });
 });

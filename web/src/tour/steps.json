@@ -1,112 +1,78 @@
 {
-  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. target: a data-tour name on the page at route (null: a dialog in the middle). {streak} is replaced with the streak on screen. lineage: only names that exist in the code: kind is source, endpoint, dag, task, table or function; api/tests/test_tour_lineage.py checks every one.",
+  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. placement: modal (in the middle, no spotlight) or sheet (a bottom sheet on a phone, beside the card on a desktop). targets: CSS selectors on the page at route; the spotlight is one cut-out around all of them. within: optional, the first element matching it holds the targets (one gym session, not all of them). open: a selector to click first (it expands the session). {name} placeholders come from the demo's last rebuild (streak_days, best_streak, eaten, budget, n_checks, n_warnings, n_quarantined, lift_day), checked by tests; a sentence whose value is missing or zero is left out. Never quote the demo user's nickname. technical: shown when Technical details is on (sheet steps only). legend: streak or calendar, a small key drawn with the app's own icons. buttons: the footer, at most two (default: Back and Next).",
   "steps": [
     {
       "id": "welcome",
       "route": "/",
-      "target": "page-title",
-      "placement": "bottom",
-      "title": "One app, three sources",
-      "text": "My training, running and nutrition data lives in separate apps that don't talk to each other, so I built a pipeline that joins them.",
-      "built": "React and FastAPI over a PostgreSQL warehouse, loaded by Airflow. Everything here is synthetic data, built by the real pipeline.",
-      "lineage": [
-        { "kind": "source", "name": "Strava API" },
-        { "kind": "source", "name": "iOS Shortcut (Apple Health)" },
-        { "kind": "source", "name": "Manual entries" }
+      "placement": "modal",
+      "targets": [],
+      "title": "Welcome to Tali Fitness!",
+      "body": "I track my lifting in Hevy, my running in Strava, and my food in MyNetDiary. Each one does its job well, but none of them shows me everything together, so I built Tali Fitness to pull all three into one place. Everything in this demo is made-up data, so none of it is mine. Want a quick look around?",
+      "buttons": [
+        { "label": "Skip", "does": "close" },
+        { "label": "Show me around", "does": "next" }
       ]
     },
     {
       "id": "streak",
       "route": "/",
-      "target": "streak",
-      "placement": "bottom",
-      "title": "A {streak}-day streak",
-      "text": "A day counts when food is logged within budget and there's a workout. Rest days and recovery days are allowed, within rules.",
-      "built": "One SQL function decides every day's status; the streak is a window-function count over it.",
-      "lineage": [
-        { "kind": "table", "name": "core.fact_activity" },
-        { "kind": "table", "name": "core.fact_dietary_sample" },
-        { "kind": "table", "name": "app.recovery_day" },
-        { "kind": "function", "name": "mart.fn_day_status" },
-        { "kind": "function", "name": "mart.fn_streak" },
-        { "kind": "endpoint", "name": "GET /api/v1/dashboard" }
-      ]
+      "placement": "sheet",
+      "targets": ["[data-tour='streak']"],
+      "legend": "streak",
+      "title": "The streak",
+      "body": "This is the week at a glance. Each circle is a day. A barbell or a runner means a workout, and a snowflake means a rest day. The ring around each day is green when calories stayed within budget, orange with a small triangle when they went over, and gray when no food was logged. A day counts toward the streak when there's a workout and the calories stay in range. One rest day or one day over budget is fine, but two rest days in a row or two days over in a row end the streak, and so does a day with nothing logged. The demo user is on a {streak_days}-day streak right now.",
+      "technical": "One SQL function labels every day as trained, rest, over budget, or empty, and the streak is counted over those labels with a window function. It's worked out when you open the page instead of being stored. In this demo, changing a target recalculates every day. In the real app, past days keep the target that applied at the time."
     },
     {
       "id": "calories",
       "route": "/",
-      "target": "calories",
-      "placement": "top",
-      "title": "Food, from Apple Health",
-      "text": "An iPhone Shortcut pushes each meal's calories and protein after it's logged.",
-      "built": "A token-protected POST, checked sample by sample. A batch sent twice is recognised by its SHA-256 and stored once.",
-      "lineage": [
-        { "kind": "endpoint", "name": "POST /api/v1/ingest/health" },
-        { "kind": "table", "name": "raw.health_batches" },
-        { "kind": "table", "name": "raw.health_samples" },
-        { "kind": "table", "name": "core.fact_dietary_sample" },
-        { "kind": "function", "name": "mart.fn_daily_nutrition" }
-      ]
+      "placement": "sheet",
+      "targets": ["[data-tour='calories']", "[data-tour='protein']"],
+      "title": "Calories and protein",
+      "body": "When a meal is logged in MyNetDiary, an iPhone Shortcut sends the calories and protein here automatically. The ring shows how much of today's calorie budget is left, and the bar below it tracks protein. So far today, {eaten} of the {budget} calorie budget has been used.",
+      "technical": "The Shortcut sends the latest entries to an address that only accepts requests carrying a secret token. If the same batch arrives twice, the server recognizes it and keeps just one, so it's safe for the Shortcut to retry on a bad connection."
     },
     {
       "id": "calendar",
       "route": "/activities",
-      "target": "calendar",
-      "placement": "bottom",
-      "title": "Every workout, from Strava",
-      "text": "Runs and walks from the Apple Watch, and lifting sessions logged in Hevy, all arrive through Strava.",
-      "built": "Airflow syncs Strava every hour: the list call, then each activity's detail, picking up from a watermark. Loads are idempotent upserts.",
-      "lineage": [
-        { "kind": "dag", "name": "strava_sync" },
-        { "kind": "task", "name": "sync_activities" },
-        { "kind": "task", "name": "transform_core" },
-        { "kind": "table", "name": "raw.strava_activities" },
-        { "kind": "table", "name": "core.fact_activity" },
-        { "kind": "endpoint", "name": "GET /api/v1/calendar" }
-      ]
+      "placement": "sheet",
+      "targets": ["[data-tour='calendar']"],
+      "legend": "calendar",
+      "title": "Workouts by day",
+      "body": "Every run and gym session shows up here from Strava, with nothing typed in by hand. A filled circle is a day with a workout, a snowflake is a rest day, and a plain number is a day with neither. Gray circles are days from the month before or after. Tap a day to see what was done.",
+      "technical": "Strava can push updates, but only to a public web address, so a scheduled Airflow job checks for new activities every hour instead. It remembers where it stopped, so each run only asks for what's new, and running it again never creates duplicates."
     },
     {
-      "id": "records",
-      "route": "/activities",
-      "target": "records",
-      "placement": "top",
-      "title": "Free text in, set-level records out",
-      "text": "Hevy writes each workout into the Strava description as plain text. A parser turns it into one row per set.",
-      "built": "A small grammar with golden tests. A line it can't read goes to quarantine with a reason; the rest of the session still loads.",
-      "lineage": [
-        { "kind": "task", "name": "parse_hevy" },
-        { "kind": "table", "name": "core.fact_set" },
-        { "kind": "table", "name": "core.dim_exercise" },
-        { "kind": "table", "name": "ops.quarantine" },
-        { "kind": "endpoint", "name": "GET /api/v1/records" }
-      ]
+      "id": "sets",
+      "route": "/activities?date={lift_day}",
+      "placement": "sheet",
+      "within": "[data-tour='strength-session']",
+      "open": ":scope > button[aria-expanded='false']",
+      "targets": [":scope > button", "[data-tour-part='exercise']:nth-of-type(-n+2)"],
+      "title": "A gym session, set by set",
+      "body": "Hevy sends each workout to Strava as plain text, with one line per set, like 'Set 1: 125 kg x 10'. I wrote a parser that reads those lines and turns every set into its own record. That's what lets the app show lifts over time and personal records. If it can't read a line, it sets that line aside and loads the rest of the session.",
+      "technical": "Strava's activity list doesn't include workout notes, so the job opens each new activity to read them. The parser is a small set of rules I tested against real examples of how Hevy words things, including timed sets like planks. Lines it can't read go into a holding table with the reason, so nothing disappears silently. Exercises are matched to a list I maintain, which is how each one gets a muscle group."
     },
     {
       "id": "pipeline",
       "route": "/me",
-      "target": "data-sync",
-      "placement": "top",
-      "title": "The pipeline watches itself",
-      "text": "When each source last synced, failed runs, quarantined lines, and 15 data-quality checks. This demo has a timed-out sync and its retry, and a few warnings.",
-      "built": "Every run is a row in ops.pipeline_runs. A second DAG runs the checks, each one a plain SQL file, and stores the results.",
-      "lineage": [
-        { "kind": "dag", "name": "data_quality" },
-        { "kind": "table", "name": "ops.pipeline_runs" },
-        { "kind": "table", "name": "ops.quarantine" },
-        { "kind": "table", "name": "ops.dq_results" },
-        { "kind": "endpoint", "name": "GET /api/v1/pipeline/health" }
-      ]
+      "placement": "sheet",
+      "targets": ["[data-tour='data-sync']"],
+      "title": "Checking on the data",
+      "body": "Data pipelines break sometimes, so this page shows what's going on: when each source last synced, which runs failed, and the results of {n_checks} automatic checks. In this demo, {n_quarantined} lines from one gym session couldn't be read, so they were set aside, and {n_warnings} checks are showing warnings. I left them in on purpose, so you can see what a problem looks like.",
+      "technical": "Every pipeline run saves a row with its status and counts. A second Airflow job runs each data check, which is just a SQL query in its own file, and stores the result here."
     },
     {
       "id": "done",
       "route": "/",
-      "target": null,
-      "placement": "center",
+      "placement": "modal",
+      "targets": [],
       "title": "That's the tour",
-      "text": "Look around: every page works, and nothing you change is saved.",
-      "built": "The demo is its own service on its own database, with a read-only role and no real credentials.",
-      "lineage": [],
-      "link": { "label": "How it works", "to": "/how-it-works" }
+      "body": "Everything in the demo is clickable, and nothing you change is saved. The demo runs on its own database, separate from my real one, and it's rebuilt every few hours. If you want to see how it's built, the How it works page walks through it.",
+      "buttons": [
+        { "label": "How it works", "does": "link", "to": "/how-it-works" },
+        { "label": "Explore the demo", "does": "close" }
+      ]
     }
   ]
 }

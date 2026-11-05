@@ -12,7 +12,7 @@ export interface Size {
   height: number;
 }
 
-export const SPOT_PADDING = 8; // room between the card and the spotlight's edge
+export const SPOT_PADDING = 10; // room between the card and the spotlight's edge
 export const GAP = 12; // between the spotlight and the dialog
 export const EDGE = 16; // the page gutter: nothing is placed closer to the screen edge
 // Narrower than this (a phone), or shorter (a phone on its side, where a floating
@@ -77,8 +77,37 @@ export function dialogPosition(
   return { top: clamp(above, EDGE, viewport.height - dialog.height - EDGE), left: horizontal };
 }
 
-/** Phone: how far down to scroll so the target sits just under the top edge, clear of
-    the bottom sheet. targetTop is the target's top in page (document) pixels. */
+/** One box around several (a step can spotlight two cards as one cut-out). */
+export function union(rects: Rect[]): Rect | null {
+  if (rects.length === 0) return null;
+  const top = Math.min(...rects.map((r) => r.top));
+  const left = Math.min(...rects.map((r) => r.left));
+  const bottom = Math.max(...rects.map((r) => r.top + r.height));
+  const right = Math.max(...rects.map((r) => r.left + r.width));
+  return { top, left, width: right - left, height: bottom - top };
+}
+
+/** Phone: the tallest the bottom sheet may be, once the target is scrolled to the top of
+    the screen: everything below the spotlight and the gutter. */
+export function sheetRoom(targetHeight: number, viewportHeight: number): number {
+  return viewportHeight - (targetHeight + 2 * SPOT_PADDING + 2 * EDGE);
+}
+
+/** Phone: how far down to scroll so the target sits at the top, clear of the sheet.
+    targetTop is in page (document) pixels. */
 export function sheetScrollTop(targetTop: number): number {
   return Math.max(0, targetTop - EDGE - SPOT_PADDING);
+}
+
+export const MORE_BUTTON = 44; // the "Show more" button's height
+
+/**
+ * Phone, Technical details on: how many lines of the technical words fit without the
+ * sheet growing over the target. Null when they all fit (no "Show more"); otherwise the
+ * lines to show, with room left for the "Show more" button (0: the button alone).
+ *   room: sheetRoom(); others: the sheet without the technical words; full: their height.
+ */
+export function technicalLines(room: number, others: number, full: number, lineHeight: number): number | null {
+  if (others + full <= room) return null;
+  return Math.max(0, Math.floor((room - others - MORE_BUTTON) / lineHeight));
 }

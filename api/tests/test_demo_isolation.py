@@ -136,7 +136,7 @@ def test_nothing_opens_before_the_visit_starts(visitor_client):
 
 
 def test_a_visit_reads_the_demo(visitor):
-    assert visitor.get("/auth/me").json() == {"signed_in": True, "demo": True}
+    assert visitor.get("/auth/me").json() == {"signed_in": True, "demo": True, "story": None}
     assert visitor.get("/api/v1/dashboard").status_code == 200
 
 

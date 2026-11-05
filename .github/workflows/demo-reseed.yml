@@ -1,4 +1,4 @@
-# Rebuild the public demo's synthetic data (DECISIONS D121): once a day, and whenever the
+# Rebuild the public demo's synthetic data (DECISIONS D121, D124): every 3 hours, and whenever the
 # demo service finds its data over a day old and asks (workflow_dispatch, from
 # api/app/demo/self_heal.py). Same container and command as `make demo-reseed`.
 #
@@ -8,9 +8,10 @@ name: demo-reseed
 
 on:
   schedule:
-    # 16:17 UTC is 00:17 in Manila: just after the demo's day turns over. Not on the hour,
-    # when GitHub's scheduled runs are most often delayed.
-    - cron: "17 16 * * *"
+    # Every 3 hours at minute 17 (00:17, 03:17 ... in UTC; 08:17, 11:17 ... in Manila), so
+    # "today" holds the morning's run and meals soon after they would have happened (D124).
+    # Not on the hour, when GitHub's scheduled runs are most often delayed.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
 
 # One rebuild at a time; a second request waits rather than cancelling one mid-way.
