@@ -1,13 +1,13 @@
 # Handoff (2026-11-05)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D128).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D129).
 
 ## Where we are
 
 - **Slices 0-7d are done and merged** (PRs #1-#10).
 - **Slice 8a (Google sign-in and the ingest token) is built and green** on `slice-8a-google-auth`, waiting on Rob's checklist (AUTH_SPEC section 13). Google sign-in for one account, server-side sessions (migration 0015, applied), an Origin check, the hashed Shortcut token, hardening, leak tests, gitleaks in CI. The shared `API_KEY` works nowhere now. Departures from the spec: D109, D110, D112, D113, D115.
 - **Slice 8a is merged** (PR #11). **UI polish** (Tali theme, launch screen, card changes) and **Slice 8b (the public demo)** are built and green on `ui-polish` (Rob chose to build 8b there): an isolated read-only demo service on its own database (`app_demo`, roles `demo_reader` / `demo_seed`), demo data replayed through the real pipeline and rebuilt every 3 hours by GitHub Actions in one transaction, on real time (D124), session-only Me settings (migration 0016), a guided tour with Rob's copy and a How it works page in plain prose (D116-D127; ARCHITECTURE 13b).
-- Tests: 451 API + 214 pipeline + 244 web, plus the secret scan, the bundle check and the demo clock check, all green with `make -k check`. `make screenshots` also walks the tour (`web/e2e/tour.spec.ts`) at 375x812 and desktop, Technical details off and on.
+- Tests: 452 API + 235 pipeline + 253 web, plus the secret scan, the bundle check and the demo clock check, all green with `make -k check`. `make screenshots` also walks the tour (`web/e2e/tour.spec.ts`) at 375x812 and desktop, Technical details off and on, and the streak explainer (`web/e2e/streak-explainer.spec.ts`); it runs one spec file at a time with a minute between them, to stay under the demo's rate limit.
 
 ## What works, and how to run it
 

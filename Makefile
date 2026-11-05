@@ -83,6 +83,10 @@ check-demo-clock:
 # demo's clock is frozen at Sat 2026-10-17 14:00 for the pictures only; afterwards the
 # demo is back on the real time with the midweek story loaded (D124).
 FROZEN := DEMO_NOW_OVERRIDE=2026-10-17T14:00:00+08:00
+# One spec file at a time, with a minute between them on midweek (the only scenario the
+# tour and the explainer run on): every test reaches the demo API from one address, and
+# together they would set off its rate limit of 120 reads a minute (app/security.py).
+SPECS := e2e/screenshots.spec.ts e2e/tour.spec.ts e2e/streak-explainer.spec.ts
 
 screenshots:
 	$(FROZEN) $(DEMO) up -d --build --renew-anon-volumes --force-recreate --wait api-demo web-demo
@@ -90,7 +94,10 @@ screenshots:
 	for scenario in $(SCENARIOS); do \
 	  $(DEMO) run --rm demo-seed python /scripts/seed_demo.py setup && \
 	  $(FROZEN) $(DEMO) run --rm demo-seed python /scripts/seed_demo.py load $$scenario && \
-	  $(DEMO) run --rm -e SCENARIO=$$scenario screenshots npx playwright test || exit 1; \
+	  for spec in $(SPECS); do \
+	    $(DEMO) run --rm -e SCENARIO=$$scenario screenshots npx playwright test $$spec || exit 1; \
+	    if [ $$scenario = midweek ]; then sleep 61; fi; \
+	  done; \
 	done
 	$(DEMO) up -d --force-recreate --wait api-demo
 	$(DEMO) run --rm demo-seed python /scripts/seed_demo.py load midweek

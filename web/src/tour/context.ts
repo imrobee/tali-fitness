@@ -3,8 +3,11 @@
 
 import { createContext, useContext } from "react";
 
+/** The demo tour (steps.json), or the streak explainer (streak/explainer.json, D129). */
+export type TourName = "demo" | "streak";
+
 export interface TourControls {
-  start: () => void;
+  start: (tour?: TourName) => void;
   running: boolean;
 }
 

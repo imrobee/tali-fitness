@@ -150,6 +150,33 @@
   cursor: pointer;
 }
 
+/* The streak explainer: a row of example days, drawn like the card, and its caption. */
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 0;
+}
+
+.exampleDays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exampleCaption {
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+/* The explainer's last step: the line about targets for this mode. */
+.note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
 /* The key on the streak and calendar steps: the card's own marks, each with a word. */
 .legend {
   display: flex;

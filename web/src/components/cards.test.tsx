@@ -103,10 +103,12 @@ describe("StreakCard", () => {
     expect(circles[5].textContent).toBe("17"); // today: still open, not a rest day yet
   });
 
-  it("is for reading only: no buttons or links to pick a day", () => {
+  it("is for reading only: no buttons or links to pick a day, only the ? that explains it", () => {
     wrap(<StreakCard streak={streak} today={TODAY} />);
 
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
+      "How streaks work",
+    ]);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });

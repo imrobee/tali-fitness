@@ -75,6 +75,8 @@ services:
       - ./pipeline/tests:/opt/airflow/tests
       - ./db:/opt/airflow/db:ro # SQL files (db/sql) and migrations for the tests
       - ./docs/samples:/opt/airflow/samples:ro # recorded API samples used as test fixtures
+      # The streak explainer's words and examples, checked against the SQL (D129).
+      - ./web/src/streak:/opt/airflow/explainer:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -186,6 +188,7 @@ services:
     volumes:
       - ./web/e2e:/app/e2e:ro
       - ./web/src/tour:/app/tour:ro # the tour's steps, for e2e/tour.spec.ts
+      - ./web/src/streak:/app/streak:ro # the streak explainer, for e2e/streak-explainer.spec.ts
       - ./web/playwright.config.ts:/app/playwright.config.ts:ro
       - ./docs/screenshots:/app/screenshots
 

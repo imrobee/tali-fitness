@@ -2,6 +2,7 @@
 // (UI_SPEC.md section 12). Checked here (shape), in src/copy.test.ts (spelling, names,
 // em dashes) and in api/tests/test_tour_claims.py (the facts the words state).
 
+import type { ExplainerExample } from "../lib/streakExplainer";
 import data from "./steps.json";
 
 export interface TourButton {
@@ -12,7 +13,7 @@ export interface TourButton {
 
 export interface TourStep {
   id: string;
-  route: string; // may hold {placeholders}, like /activities?date={lift_day}
+  route?: string; // may hold {placeholders}, like /activities?date={lift_day}; none: stay put
   placement: "modal" | "sheet";
   targets: string[]; // CSS selectors; one spotlight around all of them (none on a modal)
   within?: string; // the first element matching it holds the targets and the open selector
@@ -21,6 +22,8 @@ export interface TourStep {
   title: string;
   body: string;
   technical?: string; // shown with Technical details on (sheet steps only)
+  example?: ExplainerExample; // the streak explainer: a row of days drawn like the card
+  note?: string; // the streak explainer: one quiet line under the body
   buttons?: TourButton[]; // the footer; Back and Next when not given
 }
 
@@ -94,14 +97,16 @@ export function stepProblems(steps: TourStep[], routes: string[]): string[] {
   steps.forEach((step, index) => {
     if (ids.has(step.id)) problems.push(`${step.id}: id used twice`);
     ids.add(step.id);
-    if (!routes.includes(step.route.split("?")[0])) problems.push(`${step.id}: no page at ${step.route}`);
+    if (!step.route || !routes.includes(step.route.split("?")[0])) {
+      problems.push(`${step.id}: no page at ${step.route}`);
+    }
     if (!step.title.trim() || !step.body.trim()) problems.push(`${step.id}: empty words`);
     if (step.placement === "modal" && (step.targets.length > 0 || step.technical)) {
       problems.push(`${step.id}: a modal has no spotlight and no technical details`);
     }
     if (step.placement === "sheet" && step.targets.length === 0) problems.push(`${step.id}: nothing to spotlight`);
     if (footer(step, index).length > 2) problems.push(`${step.id}: more than 2 buttons`);
-    const words = [step.title, step.body, step.technical ?? "", step.route].join(" ");
+    const words = [step.title, step.body, step.technical ?? "", step.route ?? ""].join(" ");
     for (const match of words.matchAll(/\{(\w+)\}/g)) {
       if (!(PLACEHOLDERS as readonly string[]).includes(match[1])) {
         problems.push(`${step.id}: unknown value {${match[1]}}`);

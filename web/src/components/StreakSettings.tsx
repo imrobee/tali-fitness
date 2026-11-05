@@ -4,22 +4,29 @@ import { useIsDemo } from "../api/visit";
 import type { Me } from "../api/types";
 import { CalendarIcon } from "../icons";
 import { openPicker } from "../lib/picker";
-import { chipText, periodText, streakRules, vacationError, weekendRule } from "../lib/streakRules";
+import { chipText, periodText, vacationError, weekendRule } from "../lib/streakRules";
+import { EXPLAINER, targetsLine } from "../lib/streakExplainer";
 import { Card } from "./Card";
 import styles from "./StreakSettings.module.css";
 import { Toggle } from "./Toggle";
 
 type Weekends = "strict" | "relaxed";
 
-/** "How your streak works": the rules in plain words (UI_SPEC.md 6.3). */
+/** "How your streak works": the same rules, titles and words as the streak card's "?"
+    sheet, from one file (streak/explainer.json, D129), as a numbered list. */
 export function StreakRulesCard() {
+  const demo = useIsDemo();
   return (
-    <Card title="How your streak works">
-      <ul className={styles.rules}>
-        {streakRules().map((rule) => (
-          <li key={rule}>{rule}</li>
+    <Card title={EXPLAINER.title}>
+      <ol className={styles.rules}>
+        {EXPLAINER.items.map((item) => (
+          <li key={item.id} className={styles.ruleItem}>
+            <h3 className={styles.ruleTitle}>{item.title}</h3>
+            <p className={styles.ruleBody}>{item.body}</p>
+          </li>
         ))}
-      </ul>
+      </ol>
+      <p className={styles.help}>{targetsLine(demo)}</p>
     </Card>
   );
 }

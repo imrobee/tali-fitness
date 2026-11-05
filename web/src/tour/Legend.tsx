@@ -64,7 +64,6 @@ export function Legend({ kind }: { kind: "streak" | "calendar" }) {
         }
         label="Rest day"
       />
-      <Item mark={<span className={`${styles.keyDay} num`}>12</span>} label="Neither" />
     </ul>
   );
 }

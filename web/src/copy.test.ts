@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import page from "./pages/howItWorks.json";
+import explainer from "./streak/explainer.json";
 import tour from "./tour/steps.json";
 
 // The words a first-time visitor reads (the tour, and the How it works page): plain US
@@ -34,7 +35,16 @@ function visibleCopy(): { where: string; text: string }[] {
       (match) => ({ where, text: match[1] }),
     ),
   );
-  return [...steps, ...strings(page, "howItWorks.json"), ...pages].filter((item) => item.text.trim());
+  return [
+    ...steps,
+    ...strings(page, "howItWorks.json"),
+    // The explainer's words; its day letters and expected states are data, not copy.
+    ...strings({ title: explainer.title, done: explainer.done, targets: explainer.targets }, "explainer.json"),
+    ...explainer.items.flatMap((item) =>
+      strings({ title: item.title, body: item.body, caption: item.example.caption }, `explainer.json ${item.id}`),
+    ),
+    ...pages,
+  ].filter((item) => item.text.trim());
 }
 
 const NAMES = /\b(Rob|Robee|Feliciano|Taiki)\b/;

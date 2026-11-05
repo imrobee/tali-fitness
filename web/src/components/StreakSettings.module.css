@@ -3,9 +3,24 @@
 .rules {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.ruleItem::marker {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.ruleTitle {
+  margin: 0 0 2px;
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.ruleBody {
   margin: 0;
-  padding-left: 18px;
 }
 
 /* The rule the weekend switch sets: the card's answer, so in the main text colour. */

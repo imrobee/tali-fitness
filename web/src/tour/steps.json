@@ -39,8 +39,8 @@
       "targets": ["[data-tour='calendar']"],
       "legend": "calendar",
       "title": "Workouts by day",
-      "body": "Every run and gym session shows up here from Strava, with nothing typed in by hand. A filled circle is a day with a workout, a snowflake is a rest day, and a plain number is a day with neither. Gray circles are days from the month before or after. Tap a day to see what was done.",
-      "technical": "Strava can push updates, but only to a public web address, so a scheduled Airflow job checks for new activities every hour instead. It remembers where it stopped, so each run only asks for what's new, and running it again never creates duplicates."
+      "body": "Every run and gym session shows up here from Strava, with nothing typed in by hand. A filled circle is a day with a workout, and a snowflake is a rest day. Gray circles are days from the month before or after. Tap a day to see what was done.",
+      "technical": "Strava can push updates, but that needs a public address that answers quickly, and a missed push means a missed workout. I chose to poll instead: a scheduled Airflow job checks for new activities every hour. It remembers where it stopped, so each run only asks for what's new, and running it again never creates duplicates."
     },
     {
       "id": "sets",

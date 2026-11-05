@@ -58,7 +58,7 @@ function Session() {
 function Pages() {
   const location = useLocation();
   const { start } = useTour();
-  const names = STEPS.filter((step) => step.route.split("?")[0] === location.pathname).flatMap((step) =>
+  const names = STEPS.filter((step) => (step.route ?? "").split("?")[0] === location.pathname).flatMap((step) =>
     [...step.targets, step.within ?? ""].flatMap((selector) =>
       [...selector.matchAll(/data-tour='([a-z-]+)'/g)].map((m) => m[1]),
     ),
@@ -67,7 +67,7 @@ function Pages() {
   return (
     <>
       <p>Page {location.pathname + location.search}</p>
-      <button type="button" onClick={start}>
+      <button type="button" onClick={() => start()}>
         Take the tour
       </button>
       {cards.map((name) =>

@@ -10,7 +10,9 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useIsDemo, useStory } from "../api/visit";
-import { markTourSeen, TourContext, tourSeen } from "./context";
+import { DayCircle } from "../components/DayCircle";
+import { EXPLAINER, type ExplainerExample, exampleDays } from "../lib/streakExplainer";
+import { markTourSeen, TourContext, type TourName, tourSeen } from "./context";
 import {
   dialogPosition,
   isSheet,
@@ -33,6 +35,7 @@ import {
   type TourButton,
   type TourStep,
 } from "./steps";
+import { streakSteps } from "./streakTour";
 import styles from "./Tour.module.css";
 
 // How long to wait for a step's card to load (its page may still be fetching).
@@ -81,17 +84,21 @@ function detailsOnAtStart(): boolean {
 
 /** The demo tour (UI_SPEC.md section 12): the page dims, the step's card is cut out of the
     dimming, and a dialog (a bottom sheet on a phone) explains it in plain words; the
-    Technical details switch adds the engineering. Starts by itself on a first demo visit. */
+    Technical details switch adds the engineering. Starts by itself on a first demo visit.
+    The same engine runs the streak explainer (the "?" on the streak card, D129). */
 export function TourProvider({ children }: { children: ReactNode }) {
   const demo = useIsDemo();
   const story = useStory();
   // Open from the first render on a first demo visit (the gate has already loaded).
+  const [tour, setTour] = useState<TourName>("demo");
   const [index, setIndex] = useState<number | null>(() => (demo && !tourSeen() ? 0 : null));
   const [details, setDetails] = useState(detailsOnAtStart);
   const opener = useRef<HTMLElement | null>(null);
+  const steps = tour === "streak" ? streakSteps(demo) : STEPS;
 
-  const start = useCallback(() => {
+  const start = useCallback((name: TourName = "demo") => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setTour(name);
     setIndex(0);
   }, []);
   const close = useCallback(() => {
@@ -113,28 +120,30 @@ export function TourProvider({ children }: { children: ReactNode }) {
   // Once seen, it never starts by itself again in this browser. While it runs, the page
   // gets room at the bottom, so even its last card can scroll clear of the sheet.
   useEffect(() => {
-    if (index !== null) markTourSeen();
+    if (index !== null && tour === "demo") markTourSeen();
     document.body.classList.toggle("tour-open", index !== null);
-  }, [index]);
+  }, [index, tour]);
 
   const controls = useMemo(() => ({ start, running: index !== null }), [start, index]);
-  const step = index === null ? null : STEPS[index];
+  const step = index === null ? null : steps[index];
   return (
     <TourContext.Provider value={controls}>
       {children}
       {/* Announces each step; always on the page, so screen readers notice the change. */}
       <p className="visually-hidden" aria-live="polite">
-        {index !== null && step ? `Step ${counter(index, STEPS.length)}: ${fill(step.title, story)}` : ""}
+        {index !== null && step ? `Step ${counter(index, steps.length)}: ${fill(step.title, story)}` : ""}
       </p>
       {index !== null && (
         <TourStepView
-          key={index} // a fresh view per step: no spotlight left over from the last one
+          key={`${tour}-${index}`} // a fresh view per step: no spotlight left over from the last one
+          steps={steps}
+          heading={tour === "streak" ? EXPLAINER.title : null}
           index={index}
           story={story}
           details={details}
           onToggleDetails={toggleDetails}
           onBack={() => setIndex(Math.max(0, index - 1))}
-          onNext={() => (index + 1 < STEPS.length ? setIndex(index + 1) : close())}
+          onNext={() => (index + 1 < steps.length ? setIndex(index + 1) : close())}
           onClose={close}
         />
       )}
@@ -143,6 +152,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
 }
 
 interface ViewProps {
+  steps: TourStep[];
+  /** The explainer's name above its counter ("How your streak works"); null for the tour. */
+  heading: string | null;
   index: number;
   story: Story;
   details: boolean;
@@ -158,10 +170,21 @@ function lineHeightOf(element: HTMLElement): number {
   return Number.isFinite(height) ? height : Number.parseFloat(style.fontSize) * 1.45;
 }
 
-function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, onClose }: ViewProps) {
-  const step = STEPS[index];
+function TourStepView({
+  steps,
+  heading,
+  index,
+  story,
+  details,
+  onToggleDetails,
+  onBack,
+  onNext,
+  onClose,
+}: ViewProps) {
+  const step = steps[index];
   const modal = step.placement === "modal";
-  const route = fillRoute(step.route, story);
+  // No route: the step is about something on the page already open (the streak card).
+  const route = step.route ? fillRoute(step.route, story) : null;
   const navigate = useNavigate();
   const location = useLocation();
   const dialog = useRef<HTMLDivElement>(null);
@@ -179,7 +202,7 @@ function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, 
 
   // 1. Go to the step's page.
   useEffect(() => {
-    if (location.pathname + location.search !== route) navigate(route);
+    if (route !== null && location.pathname + location.search !== route) navigate(route);
   }, [route, location.pathname, location.search, navigate]);
 
   // 2. Wait for its cards to finish loading (and open the gym session), then bring them
@@ -310,8 +333,10 @@ function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, 
   const layout = modal ? styles.modal : sheet ? styles.sheet : styles.floating;
   const style = !modal && !sheet && position ? { top: position.top, left: position.left } : undefined;
   const buttons = footer(step, index);
-  // Skip sits at the top of the middle steps; the first and last have their own footer.
-  const skipAtTop = !step.buttons;
+  // Skip sits at the top of the tour's middle steps (its first and last have their own
+  // footer); the streak explainer has Close on every step.
+  const explainer = heading !== null;
+  const skipAtTop = explainer || !step.buttons;
   const clamped = sheet && showTechnical && !swapped && clamp !== null;
   const technicalStyle = clamped
     ? { WebkitLineClamp: Math.max(clamp.lines, 1), maxHeight: clamp.lines * clamp.lineHeight }
@@ -346,10 +371,13 @@ function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, 
       >
         <div className={styles.content}>
           <div className={styles.top}>
-            <span className={styles.counter}>{counter(index, STEPS.length)}</span>
+            <span className={styles.counter}>
+              {explainer && `${heading} · `}
+              {counter(index, steps.length)}
+            </span>
             {skipAtTop && (
               <button type="button" className={styles.skip} onClick={onClose}>
-                Skip tour
+                {explainer ? "Close" : "Skip tour"}
               </button>
             )}
           </div>
@@ -362,6 +390,8 @@ function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, 
                 {fill(step.body, story)}
               </p>
               {step.legend && <Legend kind={step.legend} />}
+              {step.example && <Example example={step.example} />}
+              {step.note && <p className={styles.note}>{step.note}</p>}
             </>
           )}
           {showTechnical && step.technical && (
@@ -414,5 +444,21 @@ function TourStepView({ index, story, details, onToggleDetails, onBack, onNext, 
         </div>
       </div>
     </div>
+  );
+}
+
+/** The streak explainer's row of example days, drawn by the streak card's own circle, with
+    its caption. The caption says it in words; the circles are decoration. */
+function Example({ example }: { example: ExplainerExample }) {
+  const { days, today } = exampleDays(example);
+  return (
+    <figure className={styles.example}>
+      <span className={styles.exampleDays}>
+        {days.map((day) => (
+          <DayCircle key={day.date} day={day} today={today} />
+        ))}
+      </span>
+      <figcaption className={styles.exampleCaption}>{example.caption}</figcaption>
+    </figure>
   );
 }

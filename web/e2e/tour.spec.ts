@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { type Locator, type Page, expect, test } from "@playwright/test";
+import { settled } from "./settle";
 
 // The demo tour, walked in a real browser (UI_SPEC.md section 12): at phone size
 // (375x812, a bottom sheet) and on desktop, with Technical details off and on. On every
@@ -43,11 +44,11 @@ for (const size of SIZES) {
           const scope = step.within ? page.locator(step.within).first() : page.locator(":root");
           const targets = scope.locator(step.targets.join(", "));
           await expect(targets.first()).toBeVisible();
-          await page.waitForTimeout(700); // the scroll to the card settles
+          await settled(page, targets); // the scroll to the card has finished
           if (step.open) {
             // A step that opens something (the gym session) must show it open.
             await expect(page.locator("[data-tour='strength-session'] [aria-expanded='true']")).toHaveCount(1);
-            await page.waitForTimeout(600); // the sets arrive and the card settles
+            await settled(page, targets); // the sets arrived and the card stopped growing
           }
           await checkStep(page, targets, dialog, size.height);
           const technicalWords = dialog.getByText(step.technical?.slice(0, 30) ?? "");
@@ -55,7 +56,7 @@ for (const size of SIZES) {
           if (await more.count()) {
             await page.screenshot({ path: `screenshots/tour-${step.id}-${suffix}.png` });
             await more.click();
-            await page.waitForTimeout(300);
+            await settled(page, targets);
             await expect(technicalWords).toBeVisible(); // all of it, in place of the body
             await checkStep(page, targets, dialog, size.height);
             await page.screenshot({ path: `screenshots/tour-${step.id}-${suffix}-more.png` });

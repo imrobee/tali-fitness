@@ -14,7 +14,7 @@ export function Page({ title, children }: { title: ReactNode; children: ReactNod
       {demo && (
         <div className={styles.demoBar}>
           <span className={styles.demoBadge}>Demo version</span>
-          <button type="button" className={styles.tourButton} onClick={tour.start}>
+          <button type="button" className={styles.tourButton} onClick={() => tour.start()}>
             Take the tour
           </button>
         </div>
