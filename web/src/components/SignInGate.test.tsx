@@ -115,6 +115,7 @@ describe("SignInGate", () => {
     fireEvent.click(demo);
     expect(calls.length).toBe(before);
     expect(screen.getByRole("link", { name: "Sign in with Google" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "How it works" }).getAttribute("href")).toBe("/how-it-works");
   });
 
   it("links the Demo button to the demo service when the server names one", async () => {

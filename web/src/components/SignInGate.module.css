@@ -223,3 +223,22 @@
   fill: var(--text);
   opacity: 0.045;
 }
+
+/* A quiet text link under the buttons: the page that explains the build. */
+.howLink {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  color: var(--launch-note);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.howLink:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+

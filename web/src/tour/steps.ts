@@ -16,6 +16,7 @@ export interface TourStep {
   text: string;
   built: string; // the "how it's built" line
   lineage: { kind: LineageKind; name: string }[];
+  link?: { label: string; to: string }; // a page to open instead of carrying on
 }
 
 export const STEPS: TourStep[] = data.steps as TourStep[];

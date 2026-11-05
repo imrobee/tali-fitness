@@ -55,6 +55,8 @@ The launch screen's **Demo version** button opens a separate demo service with s
 - **Try your own settings.** On the demo's Me page you can change the calorie budget, protein goal, weight goal and weekend rule; every page follows, for every day. The settings stay in your browser tab, ride along with each request, and are applied inside that request's database transaction only. Nothing is saved; **Reset demo** puts the demo's own back.
 - **A guided tour** spotlights each card and names where its data comes from: the real tables, SQL functions, Airflow DAGs and tasks, and endpoints. The steps are a data file (`web/src/tour/steps.json`), and a test checks every name against the code.
 
+The tour and the **How it works** page (architecture, data flow, stack) are pictured in [the tour on a phone](docs/screenshots/tour-streak-iphone.png), [beside a card on desktop](docs/screenshots/tour-pipeline-desktop.png) and [How it works](docs/screenshots/how-it-works-iphone.png). Deploying the demo: the checklist in `docs/ARCHITECTURE.md` section 13b.
+
 ## Authentication and security
 
 Full design: [docs/AUTH_SPEC.md](docs/AUTH_SPEC.md). The app has one user, so the goal is defense in depth: no single mistake (a leaked log, a committed file, a stolen cookie, a wrong setting) should expose the data or a credential.

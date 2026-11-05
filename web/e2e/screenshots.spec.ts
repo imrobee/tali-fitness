@@ -107,6 +107,14 @@ test(`screenshots: ${scenario}`, async ({ page }) => {
     await tourShots(page, { width: 375, height: 667 }, "iphone", ["welcome", "streak", "calories", "calendar", "records", "pipeline", "done"]);
     await tourShots(page, { width: 1280, height: 800 }, "desktop", ["streak", "records", "pipeline"]);
     await tourShots(page, { width: 667, height: 375 }, "landscape", ["calories"]);
+
+    // How it works (UI_SPEC.md section 13), open to anyone.
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto("/how-it-works");
+      await expect(page.getByRole("heading", { name: "How the data flows" })).toBeVisible();
+      await capture(page, `how-it-works-${viewport.name}.png`);
+    }
   }
 
   // The light theme, at phone size: switched with the header toggle, kept across a reload.

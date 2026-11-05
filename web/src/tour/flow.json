@@ -1,0 +1,109 @@
+{
+  "_readme": "The data flow on the How it works page (UI_SPEC.md section 13). Edit the words freely; names use the tour's kinds and api/tests/test_tour_lineage.py checks every one against the code.",
+  "flows": [
+    {
+      "id": "strava",
+      "title": "Strava: runs, walks and lifting",
+      "steps": [
+        {
+          "text": "Every hour, Airflow lists new activities, then reads each one's detail (the list has no description). It picks up from a watermark and stays under Strava's rate limit.",
+          "names": [
+            { "kind": "dag", "name": "strava_sync" },
+            { "kind": "task", "name": "sync_activities" }
+          ]
+        },
+        {
+          "text": "Each activity lands as Strava sent it, minus the GPS fields.",
+          "names": [{ "kind": "table", "name": "raw.strava_activities" }]
+        },
+        {
+          "text": "SQL loads it into the star schema with idempotent upserts.",
+          "names": [
+            { "kind": "task", "name": "transform_core" },
+            { "kind": "table", "name": "core.fact_activity" }
+          ]
+        },
+        {
+          "text": "Hevy writes lifting sessions into the description as text; a parser turns it into one row per set. Lines it can't read go to quarantine with a reason.",
+          "names": [
+            { "kind": "task", "name": "parse_hevy" },
+            { "kind": "table", "name": "core.fact_set" },
+            { "kind": "table", "name": "ops.quarantine" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "health",
+      "title": "Apple Health: food and weight",
+      "steps": [
+        {
+          "text": "An iPhone Shortcut posts yesterday's and today's samples with a bearer token.",
+          "names": [{ "kind": "endpoint", "name": "POST /api/v1/ingest/health" }]
+        },
+        {
+          "text": "The batch is stored as received; one sent twice is recognised by its SHA-256 and skipped.",
+          "names": [
+            { "kind": "table", "name": "raw.health_batches" },
+            { "kind": "table", "name": "raw.health_samples" }
+          ]
+        },
+        {
+          "text": "Each sample is checked, then becomes a fact; a bad one is quarantined.",
+          "names": [
+            { "kind": "table", "name": "core.fact_dietary_sample" },
+            { "kind": "table", "name": "core.fact_body_mass" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "manual",
+      "title": "Typed into the app",
+      "steps": [
+        {
+          "text": "Targets, the weight goal, the weekend rule and recovery days. A target applies from the day it is set, so past days keep theirs.",
+          "names": [
+            { "kind": "endpoint", "name": "PUT /api/v1/me" },
+            { "kind": "endpoint", "name": "POST /api/v1/recovery" },
+            { "kind": "table", "name": "app.target_history" },
+            { "kind": "table", "name": "app.recovery_day" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "title": "Rules, read time",
+      "steps": [
+        {
+          "text": "The business rules are SQL functions, worked out when a page asks: what kind of day each day was, the streak (window functions over gaps and islands), and nutrition against the target.",
+          "names": [
+            { "kind": "function", "name": "mart.fn_day_status" },
+            { "kind": "function", "name": "mart.fn_streak" },
+            { "kind": "function", "name": "mart.fn_daily_nutrition" }
+          ]
+        },
+        {
+          "text": "FastAPI serves them as JSON to this React app.",
+          "names": [{ "kind": "endpoint", "name": "GET /api/v1/dashboard" }]
+        }
+      ]
+    },
+    {
+      "id": "watch",
+      "title": "The pipeline watches itself",
+      "steps": [
+        {
+          "text": "Every run is a row with its status and counts. Every hour, 15 data-quality checks run, each a plain SQL file, and the Me page shows the results.",
+          "names": [
+            { "kind": "dag", "name": "data_quality" },
+            { "kind": "table", "name": "ops.pipeline_runs" },
+            { "kind": "table", "name": "ops.dq_results" },
+            { "kind": "endpoint", "name": "GET /api/v1/pipeline/health" }
+          ]
+        }
+      ]
+    }
+  ]
+}

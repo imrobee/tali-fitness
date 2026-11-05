@@ -105,7 +105,8 @@
       "title": "That's the tour",
       "text": "Look around: every page works, and nothing you change is saved.",
       "built": "The demo is its own service on its own database, with a read-only role and no real credentials.",
-      "lineage": []
+      "lineage": [],
+      "link": { "label": "How it works", "to": "/how-it-works" }
     }
   ]
 }

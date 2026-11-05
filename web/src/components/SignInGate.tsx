@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { AUTH_QUERY, devSignIn, forgetOldKey, googleSignInUrl, type SignInMethod } from "../api/auth";
 import { loadAuth } from "../api/visit";
 import { UNAUTHORIZED_EVENT } from "../api/client";
@@ -79,6 +79,9 @@ function SignInScreen({
               Demo version
             </button>
           )}
+          <Link className={styles.howLink} to="/how-it-works">
+            How it works
+          </Link>
         </div>
       </div>
       <CornerRing />

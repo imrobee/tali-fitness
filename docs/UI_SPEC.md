@@ -263,3 +263,9 @@ On the public demo only. A bar above every page's title holds the **Demo data** 
 - **Finding the card:** the tour opens the step's page, waits up to 8 seconds for the card to load, scrolls it into view (to just under the top edge on a phone), and measures again on scroll, resize, rotation, the on-screen keyboard, and the card changing size. A card that never appears gets the words without a spotlight. Under `prefers-reduced-motion`, scrolling jumps and nothing slides.
 - **Checks:** `web/src/tour/steps.test.ts` (shape, routes, every target exists in the components), `api/tests/test_tour_lineage.py` (every lineage name exists in the schema, the DAG files or the API's routes). Screenshots: `tour-*-iphone.png` (375x667), `tour-*-desktop.png`, `tour-calories-landscape.png` (667x375).
 
+## 13. How it works (Slice 8b, D123)
+
+`/how-it-works`, open to anyone (outside the sign-in gate), on Rob's app and the demo. It calls no API, so it shows at once even while the demo service wakes up. Reached from the launch screen (a quiet "How it works" text link under the buttons) and the tour's last step (a **How it works** button between Back and Explore freely).
+
+Top to bottom: the README framing line; **Architecture**, drawn with boxes (sources, Airflow and FastAPI, PostgreSQL with `raw → core → mart` plus `ops` and `app`, the web app), hidden from screen readers and described in a visually hidden caption instead; **How the data flows**, from `web/src/tour/flow.json` (five flows, each step with chips naming its DAG, task, table, function or endpoint, checked by `api/tests/test_tour_lineage.py`); **The stack**; **The demo** (how it is isolated, one paragraph); **Links**: Code on GitHub, README, Rob Feliciano on LinkedIn (new tab), and Back to the app. Screenshots: `how-it-works-iphone.png`, `how-it-works-desktop.png`.
+

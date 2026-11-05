@@ -145,6 +145,17 @@ describe("the demo tour", () => {
     expect(await screen.findByText(/^Page \//)).toBeTruthy();
   });
 
+  it("ends with a way to How it works", async () => {
+    renderTour();
+    for (let step = 0; step < STEPS.length - 1; step += 1) {
+      fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+    }
+    fireEvent.click(await screen.findByRole("button", { name: "How it works" }));
+
+    expect(await screen.findByText("Page /how-it-works")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("keeps Tab inside the dialog", async () => {
     renderTour();
     const tour = await dialog();

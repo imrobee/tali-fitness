@@ -254,6 +254,18 @@ function TourStepView({
               Back
             </button>
           )}
+          {step.link && (
+            <button
+              type="button"
+              className={styles.back}
+              onClick={() => {
+                onClose();
+                navigate(step.link!.to);
+              }}
+            >
+              {step.link.label}
+            </button>
+          )}
           <button type="button" className={styles.next} onClick={onNext}>
             {last ? "Explore freely" : "Next"}
           </button>
