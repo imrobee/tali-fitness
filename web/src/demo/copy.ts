@@ -1,5 +1,4 @@
-// Words the demo shows in more than one place (UI_SPEC.md section 12).
+// Words the demo shows (UI_SPEC.md section 6.3).
 
-/** Under the Me page's settings on the demo, instead of "Changes apply from today". */
-export const DEMO_SETTINGS_NOTE =
-  "Demo: your changes apply to every day, last until you close this tab, and are never saved.";
+/** At the bottom of the Me page on the demo, once, instead of a note in every card. */
+export const DEMO_SAVE_NOTE = "In the demo version, none of your changes are saved when you close this tab.";

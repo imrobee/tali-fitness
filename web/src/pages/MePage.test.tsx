@@ -167,7 +167,7 @@ describe("Me page on the demo", () => {
 
   function renderDemoMe() {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    client.setQueryData(AUTH_QUERY, { signedIn: true, demo: true });
+    client.setQueryData(AUTH_QUERY, { signedIn: true, demo: true, launchUrl: "http://localhost:5173" });
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter>
@@ -188,18 +188,21 @@ describe("Me page on the demo", () => {
     await waitFor(() => expect(budget.value).toBe("1700"));
     expect(sent.every((request) => request.method === "GET")).toBe(true);
     expect(sent.at(-1)?.settings).toContain('"calorie_budget":1700');
-    expect(screen.getAllByText(/never saved/)).toHaveLength(2); // under targets and weekends
+    // Said once, at the bottom of the page, not under every card.
+    expect(
+      screen.getAllByText("In the demo version, none of your changes are saved when you close this tab."),
+    ).toHaveLength(1);
+    expect(screen.queryByText(/Changes apply from today/)).toBeNull();
   });
 
-  it("puts the demo's own settings back with Reset demo", async () => {
-    sessionStorage.setItem("tali.demo-settings", '{"calorie_budget":1700}');
-    const sent = fakeDemoApi();
+  it("has no Account card, and ends with the way back to the launch screen", async () => {
+    fakeDemoApi();
     renderDemoMe();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Reset demo" }));
-
-    await waitFor(() => expect(sent.at(-1)?.settings).toBeNull());
-    expect(sessionStorage.getItem("tali.demo-settings")).toBeNull();
+    const leave = await screen.findByRole("link", { name: "Return to login screen" });
+    expect(leave.getAttribute("href")).toBe("http://localhost:5173");
+    expect(screen.queryByRole("heading", { name: "Account" })).toBeNull();
+    expect(screen.queryByText(/A demo visit: synthetic/)).toBeNull();
   });
 });
 

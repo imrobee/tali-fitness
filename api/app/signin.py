@@ -148,6 +148,8 @@ class SignedIn(BaseModel):
     demo: bool = False  # true only on the demo service: the web app shows "Demo data"
     # The demo only: numbers the tour quotes (streak_days, best_streak, n_checks, lift_day).
     story: dict | None = None
+    # The demo only: the real app's launch screen, for "Return to login screen".
+    launch_url: str | None = None
 
 
 class SignInMethod(BaseModel):

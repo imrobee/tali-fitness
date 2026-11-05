@@ -12,7 +12,13 @@ export type SignInInfo = { method: SignInMethod; demoUrl: string | null };
 
 /** Who this browser is: signed in (Rob, or a demo visitor) or not. */
 export type Visit =
-  | { signedIn: true; demo: boolean; story: Record<string, string | number | null> | null }
+  | {
+      signedIn: true;
+      demo: boolean;
+      story: Record<string, string | number | null> | null;
+      /** The demo only: the real app's launch screen. */
+      launchUrl: string | null;
+    }
   | { signedIn: false };
 
 /** The React Query key of "is this browser signed in?" (SignInGate). */
@@ -39,7 +45,12 @@ export async function checkSignedIn(): Promise<Visit> {
     throw new ApiError(response.status, "http_error", `The server answered ${response.status}.`);
   }
   const body = await response.json();
-  return { signedIn: true, demo: body.demo === true, story: body.story ?? null };
+  return {
+    signedIn: true,
+    demo: body.demo === true,
+    story: body.story ?? null,
+    launchUrl: typeof body.launch_url === "string" ? body.launch_url : null,
+  };
 }
 
 /** Which sign-in screen this server wants: the Google button, the local dev key form, or

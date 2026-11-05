@@ -5,6 +5,7 @@ import { ChevronDownIcon } from "../icons";
 import {
   muscleAmount,
   muscleChange,
+  recordDate,
   recordLabel,
   recordSet,
   recordValue,
@@ -31,7 +32,10 @@ export function RecordsCard({ records, unit }: { records: PersonalRecord[]; unit
           {shown.map((record) => (
             <li key={record.exercise + (record.equipment ?? "")} className={styles.record} aria-label={recordLabel(record, unit)}>
               <span className={styles.recordHead} aria-hidden="true">
-                <span className={styles.name}>{record.exercise}</span>
+                <span className={styles.name}>
+                  {record.exercise}
+                  <span className={`${styles.dateBadge} num`}>{recordDate(record)}</span>
+                </span>
                 <span className={`${styles.value} num`}>{recordValue(record, unit)}</span>
               </span>
               <span className={`${styles.muted} num`} aria-hidden="true">

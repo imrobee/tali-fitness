@@ -5,7 +5,7 @@ import styles from "./Page.module.css";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** A page: one <main>, one h1 (UI_SPEC.md section 8), the theme toggle at its right. On
-    the public demo, a bar above it on every page: the "Demo data" badge and the tour. */
+    the public demo, a bar above it on every page: the "Demo version" badge and the tour. */
 export function Page({ title, children }: { title: ReactNode; children: ReactNode }) {
   const demo = useIsDemo();
   const tour = useTour();
@@ -13,7 +13,7 @@ export function Page({ title, children }: { title: ReactNode; children: ReactNod
     <main className={styles.page}>
       {demo && (
         <div className={styles.demoBar}>
-          <span className={styles.demoBadge}>Demo data</span>
+          <span className={styles.demoBadge}>Demo version</span>
           <button type="button" className={styles.tourButton} onClick={tour.start}>
             Take the tour
           </button>

@@ -102,3 +102,29 @@
   flex: 1 1 8rem;
   min-width: 0;
 }
+
+/* The demo, at the bottom of Me: one quiet note that nothing is saved, then the way back. */
+.demoNote {
+  margin: 4px 4px 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+.leave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  margin-top: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.leave:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}

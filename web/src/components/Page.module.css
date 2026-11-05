@@ -48,7 +48,7 @@
   border-radius: 4px;
 }
 
-/* "Demo data" on the public demo: words and an outline, not colour alone. */
+/* "Demo version" on the public demo: words and an outline, not colour alone. */
 .demoBadge {
   flex: none;
   padding: 4px 10px;

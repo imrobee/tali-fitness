@@ -126,22 +126,22 @@ describe("SignInGate", () => {
     expect(demo.getAttribute("href")).toBe("https://demo.example.com");
   });
 
-  it("on the demo service, starts a visit at once and shows Demo data on every page", async () => {
+  it("on the demo service, starts a visit at once and shows the Demo version badge on every page", async () => {
     const calls = fakeServer({ signedIn: false, method: "demo" });
     renderGate("/", <Page title="Today">The app</Page>);
 
     expect(await screen.findByText("The app")).toBeTruthy();
-    expect(screen.getByText("Demo data")).toBeTruthy();
+    expect(screen.getByText("Demo version")).toBeTruthy();
     const start = calls.find((call) => call.url === "/auth/demo");
     expect(start?.init?.method).toBe("POST");
   });
 
-  it("shows no Demo data badge to Rob", async () => {
+  it("shows no Demo version badge to Rob", async () => {
     fakeServer({ signedIn: true });
     renderGate("/", <Page title="Today">The app</Page>);
 
     expect(await screen.findByText("The app")).toBeTruthy();
-    expect(screen.queryByText("Demo data")).toBeNull();
+    expect(screen.queryByText("Demo version")).toBeNull();
   });
 
   it("in local key mode, signs in with the dev key and keeps it nowhere", async () => {

@@ -5,7 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AUTH_QUERY, checkSignedIn, fetchSignInMethod, type SignInMethod, startDemo } from "./auth";
 
 export type Auth =
-  | { signedIn: true; demo: boolean; story?: Record<string, string | number | null> | null }
+  | {
+      signedIn: true;
+      demo: boolean;
+      story?: Record<string, string | number | null> | null;
+      launchUrl?: string | null;
+    }
   | { signedIn: false; method: SignInMethod; demoUrl: string | null };
 
 export async function loadAuth(): Promise<Auth> {
@@ -19,7 +24,7 @@ export async function loadAuth(): Promise<Auth> {
   return { signedIn: false, method, demoUrl };
 }
 
-/** True on the public demo: the header shows "Demo data" (UI_SPEC.md section 1). Reads the
+/** True on the public demo: the header shows "Demo version" (UI_SPEC.md section 1). Reads the
     gate's own answer from the cache; no extra request. */
 export function useIsDemo(): boolean {
   const auth = useQueryClient().getQueryData<Auth>(AUTH_QUERY);
@@ -32,3 +37,9 @@ export function useStory(): Record<string, string | number | null> {
   return (auth?.signedIn === true && auth.story) || {};
 }
 
+
+/** The demo only: the real app's launch screen, for "Return to login screen"; else null. */
+export function useLaunchUrl(): string | null {
+  const auth = useQueryClient().getQueryData<Auth>(AUTH_QUERY);
+  return (auth?.signedIn === true && auth.launchUrl) || null;
+}

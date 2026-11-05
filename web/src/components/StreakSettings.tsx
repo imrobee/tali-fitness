@@ -1,7 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { useSaveMe, useVacation } from "../api/hooks";
 import { useIsDemo } from "../api/visit";
-import { DEMO_SETTINGS_NOTE } from "../demo/copy";
 import type { Me } from "../api/types";
 import { CalendarIcon } from "../icons";
 import { openPicker } from "../lib/picker";
@@ -46,7 +45,8 @@ export function WeekendsCard({ me }: { me: Me }) {
       }
     >
       <p className={styles.rule}>{weekendRule(me.lenient_weekends)}</p>
-      <p className={styles.help}>{demo ? DEMO_SETTINGS_NOTE : "Changes apply from today."}</p>
+      {/* The demo says it once, at the bottom of the page (DEMO_SAVE_NOTE). */}
+      {!demo && <p className={styles.help}>Changes apply from today.</p>}
       {save.isError && (
         <p className={styles.error} role="alert">
           {save.error.message}

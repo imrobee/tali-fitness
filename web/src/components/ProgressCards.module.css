@@ -36,6 +36,17 @@
   font-weight: 600;
 }
 
+/* The day the record was set, beside the exercise: a quiet pill, words not color. */
+.dateBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .muted {
   margin: 0;
   color: var(--text-secondary);

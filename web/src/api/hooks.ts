@@ -2,7 +2,7 @@
 // the app comes back into view, so the greeting and "today" stay correct; UI_SPEC.md 5.1).
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { clearDemoSettings, loadDemoSettings, saveDemoSettings, withUpdate } from "../demo/settings";
+import { loadDemoSettings, saveDemoSettings, withUpdate } from "../demo/settings";
 import type { WeightUnit } from "../lib/units";
 import { AUTH_QUERY } from "./auth";
 import { apiFetch } from "./client";
@@ -162,15 +162,6 @@ export function useSaveMe() {
       }
     },
   });
-}
-
-/** The demo's Reset button: back to the demo's own settings on every page. */
-export function useResetDemo(): () => void {
-  const queryClient = useQueryClient();
-  return () => {
-    clearDemoSettings();
-    queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== AUTH_QUERY[0] });
-  };
 }
 
 /** Set or end the vacation or injury break; the streak and the Me page both change. */

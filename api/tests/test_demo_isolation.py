@@ -59,6 +59,7 @@ DEMO_SETTINGS = Settings(
     public_base_url=DEMO_ORIGIN,
     warehouse_url=SecretStr(reader_url().render_as_string(hide_password=False)),
     demo_session_secret=SecretStr(DEMO_SECRET),
+    main_app_url="http://localhost:5173",
 )
 # environ={}: the guard checks this, not the test container's own environment (.env).
 demo_app = create_app(DEMO_SETTINGS, environ={})
@@ -136,7 +137,12 @@ def test_nothing_opens_before_the_visit_starts(visitor_client):
 
 
 def test_a_visit_reads_the_demo(visitor):
-    assert visitor.get("/auth/me").json() == {"signed_in": True, "demo": True, "story": None}
+    assert visitor.get("/auth/me").json() == {
+        "signed_in": True,
+        "demo": True,
+        "story": None,
+        "launch_url": "http://localhost:5173",  # the real app's launch screen
+    }
     assert visitor.get("/api/v1/dashboard").status_code == 200
 
 

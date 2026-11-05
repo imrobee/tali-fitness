@@ -74,6 +74,9 @@ class Settings(BaseModel):
     # button sends people.
     demo_session_secret: SecretStr | None = None
     demo_public_url: str | None = None
+    # The demo service: the real app's address, where its launch screen is (the Me page's
+    # "Return to login screen"). Not a secret; None hides the button.
+    main_app_url: str | None = None
     # The demo service: may ask GitHub Actions to rebuild stale demo data (D121). A
     # fine-grained token with Actions: write on this one repository, nothing else.
     demo_reseed_token: SecretStr | None = None
@@ -116,6 +119,7 @@ ENV_NAMES = {
     "FORWARDED_ALLOW_IPS": "forwarded_allow_ips",
     "DEMO_SESSION_SECRET": "demo_session_secret",
     "DEMO_PUBLIC_URL": "demo_public_url",
+    "MAIN_APP_URL": "main_app_url",
     "DEMO_RESEED_TOKEN": "demo_reseed_token",
     "DEMO_RESEED_REPO": "demo_reseed_repo",
 }
@@ -167,6 +171,8 @@ def _problems_everywhere(settings: Settings) -> list[str]:
         problems.append("AUTH_MODE=demo and APP_ENV=demo go together.")
     if settings.demo_public_url is not None and not _is_origin_url(settings.demo_public_url):
         problems.append("DEMO_PUBLIC_URL must be http(s)://host[:port] with no path.")
+    if settings.main_app_url is not None and not _is_origin_url(settings.main_app_url):
+        problems.append("MAIN_APP_URL must be http(s)://host[:port] with no path.")
     if settings.auth_mode == "key" and settings.dev_login_key is None:
         problems.append("AUTH_MODE=key needs DEV_LOGIN_KEY.")
     if settings.auth_mode == "google":

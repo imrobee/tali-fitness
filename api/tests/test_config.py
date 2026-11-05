@@ -300,3 +300,8 @@ def test_the_demo_cookie_is_secure_over_https_only():
 
 def test_the_demo_url_must_be_an_origin():
     assert "DEMO_PUBLIC_URL" in refusal(dev(demo_public_url="http://localhost:5174/path"))
+
+
+def test_the_main_app_url_must_be_an_origin():
+    assert "MAIN_APP_URL" in demo_refusal(demo(main_app_url="javascript:alert(1)"))
+    assert "MAIN_APP_URL" in demo_refusal(demo(main_app_url="http://localhost:5173/path"))

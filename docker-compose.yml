@@ -141,6 +141,8 @@ services:
       # Signs demo visitors' cookies on this Mac only; the guard refuses it over HTTPS.
       DEMO_SESSION_SECRET: local-demo-session-secret-only-for-this-mac-0001
       PUBLIC_BASE_URL: http://localhost:5174
+      # The real app, whose launch screen the Me page's "Return to login screen" opens.
+      MAIN_APP_URL: ${MAIN_APP_URL:-http://localhost:5173}
       # Real time, like the hosted demo. Only `make screenshots` freezes it (D124).
       NOW_OVERRIDE: ${DEMO_NOW_OVERRIDE:-}
     # Serves only. The demo is rebuilt elsewhere (demo-seed here; a scheduled GitHub

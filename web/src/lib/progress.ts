@@ -24,12 +24,17 @@ export function recordValue(record: PersonalRecord, unit: WeightUnit): string {
 
 /** "From 50 kg × 5 on Oct 13": the set that set the record. */
 export function recordSet(record: PersonalRecord, unit: WeightUnit): string {
-  return `From ${weightNumber(record.weight_kg, unit)} ${unit} × ${record.reps} on ${monthDay(record.date)}`;
+  return `From ${weightNumber(record.weight_kg, unit)} ${unit} × ${record.reps}`;
+}
+
+/** "Oct 17": the day the record was set, shown as a badge beside the exercise. */
+export function recordDate(record: PersonalRecord): string {
+  return monthDay(record.date);
 }
 
 /** The spoken label for one record row: what the row shows, with the value named. */
 export function recordLabel(record: PersonalRecord, unit: WeightUnit): string {
-  return `${record.exercise}: estimated one-rep max ${recordValue(record, unit)}. ${recordSet(record, unit)}.`;
+  return `${record.exercise}: estimated one-rep max ${recordValue(record, unit)}. ${recordSet(record, unit)} on ${recordDate(record)}.`;
 }
 
 // --- muscle volume -------------------------------------------------------------------------

@@ -42,11 +42,18 @@ def start_demo(
 def me(
     _visitor: Annotated[str, Depends(require_user)],
     engine: Annotated[Engine, Depends(get_engine)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> SignedIn:
-    """Signed in, on the demo; with the numbers the tour quotes from the last rebuild."""
+    """Signed in, on the demo; with the numbers the tour quotes from the last rebuild, and
+    where the real app's launch screen is."""
     with engine.connect() as conn:
         state = conn.execute(load_sql("demo/seed_state_read.sql")).first()
-    return SignedIn(signed_in=True, demo=True, story=state.story if state else None)
+    return SignedIn(
+        signed_in=True,
+        demo=True,
+        story=state.story if state else None,
+        launch_url=settings.main_app_url,
+    )
 
 
 @router.post("/logout", status_code=204)

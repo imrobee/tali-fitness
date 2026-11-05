@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MuscleWeek, PersonalRecord } from "../api/types";
-import { muscleAmount, muscleChange, recordLabel, recordSet, recordValue, weekRange } from "./progress";
+import { muscleAmount, muscleChange, recordDate, recordLabel, recordSet, recordValue, weekRange } from "./progress";
 
 const record: PersonalRecord = {
   exercise: "Incline Bench Press",
@@ -19,7 +19,8 @@ const record: PersonalRecord = {
 describe("personal records", () => {
   it("states the estimate and the set it came from", () => {
     expect(recordValue(record, "kg")).toBe("26.3 kg");
-    expect(recordSet(record, "kg")).toBe("From 22.5 kg × 6 on Oct 17");
+    expect(recordSet(record, "kg")).toBe("From 22.5 kg × 6");
+    expect(recordDate(record)).toBe("Oct 17"); // the badge beside the exercise
   });
 
   it("speaks in the person's unit, without a new-record flag or the gain", () => {
