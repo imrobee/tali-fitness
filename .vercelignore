@@ -1,0 +1,20 @@
+# Never uploaded by `vercel deploy` from this Mac (DECISIONS D131). Deploys from GitHub
+# never see these anyway (they aren't committed); a deploy from the CLI uploads the folder
+# as it is, and Vercel's own default list doesn't cover .env.
+.env
+.env.*
+!.env.example
+.vercel
+.agents
+.claude
+node_modules
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+.ruff_cache
+spike_out
+.taste-skill
+# Not needed to build or run the site and the API (and the screenshots are large).
+docs/screenshots
+web/test-results
+web/playwright-report
