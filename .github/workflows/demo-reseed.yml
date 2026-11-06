@@ -26,7 +26,10 @@ permissions:
 jobs:
   reseed:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The rebuild is thousands of small statements in one transaction, each a round trip
+    # to Neon in Singapore: 168 s from Manila (2026-11-06), several times that from
+    # GitHub's runners in the US. Visitors keep reading the old data meanwhile.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 

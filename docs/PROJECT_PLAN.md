@@ -192,6 +192,7 @@ Spec: `docs/AUTH_SPEC.md` (Rob, 2026-10-28). Replaces the shared API key: Google
 | Scope creep | Priority order in section 2; Backlog below |
 
 ## 8. Backlog (not in scope; do not build without Rob's approval)
+- **Demo rebuild round trips** (2026-11-06): `seed_demo.py load` takes 168 s from Manila to Neon (3.5 s locally) because each of its thousands of statements is a round trip; batch the inserts (or run the replay's SQL server-side) so the 3-hourly GitHub job stays well under its 30-minute limit and uses less Neon compute.
 
 - Streak pause for injury/vacation (multi-day freeze). Known limitation: with one freeze, a multi-day absence breaks the streak.
 - Training-load view; `GET /streak` for Scriptable; CSV export.
