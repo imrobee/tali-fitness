@@ -81,7 +81,7 @@ describe("How it works", () => {
     renderAt("/how-it-works");
 
     const href = (name: string) => screen.getByRole("link", { name }).getAttribute("href");
-    expect(href("GitHub")).toBe("https://github.com/imrobee/fitness-tracker");
+    expect(href("GitHub")).toBe("https://github.com/imrobee/tali-fitness");
     expect(href("LinkedIn")).toBe("https://www.linkedin.com/in/robeefeliciano");
     expect(href("Back to the app")).toBe("/");
     expect(screen.queryByRole("link", { name: "README" })).toBeNull();

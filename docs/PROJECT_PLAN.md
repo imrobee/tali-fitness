@@ -77,7 +77,7 @@ Portfolio project for entry-level Data Engineer roles. The target posting emphas
 
 | When | Task |
 |---|---|
-| Before Slice 0 | Done: Docker Desktop installed; private GitHub repo `imrobee/fitness-tracker`. |
+| Before Slice 0 | Done: Docker Desktop installed; private GitHub repo `imrobee/fitness-tracker` (renamed `imrobee/tali-fitness`, 2026-11-07). |
 | Slice 0 | Done: Strava API application created; keys in `.env`. |
 | Slice 0 | Done: iOS Shortcut "Health Push" sends dietary energy, protein, and body mass; samples in `docs/samples/`. |
 | Slice 0 | Done: `docs/samples/hevy_description_02.txt` covers bodyweight, distance/time, and timed sets plus exercise notes. Hevy has no supersets or warm-up/drop/failure sets in its Strava text. |

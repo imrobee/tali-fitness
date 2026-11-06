@@ -200,7 +200,7 @@ class FakeGitHub:
 @pytest.fixture
 def github():
     fake = FakeGitHub()
-    sync = GitHubSync("imrobee/fitness-tracker", SecretStr("canary-dispatch-token"), fake.transport)
+    sync = GitHubSync("imrobee/tali-fitness", SecretStr("canary-dispatch-token"), fake.transport)
     app.dependency_overrides[get_github_sync] = lambda: sync
     app.dependency_overrides[get_airflow] = lambda: None  # production has no Airflow
     yield fake
@@ -227,7 +227,7 @@ def test_in_production_sync_now_starts_the_pipeline_workflow(client, engine, git
     assert body["state"] == "queued" and body["dag_run_id"].startswith("github-")
     (call,) = github.calls
     assert (
-        call.url.path == "/repos/imrobee/fitness-tracker/actions/workflows/pipeline.yml/dispatches"
+        call.url.path == "/repos/imrobee/tali-fitness/actions/workflows/pipeline.yml/dispatches"
     )
     assert json.loads(call.content) == {"ref": "main", "inputs": {"job": "strava"}}
     assert call.headers["authorization"] == "Bearer canary-dispatch-token"

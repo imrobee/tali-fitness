@@ -45,7 +45,7 @@
   "profile": {
     "title": "Check out my profile",
     "links": [
-      { "label": "GitHub", "href": "https://github.com/imrobee/fitness-tracker", "icon": "github" },
+      { "label": "GitHub", "href": "https://github.com/imrobee/tali-fitness", "icon": "github" },
       { "label": "LinkedIn", "href": "https://www.linkedin.com/in/robeefeliciano", "icon": "linkedin" }
     ]
   }
