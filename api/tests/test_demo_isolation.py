@@ -370,7 +370,7 @@ def healing_client(demo_database, github: FakeGitHub, token: bool = True) -> Tes
     settings = DEMO_SETTINGS.model_copy(
         update={
             "demo_reseed_token": SecretStr("canary-github-token-0001") if token else None,
-            "demo_reseed_repo": "imrobee/fitness-tracker",
+            "demo_reseed_repo": "imrobee/tali-fitness",
         }
     )
     app = create_app(settings, environ={}, github_transport=github.transport)
@@ -403,7 +403,7 @@ def test_a_stale_demo_asks_github_once_and_the_visitor_never_waits(demo_database
     call = github.calls[0]
     assert call.method == "POST"
     assert str(call.url) == (
-        "https://api.github.com/repos/imrobee/fitness-tracker/actions/workflows/"
+        "https://api.github.com/repos/imrobee/tali-fitness/actions/workflows/"
         "demo-reseed.yml/dispatches"
     )
     assert json.loads(call.content) == {"ref": "main"}
