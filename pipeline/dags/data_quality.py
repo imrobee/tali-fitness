@@ -2,16 +2,16 @@
 
 Tasks: start_run -> run_checks -> close_run. Runs at half past each hour, after the
 hourly strava_sync has finished. A failing check is stored as a finding in
-ops.dq_results; only an error running the checks fails the DAG run.
+ops.dq_results; only an error running the checks fails the DAG run. The check itself is
+include/jobs.py, shared with the production schedule on GitHub Actions (D132).
 """
 
 from datetime import UTC, datetime, timedelta
 
 from airflow.sdk import TriggerRule, dag, task
 
-from include import runs
+from include import jobs, runs
 from include.db import get_engine
-from include.dq.checks import CHECKS, run_checks
 
 DEFAULT_ARGS = {
     "retries": 2,
@@ -37,11 +37,7 @@ def data_quality():
 
     @task
     def check_data(pipeline_run_id: int) -> None:
-        engine = get_engine()
-        with runs.record_failure(engine, pipeline_run_id):
-            results = run_checks(engine, now=datetime.now(UTC), run_id=pipeline_run_id)
-            with engine.begin() as conn:
-                runs.finish_run(conn, pipeline_run_id, "success", len(CHECKS), len(results))
+        jobs.check_data(get_engine(), pipeline_run_id, datetime.now(UTC))
 
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def close_run(pipeline_run_id: int) -> None:

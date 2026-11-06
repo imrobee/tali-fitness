@@ -1,0 +1,58 @@
+# The production pipeline (DECISIONS D132): every hour, the Strava sync, then the
+# data-quality checks, run by the same functions as the Airflow DAGs (include/jobs.py)
+# with scripts/run_pipeline.py. Airflow runs them on this Mac; production has no Airflow.
+# Also started by hand, or by the app's "Sync now" (workflow_dispatch with job=strava,
+# from api/app/sync.py).
+#
+# Repository secrets: WAREHOUSE_URL (Neon's direct URL for the "app" database, as app_api:
+# rows only, no DDL; scripts/setup_prod_role.py),
+# STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET. The Strava tokens live in ops.oauth_tokens.
+# The log is public: the script prints only run ids and statuses.
+name: pipeline
+
+on:
+  schedule:
+    # Minute 7 of every hour, off the hour, when GitHub delays scheduled runs the most.
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "strava, dq, or all"
+        required: false
+        default: all
+        type: choice
+        options: [all, strava, dq]
+
+# One run at a time, like the DAGs' max_active_runs=1: a second one waits.
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # The compose file reads .env for the local services; the example values are
+      # enough, and the real ones below replace the few this job uses.
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      # The api image has the pipeline's dependencies and mounts its code at the Airflow
+      # paths (docker-compose.yml). --no-deps: no local Postgres, only Neon. A bare
+      # -e NAME passes the secret through from the environment, never on a command line.
+      - name: Run the pipeline
+        env:
+          WAREHOUSE_URL: ${{ secrets.WAREHOUSE_URL }}
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          JOB: ${{ inputs.job || 'all' }}
+        run: >
+          docker compose run --rm --build --no-deps
+          -e WAREHOUSE_URL -e STRAVA_CLIENT_ID -e STRAVA_CLIENT_SECRET -e BACKFILL_DAYS=90
+          api python /scripts/run_pipeline.py "$JOB"

@@ -1,6 +1,6 @@
 # Handoff (2026-11-05)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D130).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D134).
 
 ## Where we are
 
@@ -26,7 +26,7 @@ make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 
 | What | Where | State |
 |---|---|---|
-| Web app | http://localhost:5173, iPhone `http://192.168.100.127:5173 (the Mac's address on the current Wi-Fi; check with `ipconfig getifaddr en0`)`; sign in with Google on the Mac, or with `DEV_LOGIN_KEY` in key mode (the phone in dev) | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
+| Web app | http://localhost:5173, iPhone `http://<mac-lan-ip>:5173 (the Mac's address on the current Wi-Fi; check with `ipconfig getifaddr en0`)`; sign in with Google on the Mac, or with `DEV_LOGIN_KEY` in key mode (the phone in dev) | Dashboard (with weekly chart), Activities (training trend, calendar, day list filtered by a tapped day, sets on tap), Nutrition (with the calorie trend), Me (targets, data and sync) |
 | API | http://localhost:8000/api/v1/health; the web routes need a signed-in session, the ingest route the Shortcut's bearer token | Working |
 | Airflow UI | http://localhost:8080, login from `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` in `.env` | Working |
 | Postgres | `127.0.0.1:5433`, user `fitness`, databases `app` and `airflow` | Working |

@@ -32,6 +32,14 @@ DEMO_VISITOR = "demo-visitor"
 
 
 def client_ip(request: Request) -> str:
+    """The visitor's address, for rate limits and logs. On Vercel, from Vercel's own
+    x-vercel-forwarded-for header: Vercel sets it and overwrites what the client sends
+    (docs: "Request headers"), so it can't be faked. Elsewhere, from the connection
+    (Uvicorn takes it from X-Forwarded-For only from FORWARDED_ALLOW_IPS)."""
+    settings = getattr(request.app.state, "settings", None)
+    if settings is not None and settings.vercel:
+        forwarded = request.headers.get("x-vercel-forwarded-for", "")
+        return forwarded.split(",")[0].strip() or "unknown"
     return request.client.host if request.client else "unknown"
 
 

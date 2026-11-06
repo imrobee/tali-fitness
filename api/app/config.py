@@ -37,6 +37,7 @@ DEMO_FORBIDDEN_PREFIXES = (
     "DEV_LOGIN_KEY",
     "STRAVA_",
     "AIRFLOW_",
+    "PIPELINE_",  # starting the real app's Strava sync on GitHub (D133)
     "POSTGRES_",
     # The demo's rebuild credentials: only the reseed job and the local setup hold them.
     "DEMO_SEED_URL",
@@ -81,6 +82,14 @@ class Settings(BaseModel):
     # fine-grained token with Actions: write on this one repository, nothing else.
     demo_reseed_token: SecretStr | None = None
     demo_reseed_repo: str | None = None
+    # The real service in production: "Sync now" asks GitHub Actions to run the pipeline
+    # workflow (D133), with a fine-grained token that can only start workflows in one
+    # repository. Unset (local), Sync now asks Airflow instead.
+    pipeline_dispatch_token: SecretStr | None = None
+    pipeline_repo: str | None = None
+    # Set by Vercel itself ("1") on its functions: the database engine then pools nothing
+    # of its own (app/db.py, D134).
+    vercel: bool = False
     # Read by Uvicorn itself; here only so the guards can check it.
     forwarded_allow_ips: str | None = None
 
@@ -122,6 +131,9 @@ ENV_NAMES = {
     "MAIN_APP_URL": "main_app_url",
     "DEMO_RESEED_TOKEN": "demo_reseed_token",
     "DEMO_RESEED_REPO": "demo_reseed_repo",
+    "PIPELINE_DISPATCH_TOKEN": "pipeline_dispatch_token",
+    "PIPELINE_REPO": "pipeline_repo",
+    "VERCEL": "vercel",
 }
 
 
@@ -173,6 +185,10 @@ def _problems_everywhere(settings: Settings) -> list[str]:
         problems.append("DEMO_PUBLIC_URL must be http(s)://host[:port] with no path.")
     if settings.main_app_url is not None and not _is_origin_url(settings.main_app_url):
         problems.append("MAIN_APP_URL must be http(s)://host[:port] with no path.")
+    if settings.pipeline_dispatch_token is not None and not REPO.fullmatch(
+        settings.pipeline_repo or ""
+    ):
+        problems.append("PIPELINE_DISPATCH_TOKEN needs PIPELINE_REPO as owner/name.")
     if settings.auth_mode == "key" and settings.dev_login_key is None:
         problems.append("AUTH_MODE=key needs DEV_LOGIN_KEY.")
     if settings.auth_mode == "google":

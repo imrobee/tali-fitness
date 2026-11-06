@@ -12,7 +12,6 @@ most one ask per 30 minutes here, one run at a time in the workflow (concurrency
 one rebuild at a time in the database (the reseed's advisory lock).
 """
 
-import logging
 import threading
 from datetime import datetime, timedelta
 
@@ -21,15 +20,11 @@ from sqlalchemy import Engine
 
 from app.config import Settings
 from app.db import load_sql
-
-logger = logging.getLogger(__name__)
+from app.github import dispatch_workflow
 
 STALE_AFTER = timedelta(hours=24)
 ASK_AT_MOST_EVERY = timedelta(minutes=30)
 WORKFLOW = "demo-reseed.yml"
-BRANCH = "main"  # GitHub dispatches only workflows on the default branch
-GITHUB_API = "https://api.github.com"
-GITHUB_API_VERSION = "2026-03-10"  # the current version on docs.github.com, 2026-11-05
 
 
 def is_stale(seeded_at: datetime | None, now: datetime) -> bool:
@@ -60,20 +55,10 @@ class SelfHeal:
         return self.ask_github()
 
     def ask_github(self) -> bool:
-        """POST .../actions/workflows/demo-reseed.yml/dispatches (docs.github.com, REST
-        "Create a workflow dispatch event"). The token is never logged."""
-        repo = self.settings.demo_reseed_repo
-        url = f"{GITHUB_API}/repos/{repo}/actions/workflows/{WORKFLOW}/dispatches"
-        headers = {
-            "Authorization": f"Bearer {self.settings.demo_reseed_token.get_secret_value()}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        }
-        try:
-            with httpx2.Client(transport=self.transport, timeout=10) as client:
-                response = client.post(url, json={"ref": BRANCH}, headers=headers)
-        except httpx2.HTTPError as error:
-            logger.warning("demo_reseed_ask_failed error=%s", type(error).__name__)
-            return False
-        logger.info("demo_reseed_asked status=%s", response.status_code)
-        return response.is_success
+        """Start the demo-reseed workflow now (app/github.py). The token is never logged."""
+        return dispatch_workflow(
+            self.settings.demo_reseed_repo or "",
+            WORKFLOW,
+            self.settings.demo_reseed_token,
+            transport=self.transport,
+        )

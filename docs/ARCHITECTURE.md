@@ -28,7 +28,7 @@ flowchart LR
 
 Pattern: **ELT**. Land raw data unchanged (`raw`; one exception: Strava location fields are dropped, DECISIONS D24), transform with SQL and a small Python parser into a star schema (`core`), expose business logic as views/functions (`mart`), serve JSON from FastAPI. All business rules (kinds of day, what breaks the streak, calorie status) live **in SQL**, so the logic is testable against a real database and is the interview story. The front end only renders.
 
-## 2. Services (Docker Compose, local only)
+## 2. Services (Docker Compose, local; production in 13c)
 
 | Service | Image / build | Host port | Notes |
 |---|---|---|---|
@@ -398,13 +398,48 @@ CI (GitHub Actions) runs `make check`, the same containers as local: ruff (offic
 - **Rebuild:** one transaction (the pipeline's commits become savepoints), `DELETE` not `TRUNCATE` so visitors keep reading the old data until it commits, under `pg_try_advisory_xact_lock` (transaction-level: Neon's PgBouncer runs in transaction mode). Bookkeeping stamped with `now()` is moved to each step's moment. `demo.seed_state` records when, and how long (about 4 s); the Data and sync panel shows it. Daily at 00:17 Manila by `.github/workflows/demo-reseed.yml` (secret `DEMO_SEED_URL`), by hand with `make demo-reseed`, and when a visit finds the data over 24 hours old, the demo service asks GitHub to run that workflow (`DEMO_RESEED_TOKEN`: Actions write on this repository only; at most once per 30 minutes). Pressing Demo never rebuilds.
 - **A visitor's own settings:** kept in the tab (`sessionStorage`), sent as `X-Demo-Settings`, clamped to the Me page's limits, and applied per transaction (above). Never written; closing the tab clears them.
 
-**Running the demo in production (checklist; nothing here is deployed yet; Slice 8 picks the host and needs Rob's approval):**
-1. **Database (once).** In the Neon project that holds `app`, run the demo setup from this Mac: `docker compose --profile demo run --rm -e NOW_OVERRIDE= -e DEMO_ADMIN_URL -e DEMO_SEED_URL -e DEMO_READER_PASSWORD -e DEMO_LOCK_DATABASES=app demo-seed python /scripts/seed_demo.py setup`, with `DEMO_ADMIN_URL` = the project owner's **direct** (not pooled) URL to the `postgres` database, `DEMO_SEED_URL` = `postgresql+psycopg://demo_seed:<password>@<direct host>/app_demo?sslmode=require`, and fresh letters-and-digits passwords. Not yet tried on Neon: that its owner role may `CREATE DATABASE app_demo OWNER demo_seed` and revoke CONNECT on `app`; if either is refused, create `app_demo` in the console, then `ALTER DATABASE app_demo OWNER TO demo_seed` and rerun.
+**Running the demo in production (checklist; hosts chosen in Slice 8, section 13c):**
+1. **Database (once).** In the Neon project that holds `app`, run the demo setup from this Mac: `docker compose --profile demo run --rm -e NOW_OVERRIDE= -e DEMO_ADMIN_URL -e DEMO_SEED_URL -e DEMO_READER_PASSWORD -e DEMO_LOCK_DATABASES=app demo-seed python /scripts/seed_demo.py setup`, with `DEMO_ADMIN_URL` = the project owner's **direct** (not pooled) URL to the `postgres` database, `DEMO_SEED_URL` = `postgresql+psycopg://demo_seed:<password>@<direct host>/app_demo?sslmode=require`, and fresh letters-and-digits passwords. Tried on Neon (2026-11-07): its owner role is not a superuser, so Postgres 16 refused `CREATE DATABASE app_demo OWNER demo_seed` until the owner may act as `demo_seed`; the setup now grants that first (`demo/admin_set_writer.sql`: SET only, INHERIT FALSE), tested as a non-superuser owner.
 2. **First data:** the same command with `load midweek` instead of `setup` (or run the demo-reseed workflow by hand, step 4).
-3. **The demo service:** the API image, started with `uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT`, and only these variables: `APP_ENV=demo`, `AUTH_MODE=demo`, `APP_TIMEZONE=Asia/Manila`, `PUBLIC_BASE_URL=https://<demo host>`, `WAREHOUSE_URL=postgresql+psycopg://demo_reader:<password>@<pooled host>/app_demo?sslmode=require`, `DEMO_SESSION_SECRET` (`python3 -c "import secrets; print(secrets.token_urlsafe(48))"`), `DEMO_RESEED_TOKEN` (step 4), `DEMO_RESEED_REPO=imrobee/fitness-tracker`, `MAIN_APP_URL=https://<real app host>` (where Me's "Return to login screen" goes), and `FORWARDED_ALLOW_IPS` = the host's proxy address. The guard refuses to start with anything from the real app. Its web app is the same build, with `/api` and `/auth` sent to this service on the same origin (the cookie is same-origin); how is a Slice 8 choice.
+3. **The demo service:** the Vercel project `tali-fitness-demo` (section 13c), with only these variables: `APP_ENV=demo`, `AUTH_MODE=demo`, `APP_TIMEZONE=Asia/Manila`, `PUBLIC_BASE_URL=https://<demo host>`, `WAREHOUSE_URL=postgresql+psycopg://demo_reader:<password>@<pooled host>/app_demo?sslmode=require`, `DEMO_SESSION_SECRET` (`python3 -c "import secrets; print(secrets.token_urlsafe(48))"`), `DEMO_RESEED_TOKEN` (step 4), `DEMO_RESEED_REPO=imrobee/fitness-tracker`, `MAIN_APP_URL=https://<real app host>` (where Me's "Return to login screen" goes), and `FORWARDED_ALLOW_IPS` = the host's proxy address. The guard refuses to start with anything from the real app. Its web app is the same build, with `/api` and `/auth` sent to this service on the same origin (the cookie is same-origin); how is a Slice 8 choice.
 4. **GitHub:** repository secret `DEMO_SEED_URL` (the direct URL from step 1). A fine-grained personal access token for this repository only, with **Actions: write** and nothing else, as the demo service's `DEMO_RESEED_TOKEN`. The workflow must be on `main` (GitHub runs scheduled and dispatched workflows from the default branch only); run it once by hand from the Actions tab.
 5. **The real app:** `DEMO_PUBLIC_URL=https://<demo host>`, so its launch screen's Demo button opens the demo.
 6. **Check:** open the demo (no sign-in, "Demo version" badge, the tour starts); Me → Data and sync shows "Demo data rebuilt …"; `curl -X PUT https://<demo host>/api/v1/me` answers 403 `demo_read_only` after `POST /auth/demo`; the real app still signs in with Google only.
+
+## 13c. Production (Slice 8; D131-D134)
+
+Nothing here is live until Rob runs the steps; secrets are typed into each host's settings, never committed.
+
+| Piece | Where | How |
+|---|---|---|
+| Postgres | Neon Free, project `tali-fitness`, AWS Singapore, Postgres 16 | Databases `app` (real) and `app_demo` (demo, 13b). The API connects through the **pooled** URL (`-pooler` in the host; PgBouncer, transaction mode); migrations, the pipeline job and `pg_dump`/restore use the **direct** URL. Both as `postgresql+psycopg://...?sslmode=require`. Scales to zero after 5 minutes idle |
+| Web + API (real) | Vercel Hobby, project `tali-fitness`, region `sin1` | `vercel.json`: Vercel Services: `web` (the Vite build, SPA fallback, the security headers of 12) and `api` (FastAPI as one Python function, entry `vercel_api.py`, rooted at the repository so `db/sql` ships with it). `/api/*` and `/auth/*` go to the API, everything else to the SPA: one origin, so the `__Host-session` cookie works |
+| Web + API (demo) | Vercel Hobby, project `tali-fitness-demo` | Same repository and `vercel.json`, the demo's variables (13b) |
+| Pipeline | GitHub Actions `pipeline.yml`, every hour at minute 7 | `scripts/run_pipeline.py all`: the Strava sync then the DQ checks, the same `include/jobs.py` functions the Airflow DAGs call (D132). Started early by Sync now (`workflow_dispatch`, `job=strava`, D133) |
+| Migrations | GitHub Actions `migrate.yml`, by hand | `alembic upgrade head` on the direct URL |
+| Demo rebuild | GitHub Actions `demo-reseed.yml`, every 3 hours | 13b |
+
+**Variables, real app (Vercel `tali-fitness`, Production):** `APP_ENV=production`, `AUTH_MODE=google`, `APP_TIMEZONE=Asia/Manila`, `PUBLIC_BASE_URL=https://<real host>`, `WAREHOUSE_URL` (pooled, as `app_api`: rows only, no DDL; `scripts/setup_prod_role.py`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET` (new, 32+ bytes), `ALLOWED_GOOGLE_SUB`, `INGEST_TOKEN_SHA256` (the same hash, so the Shortcut's token keeps working), `DEMO_PUBLIC_URL=https://<demo host>`, `PIPELINE_DISPATCH_TOKEN` (fine-grained, this repository, Actions: write only), `PIPELINE_REPO=<owner>/<repo>`. Never `DEV_LOGIN_KEY`, `NOW_OVERRIDE`, `AIRFLOW_*` or `STRAVA_*` (the API doesn't call Strava). Vercel sets `VERCEL=1` itself.
+
+**Variables, demo (Vercel `tali-fitness-demo`):** 13b step 3, with `WAREHOUSE_URL` the pooled `demo_reader` URL, `PUBLIC_BASE_URL=https://<demo host>`, `MAIN_APP_URL=https://<real host>`, `DEMO_RESEED_TOKEN`, `DEMO_RESEED_REPO`. The guard refuses `PIPELINE_*` there too.
+
+**Repository secrets (GitHub):** `WAREHOUSE_URL` (direct, `app`, as `app_api`), `MIGRATIONS_URL` (direct, `app`, as the owner, for `migrate.yml` only), `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `DEMO_SEED_URL` (direct, `demo_seed` on `app_demo`).
+
+**Order of the first deploy:**
+1. **Neon:** create the project, run the migrations from this Mac with the owner's direct URL, then create the API's login with `scripts/setup_prod_role.py`.
+2. **Data:** copy the real data (`pg_dump --data-only` of `app`, restored into Neon; Rob confirms before it runs).
+3. **Demo database:** set it up and load it (13b steps 1 and 2).
+4. **Vercel:** import the repository twice with the variables above, and choose region `sin1`.
+5. **Google Cloud:** add the redirect URI `https://<real host>/auth/callback`.
+6. **GitHub:** add the secrets, merge to `main` (scheduled workflows run only there), then run `migrate` and `pipeline` once by hand.
+7. **The Shortcut:** point it at `https://<real host>/api/v1/ingest/health`.
+8. **Smoke test:** follow PROJECT_PLAN Slice 8.
+
+**Known limits (D134):**
+- **Rate limits:** the in-memory rate limiter counts per Vercel instance, not globally.
+- **Cold starts:** the first request after a quiet spell wakes Vercel and Neon, about 1 to 2 s.
+- **Scheduled runs can lag:** GitHub can delay a scheduled run, and switches schedules off after 60 days without activity in a public repository. `strava_freshness` turns that into a warning, and Sync now works anyway.
+- **Logs:** Vercel keeps Hobby runtime logs for 1 hour.
 
 ## 14. Open decisions
 

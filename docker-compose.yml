@@ -47,6 +47,8 @@ services:
       - ./web/src/pages/howItWorks.json:/pages/howItWorks.json:ro
       - ./pipeline/dags:/opt/airflow/dags:ro
       - ./.github/workflows:/workflows:ro
+      # For test_vercel_config.py: the static site's headers match the API's (D131).
+      - ./vercel.json:/vercel.json:ro
     depends_on:
       postgres:
         condition: service_healthy

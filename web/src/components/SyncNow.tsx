@@ -4,8 +4,9 @@ import { useSyncNow, useSyncStatus } from "../api/hooks";
 import styles from "./DataSyncCard.module.css";
 
 /**
- * "Sync now" for Strava (PROJECT_PLAN 7c): asks the API to start the strava_sync DAG, shows
- * "Syncing..." while Airflow works, then reloads every page's data once the run ends.
+ * "Sync now" for Strava (PROJECT_PLAN 7c, D133): asks the API to start a Strava sync (GitHub
+ * Actions in production, Airflow locally), shows "Syncing..." while it runs, then reloads
+ * every page's data once the run ends.
  */
 export function SyncNowButton() {
   const queryClient = useQueryClient();
@@ -28,7 +29,7 @@ export function SyncNowButton() {
   if (busy) message = "Syncing with Strava...";
   else if (sync.isError) message = sync.error.message;
   else if (state === "success") message = "Synced. New activities are in.";
-  else if (state === "failed") message = "The sync failed. Airflow has the details.";
+  else if (state === "failed") message = "The sync failed. Try again in a few minutes.";
 
   return (
     <div className={styles.action}>
