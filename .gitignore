@@ -230,3 +230,8 @@ node_modules/
 
 # Working files of the design-taste skill (inspector screenshots, dealt direction)
 .taste-skill/
+
+# Third-party agent skills, installed per machine (not this project's code; their
+# authors' terms apply). Kept out of the public repository.
+.agents/
+.claude/skills/

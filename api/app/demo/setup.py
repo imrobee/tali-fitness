@@ -50,9 +50,13 @@ def run_built(conn: Connection, sql_file: str, params: dict) -> None:
 
 
 def ensure_role(conn: Connection, role: str, password: str) -> None:
+    """Create the login role, or give an existing one the new password; either way, check
+    it has no special rights (a role someone widened by hand is refused, not used)."""
     exists = conn.execute(load_sql("demo/role_exists.sql"), {"role": role}).scalar_one()
     sql_file = "demo/role_update.sql" if exists else "demo/role_create.sql"
     run_built(conn, sql_file, {"role": role, "password": password})
+    if not conn.execute(load_sql("demo/role_is_plain.sql"), {"role": role}).scalar_one():
+        raise RuntimeError(f"Role {role} has special rights (superuser, createdb ...): refusing.")
 
 
 def database_exists(conn: Connection, database: str) -> bool:
@@ -80,6 +84,8 @@ def prepare_demo_database(admin: Engine, database: str, roles: DemoRoles, lock: 
     with admin.connect() as conn:
         ensure_role(conn, roles.writer, roles.writer_password)
         ensure_role(conn, roles.reader, roles.reader_password)
+        # Needed, when not a superuser (Neon), to create and later drop the writer's database.
+        run_built(conn, "demo/admin_set_writer.sql", {"role": roles.writer})
         for real in lock:
             if database_exists(conn, real):
                 run_built(conn, "demo/database_lock.sql", {"database": real})
