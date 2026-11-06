@@ -76,8 +76,8 @@
 }
 
 .active {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--done-core);
+  color: var(--on-done-core);
 }
 
 .recovery {

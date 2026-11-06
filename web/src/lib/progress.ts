@@ -3,7 +3,7 @@
 
 import type { MuscleWeek, PersonalRecord } from "../api/types";
 import { parseIsoDate } from "./dates";
-import { bodyWeight, volume, type WeightUnit, weightNumber } from "./units";
+import { volume, type WeightUnit, weightNumber } from "./units";
 
 function monthDay(iso: string): string {
   return parseIsoDate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -24,20 +24,17 @@ export function recordValue(record: PersonalRecord, unit: WeightUnit): string {
 
 /** "From 50 kg × 5 on Oct 13": the set that set the record. */
 export function recordSet(record: PersonalRecord, unit: WeightUnit): string {
-  return `From ${weightNumber(record.weight_kg, unit)} ${unit} × ${record.reps} on ${monthDay(record.date)}`;
+  return `From ${weightNumber(record.weight_kg, unit)} ${unit} × ${record.reps}`;
 }
 
-/** "Up 5.0 kg on the record before", or null for a first record. */
-export function recordGain(record: PersonalRecord, unit: WeightUnit): string | null {
-  if (record.prev_e1rm_kg === null) return null;
-  return `Up ${bodyWeight(record.e1rm_kg - record.prev_e1rm_kg, unit)} on the record before`;
+/** "Oct 17": the day the record was set, shown as a badge beside the exercise. */
+export function recordDate(record: PersonalRecord): string {
+  return monthDay(record.date);
 }
 
-/** The spoken label for one record row. */
+/** The spoken label for one record row: what the row shows, with the value named. */
 export function recordLabel(record: PersonalRecord, unit: WeightUnit): string {
-  const isNew = record.recent ? "New record. " : "";
-  const gain = recordGain(record, unit);
-  return `${isNew}${record.exercise}: estimated one-rep max ${recordValue(record, unit)}. ${recordSet(record, unit)}.${gain ? ` ${gain}.` : ""}`;
+  return `${record.exercise}: estimated one-rep max ${recordValue(record, unit)}. ${recordSet(record, unit)} on ${recordDate(record)}.`;
 }
 
 // --- muscle volume -------------------------------------------------------------------------

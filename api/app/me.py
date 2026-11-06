@@ -30,7 +30,8 @@ class Targets(BaseModel):
 
 
 class TargetsOut(Targets):
-    effective_from: date
+    # None only on the demo, for a visitor's own target where none was ever saved.
+    effective_from: date | None
 
 
 class MeUpdate(BaseModel):

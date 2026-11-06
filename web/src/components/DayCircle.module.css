@@ -1,0 +1,87 @@
+/* One day of the streak: the circle inside its calorie ring (UI_SPEC.md 5.3). Used by the
+   streak card and the streak explainer's examples, so both look the same. */
+
+.ringWrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 2.5; /* RING_STROKE in lib/streakRing.ts */
+  stroke-linecap: round;
+}
+
+/* Hollow track: food not logged yet. Mint: within budget. Amber: over, with a gap and a triangle. */
+.ring_grey {
+  stroke: var(--ring-track);
+}
+
+.ring_green {
+  stroke: var(--within-budget);
+}
+
+.ring_orange {
+  stroke: var(--over-budget);
+}
+
+.overMark {
+  fill: var(--over-budget);
+}
+
+.circle {
+  display: grid;
+  place-items: center;
+  width: 28px; /* CIRCLE_SIZE in lib/streakRing.ts: 4.5px of blank space inside the ring */
+  height: 28px;
+  border-radius: 50%;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.active {
+  background: var(--done-core);
+  color: var(--on-done-core);
+  font-size: 20px; /* the activity icon */
+}
+
+/* Today is still open: drawn like the days to come, but in the text colour. */
+.today {
+  border: 1px solid var(--text);
+  color: var(--text);
+  font-weight: 400;
+}
+
+.missed {
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+/* At risk: like missed, with a dashed edge that says "still fixable". Never red. */
+.at_risk {
+  border: 1.5px dashed var(--text-secondary);
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+.recovery {
+  background: var(--freeze-tint);
+  color: var(--accent);
+  font-size: 16px; /* the snowflake */
+}
+
+.future {
+  border: 1px solid var(--card-elevated);
+  color: var(--text); /* the date reads like the other days; the dim edge says "not yet" */
+  font-weight: 400;
+}
+

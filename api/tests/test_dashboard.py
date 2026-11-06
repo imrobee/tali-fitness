@@ -51,8 +51,10 @@ def test_streak_week_states_icons_and_markers(client, engine):
         "recovery_logged": False,
         "primary_activity_type": "strength",  # the longest activity that day
         "calorie_status": "over",
+        "in_streak": True,  # counted, in the current streak
     }
     assert (week[1]["state"], week[1]["kind"]) == ("pending", "miss")
+    assert not week[1]["in_streak"]  # today doesn't count yet: a gap in the string
     assert {d["state"] for d in week[2:]} == {"future"}
 
 
@@ -176,6 +178,15 @@ def test_the_week_tells_a_logged_recovery_day_from_a_day_without_a_workout(clien
 
     assert (week[0]["kind"], week[0]["recovery_logged"]) == ("recovery", False)
     assert (week[1]["kind"], week[1]["recovery_logged"]) == ("recovery", True)
+
+
+def test_the_week_strings_together_the_days_of_the_current_streak(client, engine):
+    qualify(engine, MONDAY)
+    qualify(engine, TODAY)
+
+    week = get(client).json()["streak"]["week"]
+
+    assert [day["in_streak"] for day in week] == [True, True, False, False, False, False, False]
 
 
 def test_nickname_shows_once_set(client):

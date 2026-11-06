@@ -139,3 +139,10 @@
   color: var(--text-secondary);
   cursor: default;
 }
+
+/* The demo only: when its synthetic data was rebuilt. */
+.rebuilt {
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+}
+

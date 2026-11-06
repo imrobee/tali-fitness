@@ -1,7 +1,10 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type MouseEvent, type ReactNode, useState } from "react";
 import { isOffline } from "../api/client";
 import { useMe, usePipelineHealth, useSaveMe } from "../api/hooks";
-import { StreakRulesCard, VacationCard } from "../components/StreakSettings";
+import { signOut } from "../api/auth";
+import { useIsDemo, useLaunchUrl } from "../api/visit";
+import { DEMO_SAVE_NOTE } from "../demo/copy";
+import { StreakRulesCard, VacationCard, WeekendsCard } from "../components/StreakSettings";
 import { Toggle } from "../components/Toggle";
 import { toKg, type WeightUnit, weightNumber } from "../lib/units";
 import type { Me, MeUpdate } from "../api/types";
@@ -12,10 +15,13 @@ import { OfflineBanner, Page } from "../components/Page";
 import { type ProfileErrors, validateProfile } from "../lib/targets";
 import styles from "./MePage.module.css";
 
-// Me (UI_SPEC.md 6.3): profile and targets, time zone, the data and sync panel, and signing out.
+// Me (UI_SPEC.md 6.3): profile and targets, time zone, the data and sync panel, and signing
+// out. On the demo there is no account: one note that nothing is saved, and a way back to
+// the launch screen.
 export function MePage() {
   const query = useMe();
   const health = usePipelineHealth();
+  const demo = useIsDemo();
 
   return (
     <Page title="Me">
@@ -29,7 +35,8 @@ export function MePage() {
           </Card>
         ))}
       {query.data && <ProfileForm me={query.data} />}
-      {query.data && <StreakRulesCard me={query.data} />}
+      {query.data && <StreakRulesCard />}
+      {query.data && <WeekendsCard me={query.data} />}
       {query.data && <VacationCard me={query.data} />}
       {query.data && (
         <Card title="Time zone">
@@ -46,13 +53,39 @@ export function MePage() {
         </Card>
       )}
       {health.data && <DataSyncCard health={health.data} now={Date.parse(health.data.now)} />}
-      <AccountCard />
+      {demo ? <DemoFooter /> : <AccountCard />}
     </Page>
+  );
+}
+
+/** The demo's last words on Me: nothing is saved, and the way back to the launch screen
+    (on the real app's address; hidden when the demo doesn't know it). */
+function DemoFooter() {
+  const launchUrl = useLaunchUrl();
+  const leave = async (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!launchUrl) return;
+    event.preventDefault();
+    try {
+      await signOut(); // end this visit's cookie; nothing on the server to delete
+    } finally {
+      window.location.assign(launchUrl);
+    }
+  };
+  return (
+    <>
+      <p className={styles.demoNote}>{DEMO_SAVE_NOTE}</p>
+      {launchUrl && (
+        <a className={styles.leave} href={launchUrl} onClick={leave}>
+          Return to login screen
+        </a>
+      )}
+    </>
   );
 }
 
 function ProfileForm({ me }: { me: Me }) {
   const save = useSaveMe();
+  const demo = useIsDemo();
   const [nickname, setNickname] = useState(me.nickname ?? "");
   const [calorieBudget, setCalorieBudget] = useState(
     me.targets ? String(me.targets.calorie_budget) : "",
@@ -154,7 +187,8 @@ function ProfileForm({ me }: { me: Me }) {
             />
           }
         />
-        <p className={styles.help}>Changes apply from today. Past days keep their old targets.</p>
+        {/* The demo says it once, at the bottom of the page (DEMO_SAVE_NOTE). */}
+        {!demo && <p className={styles.help}>Changes apply from today. Past days keep their old targets.</p>}
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={save.isPending}>
             Save changes

@@ -1,31 +1,54 @@
 /* Design tokens (UI_SPEC.md section 7). Components use these names only, never raw hex.
-   Dark-first: true black like iOS dark mode on an OLED iPhone, with the iOS grouped-card
-   greys one lightness step apart. Elevation is a lightness step, never a shadow or a
-   border (style: true-black flat). Colour goes on data: the ring, bars, markers, flame. */
+   Two themes: dark (the default, on :root) and light (a token swap under
+   [data-theme="light"], set on <html> by lib/theme.ts). Dark surfaces are the original
+   true black and iOS grouped-card greys, one lightness step apart, with no tint; the data
+   colours come from the Tali brand guide. Dark cards are flat (elevation is a lightness
+   step, no border); light cards get a 1px hairline instead. Colour goes on data: the
+   ring, bars, markers, flame. */
 :root {
   color-scheme: dark;
 
   /* Surfaces */
-  --surface: #000000; /* page */
+  --surface: #000000; /* page: true black, like iOS dark mode on an OLED iPhone */
   --card: #1c1c1e; /* cards */
-  --card-elevated: #2c2c2e; /* tracks, missed circles, exercise rows */
+  --card-elevated: #2c2c2e; /* missed circles, exercise rows, secondary buttons */
   --card-hover: #232325; /* a linked card under the pointer: half a step up */
+  --card-border: transparent; /* dark cards are flat */
   --rule: #1a1a1a; /* the one line: above the bottom nav */
 
   /* Text: both tiers pass 4.5:1 on --card and --card-elevated */
   --text: #ffffff;
-  --text-secondary: #a1a1a6;
+  --text-secondary: #a1a1a6; /* 6.6:1 on --card */
   --text-dim: #636366; /* future days only, paired with an accessible name */
 
-  /* Data colours */
-  --within-budget: #66b33f; /* ring, bars, within marker, protein */
-  --over-budget: #e39a3b; /* over ring, bars, marker (one token for all three) */
-  --flame: #fc4c02; /* streak flame and "Days": Strava's own orange, as in the reference
-                       widget (UI_SPEC's ~#e8622a read as terracotta); 4.7:1 on --card */
-  --accent: #67a2e4; /* selected day, active tab: iOS blue at 70% saturation so it sits
-                       with the green and orange; 6.4:1 on --card, 5.2:1 on --card-elevated */
-  --neutral: #6e6e73; /* not_logged ring, not_set marker and bar */
-  --freeze-tint: rgba(103, 162, 228, 0.22); /* recovery circle: the accent, pale */
+  /* Data colours. Mint means "logged, within budget"; amber means "over" (never red: going
+     over does not break the streak); the streak orange is for the flame and count only. */
+  --within-budget: #4ccb9f; /* Mint: ring, bars, within marker, protein */
+  --over-budget: #f5a524; /* amber: over ring, bars, marker (one token for all three) */
+  --flame: #ff8a3d; /* streak flame, count and "Days" only, never a ring; 6.0:1 on --card */
+  --on-flame: #10231f; /* the numeral inside the flame */
+  --done-core: #f5f7f6; /* the circle of a day with a workout (the ring's core) */
+  --on-done-core: #10231f; /* its icon or date number */
+  --ring-track: #3a3a3c; /* calorie ring track, and the hollow ring of a day not counted yet:
+                           iOS grey 4, one step above --card-elevated so it shows on the card */
+  --neutral: #6e6e73; /* not_set marker and bar */
+  --streak-string: #6e6e73; /* the string joining the days of the current streak */
+  --accent: #4ccb9f; /* Mint: selected day, active tab, links, focus ring */
+  --freeze-tint: rgba(76, 203, 159, 0.2); /* recovery circle: the accent, pale */
+
+  /* Primary button: filled with the accent */
+  --button: #4ccb9f;
+  --on-button: #10231f; /* 7.3:1 */
+
+  /* Sign-in (launch) screen. The Google button follows Google's own sign-in branding
+     colours, so these are Google's, not ours. */
+  --brand-mint: #4ccb9f; /* the wordmark's i-dot and the Demo button */
+  --launch-note: #8e8e93; /* 6.4:1 on --surface */
+  --google-bg: #131314;
+  --google-border: #8e918f;
+  --google-text: #e3e3e3;
+  --deco-ring-opacity: 0.1; /* the faint ring in the corner */
+  --tour-dim: rgba(0, 0, 0, 0.7); /* the demo tour's dimming around the spotlight */
 
   /* Type: the system face (SF Pro on iPhone) */
   --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
@@ -51,10 +74,58 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Light: same names, light values. Contrast on the white card is noted where it is close. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --surface: #f5f7f6; /* Paper */
+  --card: #ffffff;
+  --card-elevated: #ebf0ee;
+  --card-hover: #f4f7f6;
+  --card-border: #d6dedb;
+  --rule: #d6dedb;
+
+  --text: #10231f;
+  --text-secondary: #3e4f4b; /* 8.7:1 on --card */
+  --text-dim: #7a8b87; /* 3.6:1, future days only, as in dark */
+
+  --within-budget: #1f6f66; /* Teal */
+  --over-budget: #cf6f00; /* 3.5:1 on --card: a ring and bars, so 3:1 applies */
+  /* The brand's #C4560C is 4.48:1 on white; one shade darker passes 4.5:1 for "Days". */
+  --flame: #c2550c;
+  --on-flame: #ffffff; /* 4.6:1 inside the flame */
+  --done-core: #10231f;
+  --on-done-core: #f5f7f6;
+  --ring-track: #cfdad6;
+  --neutral: #7a8b87; /* 3.6:1 on --card */
+  --streak-string: #a9b8b4;
+  --accent: #1f6f66; /* 6.0:1 on --card */
+  --freeze-tint: rgba(31, 111, 102, 0.14);
+
+  --button: #1f6f66;
+  --on-button: #f5f7f6; /* 5.5:1 */
+
+  --brand-mint: #1b7455; /* deep mint: 5.3:1 on --surface */
+  --launch-note: #5a6a66; /* 5.3:1 on --surface */
+  --google-bg: #ffffff;
+  --google-border: #747775;
+  --google-text: #1f1f1f;
+  --deco-ring-opacity: 0.14;
+  --tour-dim: rgba(16, 35, 31, 0.6);
+}
+
 @media (prefers-contrast: more) {
-  :root {
+  :root:not([data-theme="light"]) {
     --text-secondary: #d1d1d6;
     --neutral: #9a9aa0;
     --card-elevated: #3a3a3c;
+    --ring-track: #48484a;
+    --streak-string: #9a9aa0;
+  }
+
+  :root[data-theme="light"] {
+    --text-secondary: #24332f;
+    --neutral: #5e6f6b;
+    --card-elevated: #dde5e2;
   }
 }

@@ -1,0 +1,48 @@
+# Rebuild the public demo's synthetic data (DECISIONS D121, D124): every 3 hours, and whenever the
+# demo service finds its data over a day old and asks (workflow_dispatch, from
+# api/app/demo/self_heal.py). Same container and command as `make demo-reseed`.
+#
+# Needs one repository secret, DEMO_SEED_URL: the demo_seed role's URL for the demo
+# database (it owns app_demo and can open nothing else). No other secret is used.
+name: demo-reseed
+
+on:
+  schedule:
+    # Every 3 hours at minute 17 (00:17, 03:17 ... in UTC; 08:17, 11:17 ... in Manila), so
+    # "today" holds the morning's run and meals soon after they would have happened (D124).
+    # Not on the hour, when GitHub's scheduled runs are most often delayed.
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+# One rebuild at a time; a second request waits rather than cancelling one mid-way.
+# (The rebuild also takes an advisory lock in the database, so two can never overlap.)
+concurrency:
+  group: demo-reseed
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reseed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # The compose file reads .env for the local services; the example values are
+      # enough, and none of them is used by this job.
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      # --no-deps: no local Postgres; the job talks to the hosted demo database only.
+      # NOW_OVERRIDE= : build as of the real time, so the demo ends today.
+      # -e DEMO_SEED_URL with no value passes the secret through from the environment,
+      # so it never appears on a command line.
+      - name: Rebuild the demo
+        env:
+          DEMO_SEED_URL: ${{ secrets.DEMO_SEED_URL }}
+        run: >
+          docker compose --profile demo run --rm --build --no-deps
+          -e NOW_OVERRIDE= -e DEMO_SEED_URL
+          demo-seed python /scripts/seed_demo.py load midweek

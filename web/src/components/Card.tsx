@@ -8,13 +8,17 @@ interface CardProps {
   to?: string;
   /** Small grey text at the right of the title row. */
   aside?: ReactNode;
+  /** A small control right after the title (the streak card's "?"). */
+  titleAction?: ReactNode;
   label?: string;
+  /** The demo tour's name for this card (data-tour), when a tour step points at it. */
+  tour?: string;
   children: ReactNode;
 }
 
-export function Card({ title, to, aside, label, children }: CardProps) {
+export function Card({ title, to, aside, titleAction, label, tour, children }: CardProps) {
   return (
-    <section className={styles.card} aria-label={label}>
+    <section className={styles.card} aria-label={label} data-tour={tour}>
       <div className={styles.header}>
         <h2 className={styles.title}>
           {to ? (
@@ -25,6 +29,7 @@ export function Card({ title, to, aside, label, children }: CardProps) {
             title
           )}
         </h2>
+        {titleAction && <span className={styles.titleAction}>{titleAction}</span>}
         {aside && <span className={styles.aside}>{aside}</span>}
       </div>
       {children}
@@ -34,7 +39,8 @@ export function Card({ title, to, aside, label, children }: CardProps) {
 
 /** A grey placeholder bar at the size of the value it stands in for. */
 export function Bar({ width, height }: { width: number | string; height: number }) {
-  return <span className={styles.bar} style={{ width, height }} aria-hidden="true" />;
+  // data-loading: the demo tour waits until a card it points at has none of these left.
+  return <span className={styles.bar} style={{ width, height }} aria-hidden="true" data-loading="" />;
 }
 
 /** One sentence and a Retry button, inside the card that failed (UI_SPEC.md 10). */

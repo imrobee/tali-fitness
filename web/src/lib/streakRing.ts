@@ -7,10 +7,11 @@ import type { CalorieStatus } from "./ring";
 
 export type RingTone = "grey" | "green" | "orange";
 
-export const RING_SIZE = 42; // the square the ring is drawn in, around a 32px circle
+export const RING_SIZE = 42; // the square the ring is drawn in
+export const CIRCLE_SIZE = 28; // the circle inside it (.circle in StreakCard.module.css)
 export const RING_STROKE = 2.5;
-// The ring's inner edge is 2.5px clear of the 16px circle (19.75 - 1.25 = 18.5), and its
-// outer edge touches the square (19.75 + 1.25 = 21).
+// The ring's inner edge is 4.5px clear of the 14px-radius circle (19.75 - 1.25 - 14), and
+// its outer edge touches the square (19.75 + 1.25 = 21).
 export const RING_RADIUS = 19.75;
 const GAP_DEGREES = 50; // room at the bottom for the triangle
 
@@ -67,4 +68,13 @@ export function circleLook(
   if (day.kind === "recovery") return "recovery";
   if (day.state === "at_risk") return "at_risk";
   return "missed";
+}
+
+/**
+ * Whether the string runs from this day to the next (the streak's "chain", the "tali"):
+ * both days count and are part of the current streak. It starts on the day the streak
+ * began, or Monday if it began earlier, and stops at Sunday: the card shows one week.
+ */
+export function strungToNext(week: { in_streak: boolean }[], index: number): boolean {
+  return week[index].in_streak && index + 1 < week.length && week[index + 1].in_streak;
 }

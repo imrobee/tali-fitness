@@ -1,0 +1,72 @@
+{
+  "_readme": "How the streak works, in plain words (UI_SPEC.md 6.3 and 12). One file for the streak card's \"?\" sheet and the Me page's card. Edit the words freely; src/copy.test.ts checks spelling, names and em dashes. Each example is a row of days, oldest first: S a full day, O over budget with a workout, Ov over budget without one, R food within budget and no workout, A a workout and no food, M nothing logged, T today with nothing yet. break: the first and last index of a break. expect: what the SQL gives for those days and the streak; pipeline/tests/test_streak_explainer.py runs every row through mart.fn_day_status and mart.fn_streak and fails if they disagree.",
+  "title": "How your streak works",
+  "done": "Got it",
+  "items": [
+    {
+      "id": "full-day",
+      "title": "A full day",
+      "body": "A full day has three things: you log your food, you stay within your calorie budget, and you work out. Any workout counts, whatever its type or length. Every day that keeps your streak going adds a day to it, rest days and days over budget included.",
+      "example": {
+        "days": ["S", "S", "S"],
+        "caption": "A 3-day streak",
+        "expect": { "states": ["counted", "counted", "counted"], "streak": 3 }
+      }
+    },
+    {
+      "id": "over-budget",
+      "title": "Going over budget",
+      "body": "Going over your calorie budget doesn't end your streak, even on a day you work out. One day is fine. Two days over budget in a row end it.",
+      "example": {
+        "days": ["S", "O", "S"],
+        "caption": "One day over: still a 3-day streak",
+        "expect": { "states": ["counted", "counted", "counted"], "streak": 3 }
+      }
+    },
+    {
+      "id": "rest-days",
+      "title": "Rest days",
+      "body": "A rest day keeps your streak alive too. It's a day where you did only one of the two things: you logged food within your budget but didn't work out, or you worked out but didn't log your food. For a planned day off, log a recovery day from the dashboard, for today or yesterday. A recovery day counts as a rest day, and two rest days in a row end your streak.",
+      "example": {
+        "days": ["S", "R", "S", "A", "S"],
+        "caption": "Two rest days, apart: a 5-day streak",
+        "expect": { "states": ["counted", "counted", "counted", "counted", "counted"], "streak": 5 }
+      }
+    },
+    {
+      "id": "nothing-logged",
+      "title": "Nothing logged",
+      "body": "A day with no food and no workout logged ends your streak. The app can't tell an empty day from a missed one, so if you're taking a planned day off, log a recovery day instead.",
+      "example": {
+        "days": ["S", "S", "M", "S"],
+        "caption": "The empty day ended it: a 1-day streak",
+        "expect": { "states": ["counted", "counted", "broken", "counted"], "streak": 1 }
+      }
+    },
+    {
+      "id": "breaks",
+      "title": "Breaks and weekends",
+      "body": "If you're traveling or hurt, set a break on the Me page, even for days that already passed. During a break, only a day with nothing logged ends your streak. The break ends on its own on its last day. Relaxed weekends on the Me page work the same way on Saturdays and Sundays.",
+      "example": {
+        "days": ["S", "Ov", "Ov", "S"],
+        "break": [1, 2],
+        "caption": "Two days over, during a break: still a 4-day streak",
+        "expect": { "states": ["counted", "counted", "counted", "counted"], "streak": 4 }
+      }
+    },
+    {
+      "id": "timing",
+      "title": "Timing",
+      "body": "Today never ends your streak, so you have the whole day. If yesterday would end it, you can still fix it today by filling in its food or workout, or by logging it as a recovery day. At midnight, yesterday is final. Days start and end in the time zone shown on the Me page.",
+      "example": {
+        "days": ["S", "S", "M", "T"],
+        "caption": "Yesterday is empty: fill it in today to keep the streak",
+        "expect": { "states": ["counted", "counted", "at_risk", "pending"], "streak": 2 }
+      }
+    }
+  ],
+  "targets": {
+    "real": "A new calorie budget counts from the day you set it; past days keep the budget they had.",
+    "demo": "In this demo, a budget you change applies to every day."
+  }
+}

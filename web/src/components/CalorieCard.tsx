@@ -26,7 +26,7 @@ export function CalorieCard({ calories, to }: Props) {
         : styles.answerEmpty;
 
   return (
-    <Card title="Calorie budget" to={to}>
+    <Card title="Calorie budget" to={to} tour="calories">
       <div className={styles.columns}>
         <div className={styles.stat}>
           <span className={styles.caption}>Eaten</span>

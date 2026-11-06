@@ -25,6 +25,9 @@ services:
     environment:
       # Sync now asks Airflow to run strava_sync; the login comes from .env.
       AIRFLOW_URL: http://airflow:8080
+      # Where the launch screen's Demo button goes: the demo stack below.
+      DEMO_PUBLIC_URL: ${DEMO_PUBLIC_URL:-http://localhost:5174}
+      PYTHONPATH: /app:/opt/airflow # app (the API) and include (the pipeline, mounted below)
     # --factory: Uvicorn calls create_app(), which runs the startup guards first.
     command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -34,6 +37,16 @@ services:
       - ./db:/db # Alembic migrations and SQL files
       - ./docs/samples:/samples:ro # recorded payloads used as test fixtures
       - ./scripts:/scripts:ro # make_ingest_token.py, tested here
+      # The pipeline's code and SQL at their Airflow paths: the demo seed tests replay
+      # synthetic data through it (app/demo/replay.py, DECISIONS D119).
+      - ./pipeline/include:/opt/airflow/include:ro
+      - ./db:/opt/airflow/db:ro
+      # For test_tour_claims.py: the tour's and How it works' words, and what they claim
+      # about the DAG schedules and the reseed workflow's cron.
+      - ./web/src/tour:/tour:ro
+      - ./web/src/pages/howItWorks.json:/pages/howItWorks.json:ro
+      - ./pipeline/dags:/opt/airflow/dags:ro
+      - ./.github/workflows:/workflows:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +75,8 @@ services:
       - ./pipeline/tests:/opt/airflow/tests
       - ./db:/opt/airflow/db:ro # SQL files (db/sql) and migrations for the tests
       - ./docs/samples:/opt/airflow/samples:ro # recorded API samples used as test fixtures
+      # The streak explainer's words and examples, checked against the SQL (D129).
+      - ./web/src/streak:/opt/airflow/explainer:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,28 +100,59 @@ services:
       interval: 10s
       retries: 10
 
-  # --- Demo stack for screenshots (profile "demo": `make up` never starts these) ---------
-  # Its own database (app_demo), a frozen clock, and a throwaway dev key, so demo data can
-  # never reach the real warehouse (UI_SPEC.md section 11).
+  # --- Demo stack (profile "demo": `make up` never starts these) ----------------------------
+  # The public demo, run locally, and the screenshots (DECISIONS D118). Its own database
+  # (app_demo) and two roles that cannot open the real one; the API gets only the
+  # read-only role and no .env, so it holds none of the real app's secrets.
+
+  # One-off: builds app_demo and loads a scenario. The only demo piece with an admin URL,
+  # and it never serves anything; on a host this step is done by hand (ARCHITECTURE 13).
+  demo-seed:
+    profiles: ["demo"]
+    build: ./api
+    environment:
+      PYTHONPATH: /app:/opt/airflow
+      # Real time, like the hosted demo. Only `make screenshots` freezes it (D124).
+      NOW_OVERRIDE: ${DEMO_NOW_OVERRIDE:-}
+      DEMO_ADMIN_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      DEMO_SEED_URL: postgresql+psycopg://demo_seed:${DEMO_SEED_PASSWORD:-localdemoseed}@postgres:5432/app_demo
+      DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-localdemoreader}
+      DEMO_LOCK_DATABASES: app,airflow
+    command: ["python", "/scripts/seed_demo.py"]
+    volumes:
+      - ./api:/app
+      - ./db:/db
+      - ./scripts:/scripts:ro
+      # The real pipeline code, at the paths it has in the Airflow image (D119).
+      - ./pipeline/include:/opt/airflow/include:ro
+      - ./db:/opt/airflow/db:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   api-demo:
     profiles: ["demo"]
     build: ./api
-    env_file: .env
+    # No env_file: the demo must start without a single real secret (the startup guard
+    # refuses GOOGLE_*, STRAVA_*, INGEST_TOKEN*, AIRFLOW_*, POSTGRES_* and the dev key).
     environment:
-      WAREHOUSE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/app_demo
-      # dev on this Mac only: key sign-in for the screenshots. dev refuses a public
-      # PUBLIC_BASE_URL; the hosted demo gets its own APP_ENV=demo in Slice 8.
-      APP_ENV: dev
-      AUTH_MODE: key
-      DEV_LOGIN_KEY: demo-key # not a secret: it only opens the demo database
-      PUBLIC_BASE_URL: http://web-demo:5173
-      NOW_OVERRIDE: "2026-10-17T14:00:00+08:00" # Saturday afternoon
+      APP_ENV: demo
+      AUTH_MODE: demo
+      APP_TIMEZONE: Asia/Manila
+      WAREHOUSE_URL: postgresql+psycopg://demo_reader:${DEMO_READER_PASSWORD:-localdemoreader}@postgres:5432/app_demo
+      # Signs demo visitors' cookies on this Mac only; the guard refuses it over HTTPS.
+      DEMO_SESSION_SECRET: local-demo-session-secret-only-for-this-mac-0001
+      PUBLIC_BASE_URL: http://localhost:5174
+      # The real app, whose launch screen the Me page's "Return to login screen" opens.
+      MAIN_APP_URL: ${MAIN_APP_URL:-http://localhost:5173}
+      # Real time, like the hosted demo. Only `make screenshots` freezes it (D124).
+      NOW_OVERRIDE: ${DEMO_NOW_OVERRIDE:-}
+    # Serves only. The demo is rebuilt elsewhere (demo-seed here; a scheduled GitHub
+    # Actions job when hosted, DECISIONS D121), so this service holds demo_reader alone.
     command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
     volumes:
       - ./api:/app
       - ./db:/db
-      - ./scripts:/scripts:ro # seed_demo.py
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,9 +185,10 @@ services:
       dockerfile: Dockerfile.playwright
     environment:
       BASE_URL: http://web-demo:5173
-      DEV_LOGIN_KEY: demo-key
     volumes:
       - ./web/e2e:/app/e2e:ro
+      - ./web/src/tour:/app/tour:ro # the tour's steps, for e2e/tour.spec.ts
+      - ./web/src/streak:/app/streak:ro # the streak explainer, for e2e/streak-explainer.spec.ts
       - ./web/playwright.config.ts:/app/playwright.config.ts:ro
       - ./docs/screenshots:/app/screenshots
 

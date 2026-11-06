@@ -195,3 +195,113 @@ def test_secrets_never_show_in_the_settings_repr():
     shown = repr(production(dev_login_key=SecretStr(CANARY_DEV_KEY)))
     for canary in (CANARY_STATE_SECRET, CANARY_CLIENT_SECRET, CANARY_DEV_KEY, "canary-db"):
         assert canary not in shown
+
+
+# --- the public demo (APP_ENV=demo, DECISIONS D118) ----------------------------------------
+
+CANARY_DEMO_URL = "postgresql+psycopg://demo_reader:canary-db-password@db.example.com:5432/app_demo"
+CANARY_DEMO_SECRET = "canary-demo-session-secret-0123456789abcdef"
+
+
+def demo(**changes) -> Settings:
+    """A public demo config that passes every guard."""
+    values = {
+        "app_env": "demo",
+        "auth_mode": "demo",
+        "public_base_url": "https://demo.example.com",
+        "warehouse_url": SecretStr(CANARY_DEMO_URL),
+        "demo_session_secret": SecretStr(CANARY_DEMO_SECRET),
+    }
+    values.update(changes)
+    return Settings(**values)
+
+
+def demo_refusal(settings: Settings, environ: dict[str, str] | None = None) -> str:
+    with pytest.raises(ConfigError) as caught:
+        check_startup(settings, environ or {})
+    message = str(caught.value)
+    for canary in ("canary-db", CANARY_DEMO_SECRET, "canary-value"):
+        assert canary not in message
+    return message
+
+
+def test_a_complete_demo_config_starts():
+    check_startup(demo(), {"APP_TIMEZONE": "Asia/Manila"})
+
+
+def test_the_demo_starts_locally_over_http_with_a_frozen_clock():
+    check_startup(
+        demo(
+            public_base_url="http://localhost:5174",
+            demo_session_secret=SecretStr("local-demo-session-secret-only-for-this-mac-0001"),
+            now_override="2026-10-17T14:00:00+08:00",
+        ),
+        {},
+    )
+
+
+def test_the_demo_refuses_a_database_not_named_demo():
+    url = CANARY_DEMO_URL.replace("/app_demo", "/app")
+
+    assert "_demo" in demo_refusal(demo(warehouse_url=SecretStr(url)))
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "GOOGLE_CLIENT_SECRET",
+        "OAUTH_STATE_SECRET",
+        "ALLOWED_GOOGLE_SUB",
+        "INGEST_TOKEN_SHA256",
+        "DEV_LOGIN_KEY",
+        "STRAVA_CLIENT_SECRET",
+        "AIRFLOW_ADMIN_PASSWORD",
+        "POSTGRES_PASSWORD",
+    ],
+)
+def test_the_demo_refuses_to_start_holding_a_real_secret(name):
+    message = demo_refusal(demo(), {name: "canary-value"})
+
+    assert name in message
+
+
+def test_an_empty_variable_does_not_count():
+    check_startup(demo(), {"GOOGLE_CLIENT_SECRET": ""})
+
+
+def test_the_demo_needs_a_long_session_secret():
+    assert "DEMO_SESSION_SECRET" in demo_refusal(demo(demo_session_secret=SecretStr("short")))
+    assert "DEMO_SESSION_SECRET" in demo_refusal(demo(demo_session_secret=None))
+
+
+def test_a_public_demo_refuses_the_local_secret():
+    local = SecretStr("local-demo-session-secret-only-for-this-mac-0001")
+
+    assert "placeholder" in demo_refusal(demo(demo_session_secret=local))
+
+
+def test_a_public_demo_needs_https():
+    assert "https" in demo_refusal(demo(public_base_url="http://demo.example.com"))
+
+
+def test_a_public_demo_refuses_a_frozen_clock():
+    assert "NOW_OVERRIDE" in demo_refusal(demo(now_override="2026-10-17T14:00:00+08:00"))
+
+
+def test_demo_auth_and_demo_env_go_together():
+    assert "AUTH_MODE=demo" in refusal(dev(auth_mode="demo"))
+    assert "AUTH_MODE=demo" in demo_refusal(demo(auth_mode="google"))
+
+
+def test_the_demo_cookie_is_secure_over_https_only():
+    assert demo().cookie_secure
+    assert not demo(public_base_url="http://localhost:5174").cookie_secure
+
+
+def test_the_demo_url_must_be_an_origin():
+    assert "DEMO_PUBLIC_URL" in refusal(dev(demo_public_url="http://localhost:5174/path"))
+
+
+def test_the_main_app_url_must_be_an_origin():
+    assert "MAIN_APP_URL" in demo_refusal(demo(main_app_url="javascript:alert(1)"))
+    assert "MAIN_APP_URL" in demo_refusal(demo(main_app_url="http://localhost:5173/path"))

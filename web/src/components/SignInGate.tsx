@@ -1,25 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { useLocation } from "react-router";
-import {
-  AUTH_QUERY,
-  checkSignedIn,
-  devSignIn,
-  fetchSignInMethod,
-  forgetOldKey,
-  googleSignInUrl,
-  type SignInMethod,
-} from "../api/auth";
+import { Link, useLocation } from "react-router";
+import { AUTH_QUERY, devSignIn, forgetOldKey, googleSignInUrl, type SignInMethod } from "../api/auth";
+import { loadAuth } from "../api/visit";
 import { UNAUTHORIZED_EVENT } from "../api/client";
-import { FlameIcon } from "../icons";
 import styles from "./SignInGate.module.css";
-
-type Auth = { signedIn: true } | { signedIn: false; method: SignInMethod };
-
-async function loadAuth(): Promise<Auth> {
-  if (await checkSignedIn()) return { signedIn: true };
-  return { signedIn: false, method: await fetchSignInMethod() };
-}
+import { Wordmark } from "./Wordmark";
 
 /** Shows the app only to a signed-in browser (UI_SPEC.md section 1); any 401 later brings
     the sign-in screen back. The server decides: this asks /auth/me, never storage. */
@@ -47,31 +33,94 @@ export function SignInGate({ children }: { children: ReactNode }) {
     );
   }
   if (auth.data.signedIn) return <>{children}</>;
-  return <SignInScreen method={auth.data.method} onSignedIn={recheck} />;
+  return <SignInScreen method={auth.data.method} demoUrl={auth.data.demoUrl} onSignedIn={recheck} />;
 }
 
-function SignInScreen({ method, onSignedIn }: { method: SignInMethod; onSignedIn: () => void }) {
+function SignInScreen({
+  method,
+  demoUrl,
+  onSignedIn,
+}: {
+  method: SignInMethod;
+  demoUrl: string | null;
+  onSignedIn: () => void;
+}) {
   const location = useLocation();
   return (
-    <main className={styles.screen}>
-      <FlameIcon className={styles.mark} aria-hidden="true" />
-      <div>
-        <h1 className={styles.title}>Sign in to your tracker</h1>
-        <p className={styles.lede}>
-          {method === "google"
-            ? "Only the owner's Google account can open it."
-            : "Local development: enter DEV_LOGIN_KEY from the server's .env file."}
-        </p>
+    <main className={styles.launch}>
+      <div className={styles.column}>
+        <img className={styles.icon} src="/favicon.svg" alt="" width={88} height={88} />
+        {/* The page's one h1: the app's name, drawn as the wordmark. */}
+        <h1 className={styles.brand}>
+          <Wordmark className={styles.wordmark} />
+        </h1>
+        <div className={styles.actions}>
+          {method === "google" ? (
+            // A plain link, not a button: the server runs the Google flow (AUTH_SPEC.md
+            // section 9), then sends the browser back to this same page.
+            <a className={styles.google} href={googleSignInUrl(location.pathname + location.search)}>
+              <GoogleG />
+              Sign in with Google
+            </a>
+          ) : (
+            <DevKeyForm onSignedIn={onSignedIn} />
+          )}
+          <p className={styles.note}>
+            This app is limited to invited users only. To learn more about the app, check out the Demo
+            version.
+          </p>
+          {/* The demo is its own service, with its own database (DECISIONS D118): a plain
+              link to it. Without one configured, the button stays and does nothing. */}
+          {demoUrl ? (
+            <a className={styles.demo} href={demoUrl}>
+              Demo version
+            </a>
+          ) : (
+            <button type="button" className={styles.demo}>
+              Demo version
+            </button>
+          )}
+          <Link className={styles.howLink} to="/how-it-works">
+            How it works
+          </Link>
+        </div>
       </div>
-      {method === "google" ? (
-        // Back to the same page after Google (the server accepts only a path on this site).
-        <a className={styles.submit} href={googleSignInUrl(location.pathname + location.search)}>
-          Sign in with Google
-        </a>
-      ) : (
-        <DevKeyForm onSignedIn={onSignedIn} />
-      )}
+      <CornerRing />
     </main>
+  );
+}
+
+/** Google's multicolour "G". Its four colours are Google's brand, fixed in both themes. */
+function GoogleG() {
+  return (
+    <svg className={styles.g} viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
+
+/** The faint ring cropped by the bottom-right corner: decoration only, hidden from readers. */
+function CornerRing() {
+  return (
+    <svg className={styles.corner} viewBox="0 0 400 400" aria-hidden="true" focusable="false">
+      <circle className={styles.cornerRing} cx={200} cy={200} r={160} strokeWidth={44} />
+      <circle className={styles.cornerCore} cx={200} cy={200} r={100} />
+    </svg>
   );
 }
 
@@ -110,7 +159,7 @@ function DevKeyForm({ onSignedIn }: { onSignedIn: () => void }) {
           That key was not accepted. Check it against DEV_LOGIN_KEY in .env.
         </p>
       )}
-      <button type="submit" className={styles.submit} disabled={!value.trim() || busy}>
+      <button type="submit" className={styles.google} disabled={!value.trim() || busy}>
         Sign in
       </button>
     </form>

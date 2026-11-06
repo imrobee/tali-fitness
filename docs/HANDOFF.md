@@ -1,12 +1,13 @@
-# Handoff (2026-11-04)
+# Handoff (2026-11-05)
 
-Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D115).
+Where the project stands, for picking it up in a new conversation. Read with `CLAUDE.md` (working agreement), `docs/PROJECT_PLAN.md` (status per slice), and `docs/DECISIONS.md` (D1-D130).
 
 ## Where we are
 
 - **Slices 0-7d are done and merged** (PRs #1-#10).
 - **Slice 8a (Google sign-in and the ingest token) is built and green** on `slice-8a-google-auth`, waiting on Rob's checklist (AUTH_SPEC section 13). Google sign-in for one account, server-side sessions (migration 0015, applied), an Origin check, the hashed Shortcut token, hardening, leak tests, gitleaks in CI. The shared `API_KEY` works nowhere now. Departures from the spec: D109, D110, D112, D113, D115.
-- Tests: 338 API + 214 pipeline + 170 web, plus the secret scan and the bundle check, all green with `make -k check`.
+- **Slice 8a is merged** (PR #11). **UI polish** (Tali theme, launch screen, card changes) and **Slice 8b (the public demo)** are built and green on `ui-polish` (Rob chose to build 8b there): an isolated read-only demo service on its own database (`app_demo`, roles `demo_reader` / `demo_seed`), demo data replayed through the real pipeline and rebuilt every 3 hours by GitHub Actions in one transaction, on real time (D124), session-only Me settings (migration 0016), a guided tour with Rob's copy and a How it works page in plain prose (D116-D127; ARCHITECTURE 13b).
+- Tests: 452 API + 235 pipeline + 253 web, plus the secret scan, the bundle check and the demo clock check, all green with `make -k check`. `make screenshots` also walks the tour (`web/e2e/tour.spec.ts`) at 375x812 and desktop, Technical details off and on, and the streak explainer (`web/e2e/streak-explainer.spec.ts`); it runs one spec file at a time with a minute between them, to stay under the demo's rate limit.
 
 ## What works, and how to run it
 
@@ -18,7 +19,8 @@ make migrate       # apply migrations (now at 0015)
 make -k check      # lint, typecheck, all tests (what CI runs)
 make strava-auth   # one-time Strava login (already done; only if tokens are lost)
 make logs          # follow container logs
-make seed-demo SCENARIO=midweek   # demo stack at http://localhost:5174, key "demo-key"
+make seed-demo SCENARIO=midweek   # the demo at http://localhost:5174 (starts a demo visit by itself)
+make demo-reseed                  # rebuild the demo's data in place (what the 3-hourly job does)
 make screenshots   # docs/screenshots/{midweek,at_risk,edge_empty}-iphone.png
 ```
 
@@ -66,14 +68,15 @@ Do not `SELECT *` from `ops.oauth_tokens` (it prints live Strava tokens).
 
 ## Waiting on Rob
 
-1. **Commit 8a** (steps 2-9) on `slice-8a-google-auth`.
+1. **Commit `ui-polish`** (UI polish, then Slice 8b), and `git rm docs/screenshots/midweek-activities-month-iphone.png` (no longer generated). The demo polish round goes on `slice-8b-demo-polish`; `git rm` the old tour and page screenshots it no longer makes: `tour-*-iphone.png`, `tour-records-*.png`, `tour-calories-landscape.png`, `how-it-works-iphone.png`. Then look at the demo at http://localhost:5174 and take the tour.
 2. **AUTH_SPEC section 13 checklist:** sign in with Google at http://localhost:5173 (denied the first time; copy the `sub` from `make logs` into `ALLOWED_GOOGLE_SUB`, `make up`, sign in again); try a second Google account (must be denied); put `Authorization: Bearer ing_...` in the Health Push Shortcut and run it; remove `API_KEY` from `.env` and anywhere it was pasted.
 3. **iPhone in dev:** Google refuses IP-address redirect URIs, so on the phone use `AUTH_MODE=key` with `DEV_LOGIN_KEY` and `PUBLIC_BASE_URL=http://<mac-lan-ip>:5173`.
 4. **"Small manual-entry forms"** (7b) still has no definition: say which forms, or drop it.
 
 ## Exact next step
 
-After Rob's checklist and merging 8a: Slice 8 (hosting decision, deploy, README; webhooks evaluated there). Re-read `PROJECT_PLAN.md` Slice 8 first, including the auth items carried over from 8a; hosting needs Rob's approval before anything is deployed.
+1. Rob: commit `ui-polish` (UI polish, then 8b) and `slice-8b-demo-polish` (the demo polish round, D124-D127), open http://localhost:5174 (`make seed-demo`) and take the tour; merge.
+2. Slice 8 (branch `slice-8-hosting`): the hosting decision (Neon for Postgres is in view; Neon Free suspends after 5 minutes, and a free Render Postgres expires after 30 days, D118), deploy with Rob's approval, then the demo by the checklist in ARCHITECTURE 13b. Re-read PROJECT_PLAN Slice 8 first, including the auth items carried over from 8a.
 
 ## Working agreements to keep
 

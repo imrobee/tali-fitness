@@ -33,6 +33,19 @@
   fill: var(--text);
 }
 
+.pointLabel {
+  fill: var(--text-secondary);
+  font-size: 10px; /* viewBox units: about 10px on a phone, where the chart is ~300px wide */
+  font-weight: 600;
+  text-anchor: middle;
+  /* A halo in the card colour, drawn under the text, so a number stays readable where it
+     crosses a neighbouring dot or the line. */
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
 .axis {
   display: flex;
   justify-content: space-between;

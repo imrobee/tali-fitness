@@ -145,6 +145,21 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 - **Test like an attacker, against a fake Google.** A mock Google with its own RSA key lets CI try a wrong audience, issuer, nonce, signing key, state and PKCE verifier, each of which must fail. The route test calls every route from the OpenAPI list without credentials, so a new unguarded route fails CI.
 - **Assume one layer fails.** Credentials are redacted from logs, the callback's query string is stripped from the access log, and leak tests run every flow with canary secrets and search all logs, responses and the built JavaScript for them. gitleaks scans the full git history in CI.
 
+## Slice 8b: the public demo
+
+- **Isolation the database enforces, not just the code.** The demo is its own database with two roles: the demo service logs in as one that can only read, and neither role can even connect to the real warehouse. Startup refuses any real secret by name. Trade-off: two services to host, in exchange for "the demo process has no way to reach my data".
+- **The demo is built by the pipeline, not inserted.** Synthetic Strava details and Shortcut batches replay through the real sync, parser, ingest checks and data-quality checks, so the demo doubles as an end-to-end test. Deterministic seed, dated back from today, rebuilt in one transaction (the pipeline's commits become savepoints) so visitors never see half a rebuild.
+- **Bookkeeping clocks.** The pipeline stamps runs with the database's `now()`; replaying months in seconds meant moving each step's rows to the moment it stands for. Inside one transaction `now()` never moves, which makes "this step's rows" simply `= now()`.
+- **Per-request settings that can't leak through a connection pooler.** A visitor's edited budget rides in a header and is set with `set_config(..., true)`, transaction-local, so Neon's PgBouncer can hand the connection to anyone next. My first leak test passed even with the bug: a rollback had been undoing the setting. The real test commits on a one-connection pool.
+- **Words that must match the code, without code words.** The tour speaks to a recruiter, so it names no tables; instead tests check its claims ("every hour" against the DAG schedules, the check count against the SQL files, "every few hours" against the reseed cron), its numbers come from the last rebuild, and a sentence whose number is missing is dropped rather than printed as zero. A browser test walks every step at phone size and fails if the sheet covers its card. Trade-off: claims tests catch fewer renames than name checks did, but there are no names left to rename.
+
+## Slice 8b: the streak explainer
+
+- **Copy tested against the code it describes.** Each example row in the explainer is built in the database and run through the streak SQL, and each rule's sentence has a SQL case that quotes it. Checking the draft that way found four places where my own description of the rules didn't match the code (slips add to the count; a day over budget counts with or without a workout; breaks can cover past days; the time zone is shown, not set).
+- **One source, two views.** The ? sheet and the Me page render the same file, and a test renders both and compares them item for item, so the explanations can't drift.
+- **Reuse over a second component.** The explainer runs on the tour's engine (spotlight, sheet, focus trap, announcements) and draws its examples with the dashboard's own day circle. Trade-off: the engine grew a few options (no route, Close, no switch) instead of a second, simpler copy.
+- **A rate limit found by my own tests.** Adding a third browser spec pushed the screenshot run over the demo's 120 reads a minute from one address. I paced the run (one spec at a time, a minute apart) rather than add a switch that raises a limit real visitors get.
+
 ## Bugs found, and how (good "tell me about a time" stories)
 
 | Bug | How it surfaced | Fix |
@@ -164,7 +179,14 @@ Strava activities are **pulled** hourly by Airflow; Apple Health nutrition is **
 | The dashboard was 21px too wide at 200% zoom, but no element stuck out | Measuring scroll width, then hiding cards one by one | A `width: 1%` table-column trick became a 1px box when the rows stacked, and its text spilled past the card; bounding boxes do not include spilled text |
 
 | The security log tests passed while checking nothing | A logging test failed: no record captured at all | Alembic's `fileConfig` switches off every logger that already exists; tests import the app before running migrations. Now `disable_existing_loggers=False` |
+| The demo looked empty: a 0-day streak, no budget, "today" a month ago | Rob's screenshots of the tour | The screenshot run left its last (empty) scenario loaded, and Compose froze the demo's clock. Now the clock is real by default, only the screenshot run freezes it and reloads the main story after, and `make check` fails on a frozen date in Compose |
+| The tour's sheet covered the card it explained | Rob's phone screenshots; then a browser test asserting no overlap at 375x812 | The target scrolls to the top and the sheet takes the rest; only the technical words are clamped. The same test then caught an opened gym session 17px taller than the screen, and a re-render closing it on desktop |
+| "Take the tour" could start the tour without marking it seen | TypeScript, once `start` took a tour name: the button passed its click event as the name | The button calls `start()`; the tour marks itself seen only when it is the demo tour |
 | The route-coverage test found no routes | A parametrized test came back "skipped" (an empty list) | FastAPI 0.142 nests included routers, so `app.routes` hides them. The test now calls every route from the public OpenAPI list instead of reading FastAPI internals |
+| The demo's own data-quality panel showed a failed check | The first pipeline-built demo | Two unreadable Hevy sessions in 30 days put parse coverage under its fail line: the real check was right. Moved one session outside the window, so the panel tells a "warnings" story |
+| The tour's Next button was off-screen on a phone turned sideways | The landscape screenshot timed out on the click | 667px wide counted as desktop, so the dialog floated and was taller than the 375px screen; short screens now get the bottom sheet |
+| A demo settings request returned 500 | Trying the override against the live demo | psycopg read `%(name)s` inside a SQL comment as a placeholder; the comment now has no percent signs |
+| A "reader can't update any table" test passed for the wrong reason | Its error message said "identity column", not "permission denied" | Postgres refuses to set an identity column before it checks privileges; the test now updates an ordinary column |
 | Signing out would have left a blank app | Reading the sign-out code after it passed its test | Clearing React Query's cache also removed the sign-in check itself, so nothing asked again. Sign-out now drops the pages' data and then re-asks the server |
 
 **The habit behind most of these:** after writing a key test, I break the code on purpose and confirm the test fails. A passing test proves nothing until you've seen it fail.

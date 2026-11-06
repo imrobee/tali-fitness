@@ -1,8 +1,17 @@
 import { useState } from "react";
 import type { PipelineHealth, SourceHealth } from "../api/types";
-import { clockTime, reasonLabel, type SourceStatus, sourceName, statusLabel, timeAgo } from "../lib/pipeline";
+import {
+  clockTime,
+  demoRebuildLine,
+  reasonLabel,
+  type SourceStatus,
+  sourceName,
+  statusLabel,
+  timeAgo,
+} from "../lib/pipeline";
 import { ChevronDownIcon } from "../icons";
 import { Card } from "./Card";
+import { useIsDemo } from "../api/visit";
 import { RunHealthShortcut, SyncNowButton } from "./SyncNow";
 import styles from "./DataSyncCard.module.css";
 
@@ -17,12 +26,17 @@ interface Props {
 /** The Me page's "Data and sync" panel (UI_SPEC.md 6.3): sources, quarantine, data quality. */
 export function DataSyncCard({ health, now }: Props) {
   return (
-    <Card title="Data and sync">
+    <Card title="Data and sync" tour="data-sync">
       <ul className={styles.sources}>
         {health.sources.map((source) => (
           <SourceRow key={source.source} source={source} now={now} />
         ))}
       </ul>
+      {health.demo_rebuild && (
+        <p className={styles.rebuilt}>
+          {demoRebuildLine(health.demo_rebuild.seeded_at, health.demo_rebuild.duration_ms)}
+        </p>
+      )}
       <Expandable
         label={`Quarantined records: ${health.quarantine.open}`}
         empty={health.quarantine.open === 0 ? "Nothing waiting for a fix." : undefined}
@@ -59,6 +73,8 @@ export function DataSyncCard({ health, now }: Props) {
 
 function SourceRow({ source, now }: { source: SourceHealth; now: number }) {
   const status = source.status;
+  // The demo never syncs: it has no Strava, no Shortcut and no Airflow (DECISIONS D118).
+  const demo = useIsDemo();
   return (
     <li className={styles.source}>
       <div className={styles.sourceHead}>
@@ -79,8 +95,8 @@ function SourceRow({ source, now }: { source: SourceHealth; now: number }) {
             : `${source.failures_7d} failures in the last 7 days`}
         </span>
       )}
-      {source.source === "strava" && <SyncNowButton />}
-      {source.source === "health" && <RunHealthShortcut />}
+      {!demo && source.source === "strava" && <SyncNowButton />}
+      {!demo && source.source === "health" && <RunHealthShortcut />}
     </li>
   );
 }

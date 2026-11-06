@@ -27,7 +27,7 @@ Open the web app and sign in: with Google (`AUTH_MODE=google`, see below), or lo
 
 ## Demo and screenshots
 
-A separate demo stack (its own database `app_demo`, dev key `demo-key`, clock frozen at Sat 2026-10-17 14:00) never touches real data.
+A separate demo stack (its own database `app_demo`, clock frozen at Sat 2026-10-17 14:00) never touches real data; opening it starts a read-only demo visit (see Demo mode below).
 
 ```bash
 make seed-demo SCENARIO=midweek   # or at_risk, edge_empty; then open http://localhost:5174
@@ -41,6 +41,21 @@ make screenshots                  # iPhone and desktop screenshots of every scen
 Other scenarios: [at risk](docs/screenshots/at_risk-iphone.png), [stale pipeline](docs/screenshots/at_risk-me-iphone.png), [nothing set up yet](docs/screenshots/edge_empty-iphone.png), [desktop](docs/screenshots/midweek-desktop.png), [trends by month](docs/screenshots/midweek-activities-month-iphone.png), [weights in pounds](docs/screenshots/midweek-nutrition-lb-iphone.png).
 
 Other commands: `make down`, `make logs`, `make test`, `make lint`. `make db-reset` deletes all local data.
+
+## Demo mode
+
+The launch screen's **Demo version** button opens a separate demo service with synthetic data. How it is isolated:
+
+- **Its own service and database.** The demo API runs with `APP_ENV=demo` against `app_demo` only. Its one database role, `demo_reader`, can SELECT there and cannot even connect to the real warehouse (CONNECT is revoked from PUBLIC on `app` and `airflow`).
+- **No real secrets.** It starts without `.env`. The startup guard refuses to run if any `GOOGLE_*`, `OAUTH_*`, `INGEST_TOKEN*`, `STRAVA_*`, `AIRFLOW_*`, `POSTGRES_*` or dev-key variable is set, or if the database name doesn't end in `_demo`.
+- **A demo visit, not a sign-in.** Opening the demo sets a signed, 2-hour `demo_session` cookie (its own secret, no database row). The real app never reads it, and the demo never reads real sessions.
+- **Read-only, on the server.** Every write gets `403 demo_read_only` ("Demo mode: changes aren't saved."), and the sign-in, ingest and sync routes don't exist there. The database role refuses writes too.
+- **Limits:** 10 new visits and 120 reads a minute per address; bodies over 1 KB are refused.
+- **Built by the pipeline, not inserted.** The demo's data is synthetic Strava activity details (with Hevy text) and Shortcut batches, replayed through the real sync, Hevy parser, core load, ingest checks and the 15 data-quality checks. It includes the mess a real pipeline meets: unreadable set lines in quarantine, an unmapped exercise, a duplicate push, a timed-out sync and its retry. The seed is fixed and days count back from today, so the demo shows the same story on any date; a daily GitHub Actions job rebuilds it in one transaction (about 4 seconds, 11 MB), so visitors never see it half-built, and a visit to day-old data asks for a rebuild. The demo service itself holds only the read-only role.
+- **Try your own settings.** On the demo's Me page you can change the calorie budget, protein goal, weight goal and weekend rule; every page follows, for every day. The settings stay in your browser tab, ride along with each request, and are applied inside that request's database transaction only. Nothing is saved; **Reset demo** puts the demo's own back.
+- **A guided tour** spotlights each card and names where its data comes from: the real tables, SQL functions, Airflow DAGs and tasks, and endpoints. The steps are a data file (`web/src/tour/steps.json`), and a test checks every name against the code.
+
+The tour and the **How it works** page (architecture, data flow, stack) are pictured in [the tour on a phone](docs/screenshots/tour-streak-iphone.png), [beside a card on desktop](docs/screenshots/tour-pipeline-desktop.png) and [How it works](docs/screenshots/how-it-works-iphone.png). Deploying the demo: the checklist in `docs/ARCHITECTURE.md` section 13b.
 
 ## Authentication and security
 

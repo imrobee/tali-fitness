@@ -29,6 +29,12 @@
   background: var(--card-hover);
 }
 
+/* An opened session: a mint line around the part that was there before it opened (the
+   same area the hover lights up), not around its sets. Inset, so nothing moves. */
+.toggle[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 /* The icon sets its own size: without one it inherits the 14px text and looks lost. */
 .icon {
   display: grid;

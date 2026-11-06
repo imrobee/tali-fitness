@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AUTH_QUERY } from "../api/auth";
 import { MePage } from "./MePage";
 
 const ME = {
@@ -22,6 +23,7 @@ const ME = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  sessionStorage.clear();
 });
 
 function fakeApi() {
@@ -102,7 +104,10 @@ describe("Me page streak settings", () => {
     const puts = fakeApi();
     renderMe();
 
-    expect(await screen.findByText("Weekends follow the same rules as weekdays.")).toBeTruthy();
+    // The rule sits in the Weekends card, under the switch, not in the rules list.
+    const rule = await screen.findByText("Weekends follow the same rules as weekdays.");
+    expect(rule.closest("li")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Weekends" })).toBeTruthy();
     fireEvent.click(screen.getByRole("group", { name: "Weekends" }).querySelectorAll("button")[1]);
 
     await waitFor(() => expect(puts).toEqual([{ lenient_weekends: true }]));
@@ -135,3 +140,69 @@ describe("Me page streak settings", () => {
     expect(puts).toEqual([]);
   });
 });
+
+describe("Me page on the demo", () => {
+  /** Every request's demo settings header, in order. */
+  function fakeDemoApi() {
+    const sent: { method: string; settings: string | null }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        if (url === "/api/v1/me") {
+          const settings = headers["X-Demo-Settings"] ?? null;
+          sent.push({ method: init?.method ?? "GET", settings });
+          const own = settings ? JSON.parse(settings) : {};
+          const budget = own.calorie_budget ?? ME.targets.calorie_budget;
+          return new Response(
+            JSON.stringify({ ...ME, targets: { ...ME.targets, calorie_budget: budget } }),
+            { status: 200 },
+          );
+        }
+        return new Promise(() => {});
+      }),
+    );
+    return sent;
+  }
+
+  function renderDemoMe() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(AUTH_QUERY, { signedIn: true, demo: true, launchUrl: "http://localhost:5173" });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MePage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("keeps a new budget in the tab and never sends a write", async () => {
+    const sent = fakeDemoApi();
+    renderDemoMe();
+
+    const budget = (await screen.findByLabelText(/Calorie budget/)) as HTMLInputElement;
+    fireEvent.change(budget, { target: { value: "1700" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(budget.value).toBe("1700"));
+    expect(sent.every((request) => request.method === "GET")).toBe(true);
+    expect(sent.at(-1)?.settings).toContain('"calorie_budget":1700');
+    // Said once, at the bottom of the page, not under every card.
+    expect(
+      screen.getAllByText("In the demo version, none of your changes are saved when you close this tab."),
+    ).toHaveLength(1);
+    expect(screen.queryByText(/Changes apply from today/)).toBeNull();
+  });
+
+  it("has no Account card, and ends with the way back to the launch screen", async () => {
+    fakeDemoApi();
+    renderDemoMe();
+
+    const leave = await screen.findByRole("link", { name: "Return to login screen" });
+    expect(leave.getAttribute("href")).toBe("http://localhost:5173");
+    expect(screen.queryByRole("heading", { name: "Account" })).toBeNull();
+    expect(screen.queryByText(/A demo visit: synthetic/)).toBeNull();
+  });
+});
+

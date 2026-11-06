@@ -1,0 +1,140 @@
+/* How it works (UI_SPEC.md section 13): short sections of plain prose, a three-stage
+   picture, and the profile links. Readable at 320px, in either theme. */
+
+.intro {
+  margin: 0 0 20px;
+  font-size: var(--fs-card);
+  line-height: 1.45;
+}
+
+/* The picture: three numbered stages joined by a line, big enough to read on a phone
+   without zooming (no tap-to-enlarge needed). */
+.figure {
+  margin: 0 0 28px;
+}
+
+.stages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-inner);
+  background: var(--card);
+}
+
+/* The line from one stage down to the next. */
+.stage + .stage::before {
+  content: "";
+  position: absolute;
+  top: -13px;
+  left: 31px;
+  width: 2px;
+  height: 12px;
+  background: var(--accent);
+}
+
+.number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-button);
+  font-weight: 700;
+}
+
+.stageTitle {
+  display: block;
+  font-size: var(--fs-card);
+  font-weight: 700;
+}
+
+.stageText {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.9375rem; /* 15 */
+  line-height: 1.4;
+}
+
+.caption {
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+
+.section {
+  margin: 0 0 24px;
+}
+
+.heading {
+  margin: 0 0 6px;
+  font-size: var(--fs-card);
+  font-weight: 700;
+}
+
+.text {
+  margin: 0;
+  font-size: 0.9375rem; /* 15: prose, a touch larger than the cards' body text */
+  line-height: 1.55;
+}
+
+/* Two button-style links, side by side; stacked on a very narrow screen. */
+.profile {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.profileLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profileIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* The way back: a full-width button at the very bottom, outside the profile card. */
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  margin-top: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profileLink:focus-visible,
+.back:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}

@@ -16,7 +16,11 @@ export function ProteinCard({ protein, to }: Props) {
 
   return (
     // Its own card layout (no separate header): "Protein" is the title (UI_SPEC.md 5.7).
-    <section className={cardStyles.card} aria-label={proteinLabel(grams, goal, percent)}>
+    <section
+      className={cardStyles.card}
+      aria-label={proteinLabel(grams, goal, percent)}
+      data-tour="protein"
+    >
       <div className={styles.top}>
         <div className={styles.label}>
           <h2 className={styles.title}>

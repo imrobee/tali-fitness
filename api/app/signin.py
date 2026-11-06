@@ -145,10 +145,17 @@ router = APIRouter(prefix="/auth")
 
 class SignedIn(BaseModel):
     signed_in: bool
+    demo: bool = False  # true only on the demo service: the web app shows "Demo data"
+    # The demo only: numbers the tour quotes (streak_days, best_streak, n_checks, lift_day).
+    story: dict | None = None
+    # The demo only: the real app's launch screen, for "Return to login screen".
+    launch_url: str | None = None
 
 
 class SignInMethod(BaseModel):
-    method: str  # "google" or "key"
+    method: str  # "google", "key", or "demo" (the demo service)
+    # The demo service's address, for the launch screen's Demo button; None if not set up.
+    demo_url: str | None = None
 
 
 @router.get("/method", response_model=SignInMethod)
@@ -156,7 +163,7 @@ def method(settings: Annotated[Settings, Depends(get_settings)]) -> SignInMethod
     """Which sign-in screen to show: the Google button, or the dev key form (local only).
 
     Public, and not a secret: it lets one web build serve both modes (DECISIONS D112)."""
-    return SignInMethod(method=settings.auth_mode)
+    return SignInMethod(method=settings.auth_mode, demo_url=settings.demo_public_url)
 
 
 @router.get("/me", response_model=SignedIn)

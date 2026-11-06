@@ -43,7 +43,8 @@ export function ActivityItem({ activity }: Props) {
   }
 
   return (
-    <li className={styles.item}>
+    // The demo tour opens a lifting session and points at it (UI_SPEC.md section 12).
+    <li className={styles.item} data-tour={activity.type === "strength" ? "strength-session" : undefined}>
       <button
         type="button"
         className={`${styles.head} ${styles.toggle}`}
@@ -80,7 +81,7 @@ function SetDetail({ id }: { id: number }) {
         <p className={styles.tag}>Couldn't read some sets</p>
       )}
       {detail.exercises.map((exercise) => (
-        <div key={exercise.order} className={styles.exercise}>
+        <div key={exercise.order} className={styles.exercise} data-tour-part="exercise">
           <p className={styles.exerciseName}>
             {exercise.name}
             {exercise.equipment && <span className={styles.muted}> · {exercise.equipment}</span>}

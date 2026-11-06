@@ -40,6 +40,7 @@ export function CalendarCard({ calendar, view, onViewChange, onMove, selected, o
   return (
     <Card
       title="Calendar"
+      tour="calendar"
       aside={<Toggle label="Calendar range" options={GRAIN_OPTIONS} value={view} onChange={onViewChange} />}
     >
       <div className={styles.nav}>

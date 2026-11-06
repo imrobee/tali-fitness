@@ -9,14 +9,17 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#000000" />
+    <!-- Sets data-theme on <html> before anything paints (no flash of the wrong theme).
+         A file, not inline: the CSP allows same-origin scripts only. -->
+    <script src="/theme-init.js"></script>
     <!-- "Add to Home Screen" in Safari: opens full screen with a black status bar. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <meta name="apple-mobile-web-app-title" content="Streak" />
+    <meta name="apple-mobile-web-app-title" content="Tali Fitness" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Fitness Tracker</title>
+    <title>Tali Fitness</title>
   </head>
   <body>
     <div id="root"></div>

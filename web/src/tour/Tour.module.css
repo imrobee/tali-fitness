@@ -1,0 +1,361 @@
+/* The demo tour (UI_SPEC.md section 12). Above everything, the bottom nav included. */
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+/* Covers the page and takes its clicks: the tour moves with its own buttons. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The dimming: a soft, rounded cut-out around the step's card, and no outline, so it
+   never looks like a focused input. */
+.dim {
+  fill: var(--tour-dim);
+}
+
+.dialog {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  outline: none;
+}
+
+/* The dialog takes focus on each step only so a screen reader starts reading at its top;
+   it is not a control, so no ring (its buttons keep theirs). */
+.dialog:focus,
+.dialog:focus-visible {
+  outline: none;
+}
+
+/* The words. Never a scroll box: the sheet is as tall as they are, and the technical
+   words are clamped (with Show more) when they would not fit beside the target. */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 8px;
+}
+
+/* First and last steps: a modal in the middle, no spotlight. */
+.modal {
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  transform: translate(-50%, -50%);
+}
+
+/* Desktop: beside (or above/below) the spotlight. 320px: at 1280 wide, the 520px page
+   column leaves about 340px either side. */
+.floating {
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+}
+
+/* Phone: a bottom sheet as tall as its words; the target is scrolled to the top above it. */
+.sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .floating {
+    transition:
+      top 180ms var(--ease-out),
+      left 180ms var(--ease-out);
+  }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin: -8px 0 -4px;
+}
+
+.counter {
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+/* 44px to hit, though it looks like a quiet text link. */
+.skip {
+  min-width: 44px;
+  min-height: 44px;
+  margin-right: -10px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.title {
+  font-size: var(--fs-card);
+  font-weight: 700;
+}
+
+/* The step's words: one or more paragraphs. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Technical details: full contrast (--text on --card, well past WCAG AA), below a rule. */
+.technical {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--ring-track); /* --rule is near invisible on a dark card */
+  padding-top: 10px;
+}
+
+.technical p {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* Too long to fit beside the target: clamped to whole lines (the provider sets how many). */
+.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.more {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The streak explainer: a row of example days, drawn like the card, and its caption. */
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 0;
+}
+
+.exampleDays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exampleCaption {
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+/* The explainer's last step: the line about targets for this mode. */
+.note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+/* The key on the streak and calendar steps: the card's own marks, each with a word. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.keyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keyMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text);
+}
+
+.keyIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.keyRing {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.key_green {
+  stroke: var(--within-budget);
+}
+
+.key_orange {
+  stroke: var(--over-budget);
+}
+
+.key_grey {
+  stroke: var(--ring-track);
+}
+
+.keyOver {
+  fill: var(--over-budget);
+}
+
+.keyDay {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.keyDone {
+  background: var(--done-core);
+  color: var(--on-done-core);
+}
+
+.keyRest {
+  background: var(--freeze-tint);
+  color: var(--accent);
+}
+
+.keyRest svg {
+  width: 14px;
+  height: 14px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+}
+
+.modal .footer,
+.floating .footer {
+  padding-bottom: 12px;
+}
+
+/* "Technical details": the one switch that shows the engineering on every step. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switchTrack {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--card-elevated);
+  border: 1px solid var(--text-dim);
+}
+
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+.switch[aria-checked="true"] .switchTrack {
+  background: var(--brand-mint);
+  border-color: var(--brand-mint);
+}
+
+.switch[aria-checked="true"] .switchTrack::after {
+  left: 16px;
+  background: var(--on-button);
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.primary,
+.secondary {
+  min-height: var(--touch);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--button);
+  color: var(--on-button);
+}
+
+.secondary {
+  background: var(--card-elevated);
+  color: var(--text);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.skip:focus-visible,
+.switch:focus-visible,
+.more:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 2px;
+}

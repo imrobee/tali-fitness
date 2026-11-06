@@ -1,0 +1,86 @@
+{
+  "_readme": "The demo tour (UI_SPEC.md section 12). Edit the words freely. placement: modal (in the middle, no spotlight) or sheet (a bottom sheet on a phone, beside the card on a desktop). targets: CSS selectors on the page at route; the spotlight is one cut-out around all of them. within: optional, the first element matching it holds the targets (one gym session, not all of them). open: a selector to click first (it expands the session). {name} placeholders come from the demo's last rebuild (streak_days, best_streak, eaten, budget, n_checks, n_warnings, n_quarantined, lift_day), checked by tests; a sentence whose value is missing or zero is left out. Never quote the demo user's nickname. technical: shown when Technical details is on (sheet steps only). legend: streak or calendar, a small key drawn with the app's own icons. In body, a blank line (\\n\\n) starts a new paragraph and *words* are shown in italics. buttons: the footer, at most two (default: Back and Next).",
+  "steps": [
+    {
+      "id": "welcome",
+      "route": "/",
+      "placement": "modal",
+      "targets": [],
+      "title": "Welcome to Tali Fitness!",
+      "body": "I track my lifting in Hevy, my running in Strava, and my food in MyNetDiary. Each one does its job well, but none of them shows me everything together, so I built Tali Fitness to pull all three into one place. Everything in this demo is made-up data, so none of it is mine. Want a quick look around?",
+      "buttons": [
+        { "label": "Skip", "does": "close" },
+        { "label": "Show me around", "does": "next" }
+      ]
+    },
+    {
+      "id": "name",
+      "route": "/",
+      "placement": "sheet",
+      "targets": ["[data-tour='streak']"],
+      "title": "The streak",
+      "body": "The name \"tali\" comes from the Filipino word for \"string\". Notice that each circle in the streak is attached to each other by a string? That is because the goal of the app is to help users not \"break the chain\" of good habits. This is rooted in the *Seinfeld Strategy*, a method of building good habits by visually tracking consistency over time.\n\nThe name \"tali\" is also a play on words for \"tally\", with the core identity of the app being a tracker for fitness metrics."
+    },
+    {
+      "id": "streak",
+      "route": "/",
+      "placement": "sheet",
+      "targets": ["[data-tour='streak']"],
+      "legend": "streak",
+      "title": "The streak",
+      "body": "This is the week at a glance. Each circle is a day. A barbell or a runner means a workout, and a snowflake means a rest day. The ring around each day is green when calories stayed within budget, orange with a small triangle when they went over, and gray when no food was logged. A day counts toward the streak when there's a workout and the calories stay in range. One rest day or one day over budget is fine, but two rest days in a row or two days over in a row end the streak, and so does a day with nothing logged. The demo user is on a {streak_days}-day streak right now.",
+      "technical": "One SQL function labels every day as trained, rest, over budget, or empty, and the streak is counted over those labels with a window function. It's worked out when you open the page instead of being stored. In this demo, changing a target recalculates every day. In the real app, past days keep the target that applied at the time."
+    },
+    {
+      "id": "calories",
+      "route": "/",
+      "placement": "sheet",
+      "targets": ["[data-tour='calories']", "[data-tour='protein']"],
+      "title": "Calories and protein",
+      "body": "When a meal is logged in MyNetDiary, an iPhone Shortcut sends the calories and protein here automatically. The ring shows how much of today's calorie budget is left, and the bar below it tracks protein. So far today, {eaten} of the {budget} calorie budget has been used.",
+      "technical": "The Shortcut sends the latest entries to an address that only accepts requests carrying a secret token. If the same batch arrives twice, the server recognizes it and keeps just one, so it's safe for the Shortcut to retry on a bad connection."
+    },
+    {
+      "id": "calendar",
+      "route": "/activities",
+      "placement": "sheet",
+      "targets": ["[data-tour='calendar']"],
+      "legend": "calendar",
+      "title": "Workouts by day",
+      "body": "Every run and gym session shows up here from Strava, with nothing typed in by hand. A filled circle is a day with a workout, and a snowflake is a rest day. Gray circles are days from the month before or after. Tap a day to see what was done.",
+      "technical": "Strava can push updates, but that needs a public address that answers quickly, and a missed push means a missed workout. I chose to poll instead: a scheduled Airflow job checks for new activities every hour. It remembers where it stopped, so each run only asks for what's new, and running it again never creates duplicates."
+    },
+    {
+      "id": "sets",
+      "route": "/activities?date={lift_day}",
+      "placement": "sheet",
+      "within": "[data-tour='strength-session']",
+      "open": ":scope > button[aria-expanded='false']",
+      "targets": [":scope > button", "[data-tour-part='exercise']:nth-of-type(-n+2)"],
+      "title": "A gym session, set by set",
+      "body": "Hevy sends each workout to Strava as plain text, with one line per set, like 'Set 1: 125 kg x 10'. I wrote a parser that reads those lines and turns every set into its own record. That's what lets the app show lifts over time and personal records. If it can't read a line, it sets that line aside and loads the rest of the session.",
+      "technical": "Strava's activity list doesn't include workout notes, so the job opens each new activity to read them. The parser is a small set of rules I tested against real examples of how Hevy words things, including timed sets like planks. Lines it can't read go into a holding table with the reason, so nothing disappears silently. Exercises are matched to a list I maintain, which is how each one gets a muscle group."
+    },
+    {
+      "id": "pipeline",
+      "route": "/me",
+      "placement": "sheet",
+      "targets": ["[data-tour='data-sync']"],
+      "title": "Checking on the data",
+      "body": "Data pipelines break sometimes, so this page shows what's going on: when each source last synced, which runs failed, and the results of {n_checks} automatic checks. In this demo, {n_quarantined} lines from one gym session couldn't be read, so they were set aside, and {n_warnings} checks are showing warnings. I left them in on purpose, so you can see what a problem looks like.",
+      "technical": "Every pipeline run saves a row with its status and counts. A second Airflow job runs each data check, which is just a SQL query in its own file, and stores the result here."
+    },
+    {
+      "id": "done",
+      "route": "/",
+      "placement": "modal",
+      "targets": [],
+      "title": "That's the tour",
+      "body": "Everything in the demo is clickable, and nothing you change is saved. The demo runs on its own database, separate from my real one, and it's rebuilt every few hours. If you want to see how it's built, the How it works page walks through it.",
+      "buttons": [
+        { "label": "How it works", "does": "link", "to": "/how-it-works" },
+        { "label": "Explore the demo", "does": "close" }
+      ]
+    }
+  ]
+}

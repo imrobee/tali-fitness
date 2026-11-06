@@ -1,21 +1,14 @@
-// The "How your streak works" card on Me (UI_SPEC.md 6.3), in plain words. It says the same
-// as ARCHITECTURE.md section 8 without its internal names, and follows the weekend setting.
+// The Weekends card and the vacation card on Me (UI_SPEC.md 6.3), in plain words. "How your
+// streak works" comes from streak/explainer.json (lib/streakExplainer.ts, D129).
 
 import type { RecoveryState } from "../api/types";
 import { parseIsoDate } from "./dates";
 
-export function streakRules(lenientWeekends: boolean): string[] {
-  return [
-    "A day when you log your food, stay within your calorie budget and work out keeps your streak going.",
-    "Going over your budget is fine for a day. Two days over budget in a row end the streak.",
-    "A rest day is fine too: food logged without a workout, a workout without food logged, or a recovery day logged on the dashboard. Two rest days in a row end the streak.",
-    "A day with nothing logged ends the streak.",
-    lenientWeekends
-      ? "On weekends, only a day with nothing logged ends the streak."
-      : "Weekends follow the same rules as weekdays.",
-    "During a vacation or injury break, only a day with nothing logged ends the streak.",
-    "Today never ends your streak before midnight, and yesterday can still be filled in today.",
-  ];
+/** The weekend rule, shown under the Weekends switch; it follows the switch. */
+export function weekendRule(lenientWeekends: boolean): string {
+  return lenientWeekends
+    ? "On weekends, only a day with nothing logged ends the streak."
+    : "Weekends follow the same rules as weekdays.";
 }
 
 function monthDay(iso: string): string {

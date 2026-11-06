@@ -16,6 +16,10 @@ class StreakDay(BaseModel):
     recovery_logged: bool  # a recovery day logged by hand: today shows the snowflake only then
     primary_activity_type: str | None  # longest activity that day; drives the icon
     calorie_status: str  # not_logged | not_set | within | over: drives the ring
+    # Counted, and part of the current streak (today's island in fn_day_status): the card
+    # strings these together. A day that would end the streak but can still be fixed
+    # (today, or yesterday at risk) doesn't count yet, so the string has a gap there.
+    in_streak: bool
 
 
 class Streak(BaseModel):

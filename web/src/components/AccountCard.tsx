@@ -5,7 +5,7 @@ import { Card } from "./Card";
 import styles from "../pages/MePage.module.css";
 
 /** Me: "Signed in" and Sign out (UI_SPEC.md 6.3). No email or name: the app keeps nothing
-    from Google. */
+    from Google. Not on the demo, which has no account (MePage's DemoFooter instead). */
 export function AccountCard() {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);

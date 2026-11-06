@@ -13,6 +13,7 @@ from sqlalchemy import Connection, Engine
 
 from app import clock
 from app.auth import require_user
+from app.config import Settings, get_settings
 from app.db import get_engine, load_sql
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
@@ -56,6 +57,13 @@ class DataQuality(BaseModel):
     checks: list[DqCheck]
 
 
+class DemoRebuild(BaseModel):
+    """The demo only: when its synthetic data was last rebuilt, and how long it took."""
+
+    seeded_at: datetime
+    duration_ms: int
+
+
 class PipelineHealth(BaseModel):
     # The server's clock: the page measures "9 hours ago" from it, never from the phone's
     # clock, so the words always agree with the status (ARCHITECTURE.md 4).
@@ -63,6 +71,7 @@ class PipelineHealth(BaseModel):
     sources: list[SourceHealth]
     quarantine: Quarantine
     dq: DataQuality
+    demo_rebuild: DemoRebuild | None = None
 
 
 def read_pipeline_health(conn: Connection, now: datetime) -> PipelineHealth:
@@ -101,6 +110,16 @@ def read_pipeline_health(conn: Connection, now: datetime) -> PipelineHealth:
 
 
 @router.get("/pipeline/health", response_model=PipelineHealth)
-def pipeline_health(engine: Annotated[Engine, Depends(get_engine)]) -> PipelineHealth:
+def pipeline_health(
+    engine: Annotated[Engine, Depends(get_engine)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PipelineHealth:
     with engine.connect() as conn:
-        return read_pipeline_health(conn, clock.now())
+        health = read_pipeline_health(conn, clock.now())
+        if settings.app_env == "demo":  # only the demo database has demo.seed_state
+            state = conn.execute(load_sql("demo/seed_state_read.sql")).first()
+            if state:
+                health.demo_rebuild = DemoRebuild(
+                    seeded_at=state.seeded_at, duration_ms=state.duration_ms
+                )
+        return health

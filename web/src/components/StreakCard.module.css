@@ -28,7 +28,7 @@
 .count {
   position: absolute;
   inset: auto 0 9px;
-  color: var(--surface); /* the dark numeral inside the flame */
+  color: var(--on-flame); /* the numeral inside the flame */
   font-size: var(--fs-card);
   font-weight: 800;
   line-height: 1;
@@ -54,96 +54,24 @@
 }
 
 .day {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
 }
 
-/* --- The circle inside its calorie ring ------------------------------------------------- */
-
-.ringWrap {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-}
-
-.ring {
+/* The string from this day's ring to the next one's: from the ring's outer edge (21px from
+   the centre of its 42px box) across the column gap to the next ring's edge. The width is
+   this column plus the 4px gap (.week), minus one ring. Drawn under the rings. */
+.string {
   position: absolute;
-  inset: 0;
-  overflow: visible;
-}
-
-.ring circle {
-  fill: none;
-  stroke-width: 2.5; /* RING_STROKE in lib/streakRing.ts */
-  stroke-linecap: round;
-}
-
-/* Grey: food not logged yet. Green: within budget. Orange: over, with a gap and a triangle. */
-.ring_grey {
-  stroke: var(--neutral);
-}
-
-.ring_green {
-  stroke: var(--within-budget);
-}
-
-.ring_orange {
-  stroke: var(--over-budget);
-}
-
-.overMark {
-  fill: var(--over-budget);
-}
-
-.circle {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: var(--fs-body);
-  font-weight: 600;
-}
-
-.active {
-  background: var(--text);
-  color: var(--surface);
-  font-size: 18px; /* the activity icon */
-}
-
-/* Today is still open: drawn like the days to come, but in white. */
-.today {
-  border: 1px solid var(--text);
-  color: var(--text);
-  font-weight: 400;
-}
-
-.missed {
-  background: var(--card-elevated);
-  color: var(--text);
-}
-
-/* At risk: like missed, with a dashed edge that says "still fixable". Never red. */
-.at_risk {
-  border: 1.5px dashed var(--text-secondary);
-  background: var(--card-elevated);
-  color: var(--text);
-}
-
-.recovery {
-  background: var(--freeze-tint);
-  color: var(--accent);
-  font-size: 18px; /* the snowflake */
-}
-
-.future {
-  border: 1px solid var(--card-elevated);
-  color: var(--text-dim);
-  font-weight: 400;
+  top: 19.5px; /* the ring's centre line, for a 3px string */
+  left: calc(50% + 21px);
+  width: calc(100% + 4px - 42px);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--streak-string);
 }
 
 .letter {
@@ -151,6 +79,45 @@
   font-size: var(--fs-small);
   font-weight: 600;
   line-height: 1;
+}
+
+/* The "?" after the title: quiet on purpose, a 16px outline circle in the dim color, 10px
+   from the title and centred on it. The touch target is still 44px; the negative
+   margins keep it from pushing the title row taller or the circle away from the title. */
+.help {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -14px -14px -14px -12px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.helpMark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.25px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.help:hover,
+.help:focus-visible {
+  color: var(--text-secondary);
+}
+
+.help:focus-visible {
+  outline: 2px solid var(--brand-mint);
+  outline-offset: 0;
 }
 
 .message {
@@ -193,9 +160,14 @@
   }
 }
 
-/* 200% zoom on a phone (about 200px wide): the ringed circles are 42px and UI_SPEC 5.3 keeps
-   circles at 32px or more, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
+/* 200% zoom on a phone (about 200px wide): the rings are 42px and UI_SPEC 5.3 keeps them
+   at full size, so the week wraps to three a row (3 + 3 + 1) instead of shrinking. */
 @media (max-width: 240px) {
+  /* Wrapped onto three rows, a string would cross to the wrong ring. */
+  .string {
+    display: none;
+  }
+
   .week {
     grid-template-columns: repeat(3, minmax(42px, 1fr));
     column-gap: 2px; /* three 42px rings in about 133px */

@@ -6,7 +6,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { googleSignInUrl } from "../api/auth";
+import type { ReactNode } from "react";
 import { AccountCard } from "./AccountCard";
+import { Page } from "./Page";
 import { SignInGate } from "./SignInGate";
 
 afterEach(() => {
@@ -16,15 +18,32 @@ afterEach(() => {
 });
 
 /** A fake server: signed in or not, which method, and whether the dev key is right. */
-function fakeServer({ signedIn, method = "google" }: { signedIn: boolean; method?: string }) {
+function fakeServer({
+  signedIn,
+  method = "google",
+  demoUrl = null,
+}: {
+  signedIn: boolean;
+  method?: string;
+  demoUrl?: string | null;
+}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   let session = signedIn;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
-      if (url === "/auth/me") return new Response("{}", { status: session ? 200 : 401 });
-      if (url === "/auth/method") return new Response(JSON.stringify({ method }), { status: 200 });
+      if (url === "/auth/me") {
+        const body = JSON.stringify({ signed_in: true, demo: method === "demo" });
+        return new Response(body, { status: session ? 200 : 401 });
+      }
+      if (url === "/auth/method") {
+        return new Response(JSON.stringify({ method, demo_url: demoUrl }), { status: 200 });
+      }
+      if (url === "/auth/demo") {
+        session = method === "demo";
+        return new Response(null, { status: session ? 204 : 404 });
+      }
       if (url === "/auth/logout") {
         session = false;
         return new Response(null, { status: 204 });
@@ -40,14 +59,18 @@ function fakeServer({ signedIn, method = "google" }: { signedIn: boolean; method
   return calls;
 }
 
-function renderGate(path = "/") {
+function renderGate(path = "/", content?: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
         <SignInGate>
-          <p>The app</p>
-          <AccountCard />
+          {content ?? (
+            <>
+              <p>The app</p>
+              <AccountCard />
+            </>
+          )}
         </SignInGate>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -78,6 +101,51 @@ describe("SignInGate", () => {
     const link = await screen.findByRole("link", { name: "Sign in with Google" });
     expect(link.getAttribute("href")).toBe("/auth/login?next=%2Fnutrition%3Fdate%3D2026-10-19");
     expect(screen.queryByText("The app")).toBeNull();
+  });
+
+  it("shows the launch screen: the wordmark, the invite note and a Demo button that does nothing", async () => {
+    const calls = fakeServer({ signedIn: false });
+    renderGate("/");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "tali" })).toBeTruthy();
+    expect(screen.getByText(/limited to invited users only/)).toBeTruthy();
+    const demo = screen.getByRole("button", { name: "Demo version" });
+    expect(demo.getAttribute("type")).toBe("button");
+    const before = calls.length;
+    fireEvent.click(demo);
+    expect(calls.length).toBe(before);
+    expect(screen.getByRole("link", { name: "Sign in with Google" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "How it works" }).getAttribute("href")).toBe("/how-it-works");
+  });
+
+  it("links the Demo button to the demo service when the server names one", async () => {
+    fakeServer({ signedIn: false, demoUrl: "https://demo.example.com" });
+    renderGate("/");
+
+    const demo = await screen.findByRole("link", { name: "Demo version" });
+    expect(demo.getAttribute("href")).toBe("https://demo.example.com");
+  });
+
+  it("on the demo service, starts a visit at once and shows the Demo version badge on every page", async () => {
+    const calls = fakeServer({ signedIn: false, method: "demo" });
+    renderGate("/", <Page title="Today">The app</Page>);
+
+    expect(await screen.findByText("The app")).toBeTruthy();
+    expect(screen.getByText("Demo version")).toBeTruthy();
+    expect(document.querySelector('main svg[viewBox="0 0 230 140"]')).not.toBeNull(); // the wordmark
+    const start = calls.find((call) => call.url === "/auth/demo");
+    expect(start?.init?.method).toBe("POST");
+  });
+
+  it("shows no Demo version badge to Rob", async () => {
+    fakeServer({ signedIn: true });
+    renderGate("/", <Page title="Today">The app</Page>);
+
+    expect(await screen.findByText("The app")).toBeTruthy();
+    expect(screen.queryByText("Demo version")).toBeNull();
+    // The wordmark is at the top on Rob's app too, as decoration (the h1 names the page).
+    const wordmark = document.querySelector('main svg[viewBox="0 0 230 140"]');
+    expect(wordmark?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("in local key mode, signs in with the dev key and keeps it nowhere", async () => {

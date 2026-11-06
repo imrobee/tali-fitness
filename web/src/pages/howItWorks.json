@@ -1,0 +1,52 @@
+{
+  "_readme": "The How it works page's words (UI_SPEC.md section 13). Edit freely; src/copy.test.ts checks spelling, the app's name, em dashes and names. {n_checks} comes from the demo's last rebuild; without it (a signed-out visit, or the real app), the paragraph's `without` sentence is used instead. Every fact here was checked against the code; keep it that way.",
+  "intro": "This page explains what happens behind the screens. In short, three apps collect the data, a set of scheduled jobs brings it together in one database, and Tali Fitness reads from that database.",
+  "diagram": {
+    "stages": [
+      { "title": "My apps", "text": "Hevy and Strava for training, MyNetDiary for food." },
+      { "title": "The pipeline", "text": "Collects new data, cleans it up, and stores it." },
+      { "title": "Tali Fitness", "text": "Shows the results." }
+    ],
+    "caption": "Data moves one way: from the apps, through the pipeline, to the screens you see here."
+  },
+  "sections": [
+    {
+      "id": "sources",
+      "title": "Where the data comes from",
+      "text": "This is how the app works with real data, which is how I use it myself. The demo runs the same pipeline on made-up data. I log my lifts in Hevy and my runs with Strava. Hevy sends each workout to Strava, so Strava is the one place my training data comes from. Every hour, a scheduled job checks it for anything new. Strava's activity list doesn't include the workout notes, where Hevy writes my sets, so the job opens each new activity to read them. MyNetDiary saves what I eat to Apple Health on my iPhone. Each time I close MyNetDiary, an automation runs a Shortcut that sends my entries from yesterday and today to the app. My calorie and protein targets, weight goal, and rest days are typed into the app itself."
+    },
+    {
+      "id": "processing",
+      "title": "What happens to the data",
+      "text": "Everything is saved as it arrives (apart from GPS locations, which I strip out), so if I find a bug later, I can fix it and reprocess the data without asking Strava again. Then it's cleaned up and organized into tables that are easy to work with. A parser I wrote turns Hevy's workout text into one record per set, and anything it can't read is set aside with a reason instead of being dropped. Every step is safe to run twice, because duplicates are recognized and skipped."
+    },
+    {
+      "id": "rules",
+      "title": "How the rules work",
+      "text": "Questions like whether a day counts toward the streak are answered by SQL in the database when you open a page, not saved ahead of time. That's why a target can change and the results update right away."
+    },
+    {
+      "id": "monitoring",
+      "title": "Keeping an eye on it",
+      "text": "After each run, the pipeline records how it went. Every hour, {n_checks} checks look for problems like a source that has stopped syncing or a number that doesn't make sense. The Me page shows the results.",
+      "without": "Every hour, a set of automatic checks looks for problems like a source that has stopped syncing or a number that doesn't make sense."
+    },
+    {
+      "id": "stack",
+      "title": "What it's built with",
+      "text": "The data lives in PostgreSQL, and Airflow schedules the jobs, which are written in Python and SQL. The backend is FastAPI, and the screens are built with React and TypeScript. You can add Tali Fitness to an iPhone home screen like any other app. Tests run on every change, and browser tests check these screens at phone size."
+    },
+    {
+      "id": "demo",
+      "title": "The demo",
+      "text": "The demo uses a fictional user with made-up Strava and Shortcut data, run through the same pipeline code as my real data. It lives on its own database with a read-only login and none of my real credentials, so it can't reach my data or change anything. It's rebuilt every few hours."
+    }
+  ],
+  "profile": {
+    "title": "Check out my profile",
+    "links": [
+      { "label": "GitHub", "href": "https://github.com/imrobee/fitness-tracker", "icon": "github" },
+      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/robeefeliciano", "icon": "linkedin" }
+    ]
+  }
+}

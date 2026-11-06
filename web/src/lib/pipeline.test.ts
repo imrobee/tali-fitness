@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clockTime, reasonLabel, sourceName, statusLabel, timeAgo } from "./pipeline";
+import { clockTime, demoRebuildLine, reasonLabel, sourceName, statusLabel, timeAgo } from "./pipeline";
+
+describe("demoRebuildLine", () => {
+  it("says when, in Manila time, and how long it took", () => {
+    expect(demoRebuildLine("2026-11-05T07:15:39Z", 4015)).toBe("Demo data rebuilt Nov 5, 3:15 PM, in 4.0 s");
+  });
+});
 
 const NOW = Date.parse("2026-10-20T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(NOW - hours * 3_600_000).toISOString();

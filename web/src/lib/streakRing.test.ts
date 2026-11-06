@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { circleLook, RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
+import { CIRCLE_SIZE, circleLook, strungToNext, RING_RADIUS, RING_SIZE, RING_STROKE, ringArc, ringTone, trianglePoints } from "./streakRing";
 
 describe("calorie ring", () => {
-  it("leaves a visible gap around the 32px circle and stays inside its square", () => {
-    expect(RING_RADIUS - RING_STROKE / 2 - 16).toBeGreaterThanOrEqual(2);
+  it("leaves a clear gap around the circle and stays inside its square", () => {
+    expect(RING_RADIUS - RING_STROKE / 2 - CIRCLE_SIZE / 2).toBeGreaterThanOrEqual(4);
     expect(RING_RADIUS + RING_STROKE / 2).toBeLessThanOrEqual(RING_SIZE / 2);
   });
 
@@ -49,5 +49,21 @@ describe("streak circle", () => {
     expect(circleLook({ ...yesterday, state: "at_risk", kind: "miss" }, TODAY)).toBe("at_risk");
     expect(circleLook({ ...yesterday, state: "broken", kind: "miss" }, TODAY)).toBe("missed");
     expect(circleLook({ ...yesterday, date: "2026-10-28", state: "future", kind: null }, TODAY)).toBe("future");
+  });
+});
+
+describe("strungToNext", () => {
+  const week = [true, true, false, true, true, true, false].map((in_streak) => ({ in_streak }));
+
+  it("joins two neighbours that are both in the streak", () => {
+    expect(week.map((_, index) => strungToNext(week, index))).toEqual([
+      true, // Monday to Tuesday
+      false, // Tuesday to a day that doesn't count
+      false,
+      true,
+      true,
+      false, // Saturday to a Sunday that doesn't count yet
+      false, // Sunday: nothing after it on this card
+    ]);
   });
 });

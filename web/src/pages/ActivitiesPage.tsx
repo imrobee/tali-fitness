@@ -1,4 +1,4 @@
-// Activities (UI_SPEC.md 6.1): the calendar, then the activity list. With a day picked
+// Activities (UI_SPEC.md 6.1): the calendar at the top, personal records, then the activity list. With a day picked
 // (?date=, from the calendar or from the dashboard) the list shows only that day, from any
 // month; without one it shows the last 30 days, and "Load older" adds a month at a time.
 
@@ -10,8 +10,7 @@ import { ActivityItem } from "../components/ActivityItem";
 import { CalendarCard } from "../components/CalendarCard";
 import { Bar, Card, CardError } from "../components/Card";
 import { OfflineBanner, Page } from "../components/Page";
-import { MuscleVolumeSection, RecordsSection } from "../components/ProgressCards";
-import { TrainingTrendSection } from "../components/TrendCards";
+import { RecordsSection } from "../components/ProgressCards";
 import { dayChip, dayHeading } from "../lib/activities";
 import { addDays } from "../lib/dates";
 import { useSelectedDate } from "../lib/selectedDate";
@@ -52,9 +51,6 @@ export function ActivitiesPage() {
 
   return (
     <Page title="Activities">
-      <TrainingTrendSection />
-      <MuscleVolumeSection />
-      <RecordsSection />
       {calendar.data ? (
         <CalendarCard
           calendar={calendar.data}
@@ -74,6 +70,7 @@ export function ActivitiesPage() {
       ) : (
         <Bar width="100%" height={view === "month" ? 320 : 140} />
       )}
+      <RecordsSection />
 
       {selected && (
         <div className={styles.filter}>

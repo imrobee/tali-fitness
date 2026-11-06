@@ -1,19 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { chipText, periodText, showRecoveryCard, streakRules, vacationError } from "./streakRules";
+import { chipText, periodText, showRecoveryCard, vacationError, weekendRule } from "./streakRules";
 
-describe("how the streak works", () => {
-  it("explains the rules in plain words, without internal names", () => {
-    const text = streakRules(false).join(" ");
-
-    expect(text).toContain("Two days over budget in a row end the streak.");
-    expect(text).toContain("Two rest days in a row end the streak.");
-    expect(text).toContain("A day with nothing logged ends the streak.");
-    expect(text).not.toMatch(/\b(S|O|R|M)\b/);
-  });
-
-  it("follows the weekend setting", () => {
-    expect(streakRules(true)).toContain("On weekends, only a day with nothing logged ends the streak.");
-    expect(streakRules(false)).toContain("Weekends follow the same rules as weekdays.");
+describe("the weekend rule", () => {
+  it("follows the setting", () => {
+    expect(weekendRule(true)).toBe("On weekends, only a day with nothing logged ends the streak.");
+    expect(weekendRule(false)).toBe("Weekends follow the same rules as weekdays.");
   });
 });
 

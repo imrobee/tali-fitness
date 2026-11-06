@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { Weight, WeightDay } from "../api/types";
-import { changeLine, chartDays, chartDomain, goalLine, weightDayLabel, weightHeadline, xFor, yFor } from "./weight";
+import {
+  averageVertices,
+  labelledDots,
+  changeLine,
+  chartDays,
+  chartDomain,
+  goalLine,
+  pointLabel,
+  weightDayLabel,
+  weightLines,
+  xFor,
+  yFor,
+} from "./weight";
 
 function weight(overrides: Partial<Weight> = {}): Weight {
   return {
@@ -18,14 +30,15 @@ function weight(overrides: Partial<Weight> = {}): Weight {
 }
 
 describe("weight words", () => {
-  it("gives the latest weigh-in with its 7-day average", () => {
-    expect(weightHeadline(weight())).toBe("Latest 74.8 kg on Tue, Oct 20, 7-day average 74.9 kg.");
+  it("gives the last weigh-in and the 7-day average on separate lines", () => {
+    expect(weightLines(weight())).toEqual(["Last weigh-in: 74.8 kg", "7-day average: 74.9 kg"]);
+    expect(weightLines(weight({ avg_7d_kg: null }))).toEqual(["Last weigh-in: 74.8 kg"]);
   });
 
   it("says so when nothing has been weighed in the range", () => {
-    expect(weightHeadline(weight({ latest_date: null, latest_kg: null, avg_7d_kg: null }))).toBe(
+    expect(weightLines(weight({ latest_date: null, latest_kg: null, avg_7d_kg: null }))).toEqual([
       "No weigh-ins in these days yet.",
-    );
+    ]);
   });
 
   it("states the change against last week, rounded to a tenth", () => {
@@ -79,9 +92,35 @@ describe("weight in pounds", () => {
   it("shows the same weigh-in, change and goal in lb", () => {
     const lb = weight({ latest_kg: 74.84274105, avg_7d_kg: 74.84274105, to_goal_kg: 2.26796185 });
 
-    expect(weightHeadline(lb, "lb")).toBe("Latest 165.0 lb on Tue, Oct 20, 7-day average 165.0 lb.");
+    expect(weightLines(lb, "lb")).toEqual(["Last weigh-in: 165.0 lb", "7-day average: 165.0 lb"]);
+    expect(pointLabel(74.84274105, "lb")).toBe("165");
+    expect(pointLabel(74.84, "kg")).toBe("74.8");
     expect(changeLine(-0.45359237, "lb")).toBe("Down 1.0 lb on last week.");
     expect(goalLine(lb, "lb")).toBe("5.0 lb above your goal of 159.8 lb.");
+  });
+});
+
+describe("average line", () => {
+  it("bends only on days with a weigh-in, never between them", () => {
+    const days = [
+      { weight_kg: 75.1, avg_7d_kg: 75.1 },
+      { weight_kg: null, avg_7d_kg: 75.0 }, // the average moved, but nothing was weighed
+      { weight_kg: 74.6, avg_7d_kg: 74.85 },
+      { weight_kg: 74.9, avg_7d_kg: null },
+    ];
+
+    expect(averageVertices(days)).toEqual([
+      { index: 0, avgKg: 75.1 },
+      { index: 2, avgKg: 74.85 },
+    ]);
+  });
+});
+
+describe("point labels", () => {
+  it("label the latest weigh-in, then only dots far enough apart not to overlap", () => {
+    expect([...labelledDots([0, 10, 20, 30, 40, 50], 25)].sort((a, b) => a - b)).toEqual([2, 5]);
+    expect([...labelledDots([0, 100, 200], 25)].sort((a, b) => a - b)).toEqual([0, 1, 2]);
+    expect(labelledDots([], 25).size).toBe(0);
   });
 });
 

@@ -2,8 +2,11 @@
 // the app comes back into view, so the greeting and "today" stay correct; UI_SPEC.md 5.1).
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { loadDemoSettings, saveDemoSettings, withUpdate } from "../demo/settings";
 import type { WeightUnit } from "../lib/units";
+import { AUTH_QUERY } from "./auth";
 import { apiFetch } from "./client";
+import { useIsDemo } from "./visit";
 import type {
   ActivityDetail,
   ActivityList,
@@ -138,13 +141,25 @@ export function usePipelineHealth() {
 
 export function useSaveMe() {
   const queryClient = useQueryClient();
+  const demo = useIsDemo();
   return useMutation({
-    mutationFn: (update: MeUpdate) =>
-      apiFetch<Me>("/me", { method: "PUT", body: JSON.stringify(update) }),
+    mutationFn: (update: MeUpdate) => {
+      if (demo) {
+        // The demo keeps it in this tab and sends it with every request; nothing is saved.
+        saveDemoSettings(withUpdate(loadDemoSettings(), update));
+        return apiFetch<Me>("/me");
+      }
+      return apiFetch<Me>("/me", { method: "PUT", body: JSON.stringify(update) });
+    },
     onSuccess: (me) => {
       queryClient.setQueryData(["me"], me);
-      // Targets and the nickname change the dashboard too.
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      if (demo) {
+        // A demo budget applies to every past day too: every page reads again.
+        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== AUTH_QUERY[0] });
+      } else {
+        // Targets and the nickname change the dashboard too.
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      }
     },
   });
 }
