@@ -1,0 +1,35 @@
+# Apply the database migrations to Neon (DECISIONS D131). By hand only (Actions tab, "Run
+# workflow"), after merging a migration: never on a schedule or a push. Forward-only, so
+# running it again does nothing (CLAUDE.md #6).
+#
+# Repository secret: MIGRATIONS_URL, Neon's direct (not pooled) URL for the "app" database
+# as the owner of its tables. Migrations need DDL, which the app's own login (app_api,
+# WAREHOUSE_URL) can't do, and a session, which the pooler's transaction mode doesn't keep.
+name: migrate
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: migrate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      - name: Upgrade to the latest migration
+        env:
+          WAREHOUSE_URL: ${{ secrets.MIGRATIONS_URL }}
+        run: >
+          docker compose run --rm --build --no-deps -e WAREHOUSE_URL
+          api alembic -c /db/alembic.ini upgrade head
