@@ -49,6 +49,7 @@ services:
       - ./.github/workflows:/workflows:ro
       # For test_vercel_config.py: the static site's headers match the API's (D131).
       - ./vercel.json:/vercel.json:ro
+      - ./pyproject.toml:/pyproject.toml:ro # the same dependencies for Vercel (D131)
     depends_on:
       postgres:
         condition: service_healthy

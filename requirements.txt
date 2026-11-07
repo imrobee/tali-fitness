@@ -1,4 +1,0 @@
-# For Vercel only (DECISIONS D131): its Python service is rooted at the repository and
-# reads requirements.txt there. The API's dependencies, with their reasons, are in
-# api/requirements.txt; this file only points at it.
--r api/requirements.txt

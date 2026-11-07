@@ -226,9 +226,7 @@ def test_in_production_sync_now_starts_the_pipeline_workflow(client, engine, git
     body = response.json()
     assert body["state"] == "queued" and body["dag_run_id"].startswith("github-")
     (call,) = github.calls
-    assert (
-        call.url.path == "/repos/imrobee/tali-fitness/actions/workflows/pipeline.yml/dispatches"
-    )
+    assert call.url.path == "/repos/imrobee/tali-fitness/actions/workflows/pipeline.yml/dispatches"
     assert json.loads(call.content) == {"ref": "main", "inputs": {"job": "strava"}}
     assert call.headers["authorization"] == "Bearer canary-dispatch-token"
     assert "canary-dispatch-token" not in response.text
