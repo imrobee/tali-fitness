@@ -235,6 +235,7 @@ node_modules/
 # authors' terms apply). Kept out of the public repository.
 .agents/
 .claude/
+CLAUDE.md
 
 # The Vercel CLI's link to the project (machine-specific; no secrets, but not ours to share),
 # and the short-lived credential `vercel link` writes for running functions locally.
