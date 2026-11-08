@@ -6,7 +6,7 @@ Tali Fitness is a passion project centered around consistently making good lifes
 
 The name "tali" is also a play on words for "tally", with the core identity of the app being a tracker for fitness metrics. 
 
-[Try the demo](https://tali-fitness-demo.vercel.app)· [How it works](https://tali-fitness-demo.vercel.app/how-it-works)
+[Try the demo](https://tali-fitness-demo.vercel.app) · [See how it works](https://tali-fitness-demo.vercel.app/how-it-works)
 
 I built Tali as a means to stay consistent towards achieving my fitness goals by allowing me to track my progress over time and keep me accountable for my fitness goals. Tali Fitness pulls data from multiple sources into one database and shows them in a web app made for my phone. It keeps a daily streak, tracks my calories and protein against my targets, and lists every gym session set by set, with personal records and trends.
 
