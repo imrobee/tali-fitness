@@ -240,3 +240,9 @@ node_modules/
 # and the short-lived credential `vercel link` writes for running functions locally.
 .vercel/
 .env.local
+
+# Private working notes: kept on disk, not in the repo
+docs/DECISIONS.md
+docs/HANDOFF.md
+docs/PROJECT_PLAN.md
+docs/INTERVIEW_NOTES.md
