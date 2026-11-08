@@ -10,17 +10,10 @@ The name "tali" is also a play on words for "tally", with the core identity of t
 
 I built Tali as a means to stay consistent towards achieving my fitness goals by allowing me to track my progress over time and keep me accountable for my fitness goals. Tali Fitness pulls data from multiple sources into one database and shows them in a web app made for my phone. It keeps a daily streak, tracks my calories and protein against my targets, and lists every gym session set by set, with personal records and trends.
 
-![The dashboard with a 10-day streak, today's run and a calorie ring](docs/images/dashboard.png)
-
-The dashboard: the streak, today's activities and how much of the calorie budget is left.
-
-![A month calendar with workout days and rest days](docs/images/calendar.png)
-
-The calendar: white circles are workout days, snowflakes are rest days.
-
-![A lower body session opened to show each exercise and its sets](docs/images/gym-session.png)
-
-A gym session, rebuilt set by set from the text Hevy sends to Strava.
+| Dashboard | Calendar | Gym session |
+|---|---|---|
+| ![The dashboard with a 10-day streak, today's run and a calorie ring](docs/images/dashboard.png) | ![A month calendar with workout days and rest days](docs/images/calendar.png) | ![A lower body session opened to show each exercise and its sets](docs/images/gym-session.png) |
+| The streak, today's activities and how much of the calorie budget is left. | White circles are workout days, snowflakes are rest days. | A gym session, rebuilt set by set from the text Hevy sends to Strava. |
 
 All screenshots come from the demo, which runs on synthetic data.
 
