@@ -27,6 +27,17 @@ All screenshots come from the demo, which runs on synthetic data.
 - Draws weekly and monthly trends for training, food and body weight.
 - Shows on the Me page when each source last synced and whether the data checks passed, with a Sync now button.
 
+## Tech stack
+
+The data side is PostgreSQL and SQL, with Alembic for database changes, Apache Airflow for scheduling on my machine and GitHub Actions for scheduling in production. The API is Python with FastAPI. The web app is React and TypeScript, built with Vite, and its charts are drawn in SVG. Everything runs in Docker Compose locally, and the live app is hosted on Vercel with its database on Neon. Tests use pytest, Vitest and Playwright.
+
+![Python](https://img.shields.io/badge/python-%233670A0.svg?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![FastAPI](https://img.shields.io/badge/fastapi-%23009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)
+![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-%23017CEE.svg?style=for-the-badge&logo=Apache%20Airflow&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
+
+
 ## How it works
 
 ```mermaid
@@ -103,12 +114,8 @@ The app itself is at http://localhost:5173. It starts empty, and with the exampl
 
 `make down` stops everything.
 
-## Tech stack
+## Planned features
 
-The data side is PostgreSQL and SQL, with Alembic for database changes, Apache Airflow for scheduling on my machine and GitHub Actions for scheduling in production. The API is Python with FastAPI. The web app is React and TypeScript, built with Vite, and its charts are drawn in SVG. Everything runs in Docker Compose locally, and the live app is hosted on Vercel with its database on Neon. Tests use pytest, Vitest and Playwright.
+- **Sleep tracking:** Sleep is an important factor in recovery and performance, so tracking sleep quality (e.g., sleep scores, bedtime adherence) over time will contribute to a more holistic approach to fitness tracking. I am currently exploring how it can be integrated in the app and its possible dynamic with the streak counter.
 
-![Python](https://img.shields.io/badge/python-%233670A0.svg?style=for-the-badge&logo=python&logoColor=ffdd54)
-![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
-![FastAPI](https://img.shields.io/badge/fastapi-%23009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)
-![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-%23017CEE.svg?style=for-the-badge&logo=Apache%20Airflow&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
+

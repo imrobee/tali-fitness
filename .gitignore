@@ -236,6 +236,7 @@ node_modules/
 .agents/
 .claude/
 CLAUDE.md
+LEARNING_DOC.md
 
 # The Vercel CLI's link to the project (machine-specific; no secrets, but not ours to share),
 # and the short-lived credential `vercel link` writes for running functions locally.
