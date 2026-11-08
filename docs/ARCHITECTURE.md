@@ -45,9 +45,9 @@ DB access: SQLAlchemy Core with `text()` and parameters, using `WAREHOUSE_URL`, 
 
 ```
 .
-├── CLAUDE.md  README.md  Makefile  docker-compose.yml  .env.example  .gitignore
+├── README.md  Makefile  docker-compose.yml  .env.example  .gitignore
 ├── .github/workflows/ci.yml
-├── docs/            PROJECT_PLAN.md  ARCHITECTURE.md  UI_SPEC.md  DECISIONS.md
+├── docs/            ARCHITECTURE.md  UI_SPEC.md  AUTH_SPEC.md
 │   ├── samples/     redacted Strava JSON, Shortcut payloads, Hevy text
 │   ├── design-reference/   reference images (strava widget, mynetdiary, concept mock)
 │   └── screenshots/        output of `make screenshots`

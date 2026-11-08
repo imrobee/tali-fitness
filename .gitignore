@@ -234,7 +234,7 @@ node_modules/
 # Third-party agent skills, installed per machine (not this project's code; their
 # authors' terms apply). Kept out of the public repository.
 .agents/
-.claude/skills/
+.claude/
 
 # The Vercel CLI's link to the project (machine-specific; no secrets, but not ours to share),
 # and the short-lived credential `vercel link` writes for running functions locally.
