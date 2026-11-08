@@ -117,5 +117,5 @@ The app itself is at http://localhost:5173. It starts empty, and with the exampl
 ## Planned features
 
 - **Sleep tracking:** Sleep is an important factor in recovery and performance, so tracking sleep quality (e.g., sleep scores, bedtime adherence) over time will contribute to a more holistic approach to fitness tracking. I am currently exploring how it can be integrated in the app and its possible dynamic with the streak counter.
-
+- **Manual logging:** Manually log activities and weigh-ins directly to the app. This can be for when you want to log more minor activities to the app that wouldn't have been posted to Strava (e.g., walks, Tabata, etc.)
 
