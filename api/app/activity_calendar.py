@@ -84,7 +84,12 @@ def read_calendar(conn: Connection, view: View, day: date, today: date) -> Calen
         for row in conn.execute(load_sql("api/primary_activity_types.sql"), params)
     }
     # A rest day (ARCHITECTURE.md 8): the calendar shows the snowflake when it had no workout.
-    recovery_days = {row.day for row in status if row.kind == "recovery"}
+    # Today isn't over, so it shows one only when logged by hand, like the streak card.
+    recovery_days = {
+        row.day
+        for row in status
+        if row.kind == "recovery" and (row.day != today or row.recovery_logged)
+    }
 
     days = [
         CalendarDay(

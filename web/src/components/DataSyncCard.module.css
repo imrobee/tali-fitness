@@ -111,7 +111,7 @@
   font-size: var(--fs-small);
 }
 
-/* Sync now (Strava) and Run Health Push (Apple Health), under each source. */
+/* Sync now under each source: Strava's button, and Apple Health's link to the Shortcut. */
 .action {
   display: flex;
   flex-wrap: wrap;

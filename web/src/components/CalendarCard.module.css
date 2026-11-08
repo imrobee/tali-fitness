@@ -86,9 +86,11 @@
   font-size: 18px; /* the snowflake */
 }
 
+/* Today with nothing yet: the streak card's hollow circle (DayCircle.module.css). */
 .today {
-  border: 2px solid var(--text);
+  border: 1px solid var(--text);
   color: var(--text);
+  font-weight: 400;
 }
 
 .rest {

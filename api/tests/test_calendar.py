@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from builders import add_activity, add_recovery, qualify
+from builders import add_activity, add_food, add_recovery, qualify
 
 
 def get(client, query: str = ""):
@@ -55,6 +55,17 @@ def test_a_valid_recovery_day_is_marked(client, engine):
     days = {d["date"]: d for d in get(client).json()["days"]}
 
     assert (days["2026-10-19"]["recovery"], days["2026-10-18"]["recovery"]) == (True, False)
+
+
+def test_today_without_a_workout_is_not_a_recovery_day_until_logged(client, engine):
+    qualify(engine, date(2026, 10, 19))
+    add_food(engine, date(2026, 10, 20))  # food today, no workout yet
+
+    before = {d["date"]: d for d in get(client).json()["days"]}
+    add_recovery(engine, date(2026, 10, 20))
+    after = {d["date"]: d for d in get(client).json()["days"]}
+
+    assert (before["2026-10-20"]["recovery"], after["2026-10-20"]["recovery"]) == (False, True)
 
 
 def test_previous_stops_at_the_first_month_with_data_and_next_at_today(client, engine):

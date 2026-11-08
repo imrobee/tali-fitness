@@ -56,7 +56,7 @@ export function RunHealthShortcut() {
   return (
     <div className={styles.action}>
       <a className={styles.actionButton} href="shortcuts://run-shortcut?name=Health%20Push">
-        Run Health Push
+        Sync now
       </a>
     </div>
   );
