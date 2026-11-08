@@ -1,8 +1,8 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import { useSaveMe, useVacation } from "../api/hooks";
 import { useIsDemo } from "../api/visit";
 import type { Me } from "../api/types";
-import { CalendarIcon } from "../icons";
+import { CalendarIcon, ChevronDownIcon } from "../icons";
 import { openPicker } from "../lib/picker";
 import { chipText, periodText, vacationError, weekendRule } from "../lib/streakRules";
 import { EXPLAINER, targetsLine } from "../lib/streakExplainer";
@@ -16,18 +16,39 @@ type Weekends = "strict" | "relaxed";
     sheet, from one file (streak/explainer.json, D129), as a numbered list. */
 export function StreakRulesCard() {
   const demo = useIsDemo();
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const bodyId = useId();
+  // Closed by default; the header opens it like an activity row (ActivityItem).
   return (
-    <Card title={EXPLAINER.title}>
-      <ol className={styles.rules}>
-        {EXPLAINER.items.map((item) => (
-          <li key={item.id} className={styles.ruleItem}>
-            <h3 className={styles.ruleTitle}>{item.title}</h3>
-            <p className={styles.ruleBody}>{item.body}</p>
-          </li>
-        ))}
-      </ol>
-      <p className={styles.help}>{targetsLine(demo)}</p>
-    </Card>
+    <section className={styles.rulesCard} aria-labelledby={titleId}>
+      <h2 className={styles.rulesHeading}>
+        <button
+          type="button"
+          id={titleId}
+          className={styles.rulesToggle}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {EXPLAINER.title}
+          <ChevronDownIcon className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} />
+        </button>
+      </h2>
+      {open && (
+        <div id={bodyId} className={styles.rulesBody}>
+          <ol className={styles.rules}>
+            {EXPLAINER.items.map((item) => (
+              <li key={item.id} className={styles.ruleItem}>
+                <h3 className={styles.ruleTitle}>{item.title}</h3>
+                <p className={styles.ruleBody}>{item.body}</p>
+              </li>
+            ))}
+          </ol>
+          <p className={styles.help}>{targetsLine(demo)}</p>
+        </div>
+      )}
+    </section>
   );
 }
 

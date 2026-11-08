@@ -72,6 +72,7 @@ describe("the streak explainer", () => {
     cleanup();
 
     renderWith(<StreakRulesCard />);
+    fireEvent.click(screen.getByRole("button", { name: "How your streak works" }));
     const card = screen
       .getAllByRole("listitem")
       .map((item) => `${within(item).getByRole("heading").textContent} ${item.querySelector("p")?.textContent}`);
@@ -109,8 +110,25 @@ describe("the streak explainer", () => {
     expect(document.activeElement).toBe(help);
   });
 
+  it("on Me, starts closed and opens and closes from its header, like an activity row", () => {
+    renderWith(<StreakRulesCard />);
+    const header = screen.getByRole("button", { name: "How your streak works" });
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+
+    fireEvent.click(header);
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById(header.getAttribute("aria-controls")!)).not.toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: "How your streak works" })).toBeTruthy();
+
+    fireEvent.click(header);
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
+
   it("in the demo, says a changed budget applies to every day", async () => {
     renderWith(<StreakRulesCard />, true);
+    fireEvent.click(screen.getByRole("button", { name: "How your streak works" }));
 
     expect(screen.getByText("In this demo, a budget you change applies to every day.")).toBeTruthy();
   });

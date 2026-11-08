@@ -1,7 +1,7 @@
 // Data hooks (TanStack Query: caching, loading and error states, and a refetch whenever
 // the app comes back into view, so the greeting and "today" stay correct; UI_SPEC.md 5.1).
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useIsFetching, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadDemoSettings, saveDemoSettings, withUpdate } from "../demo/settings";
 import type { WeightUnit } from "../lib/units";
 import { AUTH_QUERY } from "./auth";
@@ -199,4 +199,11 @@ export function useRecovery() {
     onSuccess: refresh,
   });
   return { log, undo };
+}
+
+/** True while something is being fetched that has nothing to show yet: the first sign-in
+    check at start-up, a page's first data. Refetches of data already on screen don't count.
+    The loading overlay shows during it, and the demo tour waits for it. */
+export function useFirstLoad(): boolean {
+  return useIsFetching({ predicate: (query) => query.state.data === undefined }) > 0;
 }

@@ -1,5 +1,71 @@
 /* The streak rules, the weekend switch and the vacation dates on Me. */
 
+/* How your streak works: a card whose header opens it, like an activity row
+   (ActivityItem.module.css): hover lights the header, and once open a mint line goes
+   around the header only, inset so nothing moves. */
+.rulesCard {
+  border-radius: var(--radius-card);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--card-border);
+}
+
+.rulesHeading {
+  margin: 0;
+  font-size: var(--fs-card);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.rulesToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--touch);
+  padding: var(--card-pad);
+  border: 0;
+  border-radius: var(--radius-card);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rulesToggle:hover {
+  background: var(--card-hover);
+}
+
+.rulesToggle[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.rulesToggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 200ms var(--ease-out);
+  }
+}
+
+.rulesBody {
+  padding: 16px var(--card-pad) var(--card-pad);
+}
+
 .rules {
   display: flex;
   flex-direction: column;
