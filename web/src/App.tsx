@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router";
 import { BottomNav } from "./components/BottomNav";
+import { LoadingOverlay } from "./components/LoadingOverlay";
 import { SignInGate } from "./components/SignInGate";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -14,10 +15,13 @@ import { TourProvider } from "./tour/TourProvider";
 // open to anyone, and it calls no API (UI_SPEC.md section 13).
 export default function App() {
   return (
-    <Routes>
-      <Route path="/how-it-works" element={<HowItWorksPage />} />
-      <Route path="*" element={<SignedInApp />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="*" element={<SignedInApp />} />
+      </Routes>
+      <LoadingOverlay />
+    </>
   );
 }
 

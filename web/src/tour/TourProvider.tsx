@@ -11,6 +11,7 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import { useIsDemo, useStory } from "../api/visit";
 import { DayCircle } from "../components/DayCircle";
+import { useFirstLoad } from "../api/hooks";
 import { EXPLAINER, type ExplainerExample, exampleDays } from "../lib/streakExplainer";
 import { markTourSeen, TourContext, type TourName, tourSeen } from "./context";
 import {
@@ -90,9 +91,12 @@ function detailsOnAtStart(): boolean {
 export function TourProvider({ children }: { children: ReactNode }) {
   const demo = useIsDemo();
   const story = useStory();
-  // Open from the first render on a first demo visit (the gate has already loaded).
   const [tour, setTour] = useState<TourName>("demo");
-  const [index, setIndex] = useState<number | null>(() => (demo && !tourSeen() ? 0 : null));
+  // A first demo visit opens the tour by itself, once the page's first load is done, so the
+  // welcome isn't shown under the loading ring.
+  const [chosen, setIndex] = useState<number | null | "waiting">(() => (demo && !tourSeen() ? "waiting" : null));
+  const loading = useFirstLoad();
+  const index = chosen === "waiting" ? (loading ? null : 0) : chosen;
   const [details, setDetails] = useState(detailsOnAtStart);
   const opener = useRef<HTMLElement | null>(null);
   const steps = tour === "streak" ? streakSteps(demo) : STEPS;

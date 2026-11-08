@@ -51,15 +51,15 @@ for (const size of SIZES) {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(help).toBeFocused();
 
-    // The Me page's card: the same six items, numbered.
+    // The Me page's card: closed until its header is tapped, then the same six items, numbered.
     await page.goto("/me");
-    const rules = page.getByRole("region", { name: EXPLAINER.title }).or(
-      page.locator("section", { has: page.getByRole("heading", { name: EXPLAINER.title }) }),
-    );
-    await expect(rules.first().getByRole("listitem")).toHaveCount(COUNT);
+    const rules = page.getByRole("region", { name: EXPLAINER.title });
+    await expect(rules.getByRole("listitem")).toHaveCount(0);
+    await rules.getByRole("button", { name: EXPLAINER.title }).click();
+    await expect(rules.getByRole("listitem")).toHaveCount(COUNT);
     // For the picture only: the fixed bottom nav would be painted across the card.
     await page.addStyleTag({ content: 'nav[aria-label="Primary"] { display: none; }' });
-    await rules.first().screenshot({ path: `screenshots/streak-rules-me-${size.name}.png` });
+    await rules.screenshot({ path: `screenshots/streak-rules-me-${size.name}.png` });
   });
 }
 

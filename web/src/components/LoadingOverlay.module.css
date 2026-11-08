@@ -1,0 +1,63 @@
+/* The loading overlay (components/LoadingOverlay.tsx): the page dimmed, and in the middle a
+   ring in the calorie ring's mint that fills up, then empties from where it started. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* above the bottom nav and the tour */
+  display: grid;
+  place-items: center;
+  background: var(--loading-dim);
+}
+
+.spinner {
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg); /* start at the top, like the calorie ring */
+}
+
+.track,
+.arc {
+  fill: none;
+  stroke-width: 5;
+}
+
+.track {
+  stroke: var(--ring-track);
+}
+
+/* Reduced motion: a still ring, three quarters full. */
+.arc {
+  stroke: var(--within-budget);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 25;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay {
+    animation: fade-in 150ms var(--ease-out);
+  }
+
+  .arc {
+    animation: fill-and-empty 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes fill-and-empty {
+  0% {
+    stroke-dashoffset: 100; /* empty */
+  }
+  50% {
+    stroke-dashoffset: 0; /* full */
+  }
+  100% {
+    stroke-dashoffset: -100; /* empty again, the tail catching up with the head */
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
